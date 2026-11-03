@@ -255,13 +255,16 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
         val s = _state.value
         val scene = s.scene ?: return
         when (s.tool) {
+            // Tapping the already-selected part/net again deselects it.
             Tool.COMPONENTS -> {
                 val c = scene.picker.pickComponent(x, y, toleranceUm, s.visibleSide, s.display::isVisible)
-                _state.update { it.copy(selected = c, selectedNet = null) }
+                val next = if (c != null && c.refDes == s.selected?.refDes) null else c
+                _state.update { it.copy(selected = next, selectedNet = null) }
             }
             Tool.NETS -> {
-                val hit = scene.picker.pickNet(x, y, toleranceUm, s.visibleSide, s.display::isVisible)
-                _state.update { it.copy(selectedNet = hit?.net, selected = null) }
+                val net = scene.picker.pickNet(x, y, toleranceUm, s.visibleSide, s.display::isVisible)?.net
+                val next = if (net != null && net == s.selectedNet) null else net
+                _state.update { it.copy(selectedNet = next, selected = null) }
             }
             Tool.PAINT -> {
                 val c = scene.picker.pickComponent(x, y, toleranceUm, s.visibleSide, s.display::isVisible) ?: return
