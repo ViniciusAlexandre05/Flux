@@ -65,6 +65,19 @@ class ViewTransformTest {
     }
 
     @Test
+    fun snapsNearRightAngles() {
+        assertEquals(90.0, ViewTransform.snapAngle(84.0), 1e-9)
+        assertEquals(90.0, ViewTransform.snapAngle(96.5), 1e-9)
+        assertEquals(80.0, ViewTransform.snapAngle(80.0), 1e-9)
+        assertEquals(0.0, ViewTransform.snapAngle(-5.0), 1e-9)
+        assertEquals(0.0, ViewTransform.snapAngle(358.0), 1e-9)
+        assertEquals(180.0, ViewTransform.snapAngle(545.0), 1e-9)
+        assertEquals(45.0, ViewTransform.snapAngle(45.0), 1e-9)
+        assertEquals(-20.0, ViewTransform.angleDelta(10.0, 350.0), 1e-9)
+        assertEquals(180.0, ViewTransform.angleDelta(0.0, 180.0), 1e-9)
+    }
+
+    @Test
     fun fitRebuildsArbitraryRotationAndMirror() {
         // A view reached by gestures equals the canonical rebuild with the same rotation/mirror.
         val g = ViewTransform.fitted(board, 1000.0, 800.0).rotateBy(30.0, 100.0, 200.0).mirror(500.0).rotateBy(15.0, 0.0, 0.0)

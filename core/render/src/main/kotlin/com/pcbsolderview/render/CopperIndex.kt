@@ -65,11 +65,18 @@ class CopperIndex(private val board: Board) {
         return out
     }
 
-    /** Pad whose outline contains the point (or is within [tolerance]) on a visible layer. */
+    /**
+     * Pad whose outline contains the point (or is within [tolerance]) on a visible layer.
+     * Pads of components mounted on the far side are never returned.
+     */
     fun padAt(x: Double, y: Double, tolerance: Double, visible: (String?) -> Boolean, side: Side): Pad? =
         near(padGrid, x, y, tolerance).asSequence()
             .map { board.pads[it] }
             .filter { it.isThroughHole || visible(it.layer) }
+            .filter { p ->
+                val owner = p.componentRef?.let { board.component(it) }
+                if (owner != null) owner.side == side else p.isThroughHole || p.side == side
+            }
             .map { it to if (pointInRing(x, y, padOutlines[it.id])) 0.0 else ComponentIndex.distanceToBox(it.bounds, x, y) }
             .filter { it.second <= tolerance }
             .minWithOrNull(compareBy({ if (it.first.side == side || it.first.isThroughHole) 0 else 1 }, { it.second }))

@@ -26,7 +26,19 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FitScreen
+import androidx.compose.material.icons.filled.Flip
+import androidx.compose.material.icons.filled.Handyman
+import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -152,6 +164,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
     // Declared later = higher priority: Back closes panels/selection first, then leaves the board.
     BackHandler { vm.closeBoard() }
     BackHandler(enabled = state.tool != Tool.SELECT) { vm.setTool(Tool.SELECT) }
+    BackHandler(enabled = state.showToolsPanel) { vm.toggleToolsPanel() }
     BackHandler(enabled = state.showLayersPanel) { vm.toggleLayersPanel() }
     BackHandler(enabled = state.selected != null || state.selectedNet != null) { vm.clearSelection() }
 
@@ -161,10 +174,6 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
             state = state,
             vm = vm,
             onFit = { fit(transform) },
-            onRotate = {
-                val (w, h) = viewport
-                transform = transform?.rotate90(w / 2.0, h / 2.0)?.fit(scene.extent, w.toDouble(), h.toDouble())
-            },
             onFlip = {
                 val (w, _) = viewport
                 transform = transform?.mirror(w / 2.0)
@@ -197,14 +206,27 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                         onStroke = vm::addStroke,
                         modifier = Modifier.fillMaxSize().testTag("board"),
                     )
-                    Row(Modifier.align(Alignment.CenterStart).padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        ToolRail(state.tool, state.canUndo, vm::setTool, vm::undo, onClear = { confirmClear = true })
-                        Spacer(Modifier.width(8.dp))
-                        when (state.tool) {
-                            Tool.PEN -> PenOptions(state.penArgb, state.penWidthPx, vm::setPen, vm::setPenWidth)
-                            Tool.PAINT -> PaintOptions(state.paintStatus, vm::setPaintStatus)
-                            else -> Unit
-                        }
+                    if (state.showToolsPanel) {
+                        ToolsMenu(
+                            tool = state.tool, penArgb = state.penArgb, penWidthPx = state.penWidthPx,
+                            paintStatus = state.paintStatus, canUndo = state.canUndo,
+                            onTool = vm::setTool, onPenColor = vm::setPen, onPenWidth = vm::setPenWidth,
+                            onPaintStatus = vm::setPaintStatus, onUndo = vm::undo, onClear = { confirmClear = true },
+                            onClose = vm::toggleToolsPanel,
+                            modifier = Modifier.align(Alignment.TopStart).padding(8.dp).heightIn(max = layersMaxHeight),
+                        )
+                    } else if (state.tool != Tool.SELECT) {
+                        ActiveToolChip(
+                            tool = state.tool,
+                            argb = when (state.tool) {
+                                Tool.PEN -> state.penArgb
+                                Tool.PAINT -> state.paintStatus?.argb
+                                else -> null
+                            },
+                            onOpen = vm::toggleToolsPanel,
+                            onDone = { vm.setTool(Tool.SELECT) },
+                            modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
+                        )
                     }
                     if (state.results.isNotEmpty()) {
                         SearchResults(state.results, vm::pickResult, Modifier.align(Alignment.TopCenter).padding(8.dp))
@@ -271,8 +293,23 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
     }
 }
 
+/** Icon button for the top bar; long-press shows [label] as a tooltip. [checked] = toggle look. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TopBar(title: String, state: UiState, vm: BoardViewModel, onFit: () -> Unit, onRotate: () -> Unit, onFlip: () -> Unit) {
+private fun BarIcon(icon: ImageVector, label: String, onClick: () -> Unit, checked: Boolean = false, tag: String? = null) {
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text(label) } },
+        state = rememberTooltipState(),
+    ) {
+        val mod = Modifier.size(56.dp).then(if (tag != null) Modifier.testTag(tag) else Modifier)
+        if (checked) FilledIconButton(onClick = onClick, modifier = mod) { Icon(icon, contentDescription = label, modifier = Modifier.size(28.dp)) }
+        else FilledTonalIconButton(onClick = onClick, modifier = mod) { Icon(icon, contentDescription = label, modifier = Modifier.size(28.dp)) }
+    }
+}
+
+@Composable
+private fun TopBar(title: String, state: UiState, vm: BoardViewModel, onFit: () -> Unit, onFlip: () -> Unit) {
     val focus = LocalFocusManager.current
     Surface(tonalElevation = 2.dp) {
         Row(
@@ -302,14 +339,14 @@ private fun TopBar(title: String, state: UiState, vm: BoardViewModel, onFit: () 
                 keyboardActions = KeyboardActions(onSearch = { vm.pickResult(null); focus.clearFocus() }),
                 modifier = Modifier.weight(1f).testTag("search"),
             )
-            FilledTonalButton(onClick = onFit, modifier = Modifier.height(56.dp)) { Text("Fit") }
-            FilledTonalButton(onClick = onRotate, modifier = Modifier.height(56.dp)) { Text("90°") }
-            FilledTonalButton(onClick = onFlip, modifier = Modifier.height(56.dp).testTag("flip")) {
-                Text(if (state.visibleSide == Side.TOP) "Top" else "Bottom")
-            }
-            val layersOn = state.showLayersPanel
-            if (layersOn) Button(onClick = vm::toggleLayersPanel, modifier = Modifier.height(56.dp)) { Text("Layers") }
-            else FilledTonalButton(onClick = vm::toggleLayersPanel, modifier = Modifier.height(56.dp)) { Text("Layers") }
+            BarIcon(Icons.Filled.Handyman, "Tools", vm::toggleToolsPanel, checked = state.showToolsPanel, tag = "tools.button")
+            BarIcon(Icons.Filled.FitScreen, "Fit to screen", onFit)
+            BarIcon(
+                Icons.Filled.Flip,
+                if (state.visibleSide == Side.TOP) "Showing top — tap for bottom view" else "Showing bottom — tap for top view",
+                onFlip, checked = state.visibleSide == Side.BOTTOM, tag = "flip",
+            )
+            BarIcon(Icons.Filled.Layers, "Layers & display", vm::toggleLayersPanel, checked = state.showLayersPanel)
         }
     }
 }

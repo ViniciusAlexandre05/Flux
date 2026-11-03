@@ -72,6 +72,7 @@ data class UiState(
     val visibleSide: Side = Side.TOP,
     val display: DisplayOptions = DisplayOptions(),
     val showLayersPanel: Boolean = false,
+    val showToolsPanel: Boolean = false,
     val tool: Tool = Tool.SELECT,
     val penArgb: Int = PEN_COLORS.first(),
     val penWidthPx: Float = PEN_WIDTHS[1],
@@ -218,6 +219,8 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
     fun resetLayers() = _state.update { s -> s.copy(display = s.display.copy(hiddenLayers = s.scene?.defaultHiddenLayers.orEmpty())) }
 
     fun toggleLayersPanel() = _state.update { it.copy(showLayersPanel = !it.showLayersPanel) }
+
+    fun toggleToolsPanel() = _state.update { it.copy(showToolsPanel = !it.showToolsPanel) }
 
     // ------------------------------------------------------------------ tools
 

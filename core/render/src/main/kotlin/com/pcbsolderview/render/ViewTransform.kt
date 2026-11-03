@@ -121,6 +121,21 @@ data class ViewTransform(
             return if (r < 0) r + 360.0 else r
         }
 
+        /** Signed shortest turn from [from] to [to], in (-180, 180]. */
+        fun angleDelta(from: Double, to: Double): Double {
+            var d = normalize(to - from)
+            if (d > 180.0) d -= 360.0
+            return d
+        }
+
+        /** Locks [deg] to the nearest multiple of 90° when within [tolerance] degrees of it. */
+        fun snapAngle(deg: Double, tolerance: Double = SNAP_DEG): Double {
+            val nearest = Math.round(deg / 90.0) * 90.0
+            return if (abs(angleDelta(deg, nearest)) <= tolerance) normalize(nearest) else normalize(deg)
+        }
+
+        const val SNAP_DEG = 7.0
+
         fun fitted(
             bounds: Rect, viewportW: Double, viewportH: Double,
             rotationDeg: Double = 0.0, mirrored: Boolean = false, paddingPx: Double = 24.0,

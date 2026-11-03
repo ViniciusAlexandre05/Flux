@@ -65,6 +65,14 @@ class BoardPickerTest {
     }
 
     @Test
+    fun farSideComponentsCannotBePicked() {
+        // Viewing from the bottom: R1 (top) is not selectable, neither by pad nor by body.
+        val fromBottom = picker.pick(4_500.0, 5_000.0, 300.0, Side.BOTTOM)
+        assertEquals(false, fromBottom is BoardHit.OnComponent)
+        assertEquals(false, picker.pick(5_000.0, 5_300.0, 300.0, Side.BOTTOM) is BoardHit.OnComponent)
+    }
+
+    @Test
     fun hiddenLayersAreNotHit() {
         val onlyTop: (String?) -> Boolean = { it == "TOP" }
         assertNull(pick(25_000.0, 2_000.0, visible = onlyTop))

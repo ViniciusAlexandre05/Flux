@@ -55,9 +55,10 @@ class ComponentIndex(private val components: List<Component>) {
 
     /**
      * @param tolerance board units (µm); typically touch slop in px divided by view scale.
+     * @param strictSide when true, components on the far side can never be hit.
      */
-    fun hitTest(x: Double, y: Double, visibleSide: Side, tolerance: Double = 0.0): Component? =
-        candidates(x, y, tolerance).minWithOrNull(
+    fun hitTest(x: Double, y: Double, visibleSide: Side, tolerance: Double = 0.0, strictSide: Boolean = true): Component? =
+        candidates(x, y, tolerance).filter { !strictSide || it.side == visibleSide }.minWithOrNull(
             compareBy<Component>(
                 { if (it.side == visibleSide) 0 else 1 },
                 { if (distanceToBox(it.bounds, x, y) == 0.0) 0 else 1 },

@@ -13,6 +13,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Matrix
@@ -112,9 +115,13 @@ fun BoardCanvas(
     latest.rotation = options.rotationGesture
     latest.penWidthPx = penWidthPx
     latest.onStroke = onStroke
+    val haptic = LocalHapticFeedback.current
+    latest.onSnap = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
 
     Canvas(
         modifier
+            // Canvas does not clip by default; without this a zoomed board paints over the top bar.
+            .clipToBounds()
             .onSizeChanged { onViewport(it.width, it.height) }
             .pointerInput(Unit) {
                 val slop = viewConfiguration.touchSlop
@@ -127,6 +134,8 @@ fun BoardCanvas(
                     var travel = 0f
                     var twist = 0f
                     var rotating = false
+                    var rawAngle = 0.0 // finger angle before snapping
+                    var wasSnapped = false
                     while (true) {
                         val event = awaitPointerEvent()
                         val pressed = event.changes.count { it.pressed }
@@ -154,11 +163,24 @@ fun BoardCanvas(
                         }
                         if (!moved) continue
                         twist += rot
-                        if (!rotating && multi && latest.rotation && abs(twist) > ROTATION_THRESHOLD_DEG) rotating = true
+                        if (!rotating && multi && latest.rotation && abs(twist) > ROTATION_THRESHOLD_DEG) {
+                            rotating = true
+                            rawAngle = t.rotationDeg
+                            wasSnapped = true // starting angle counts as "locked", no tick on start
+                        }
                         var next = t.panBy(pan.x.toDouble(), pan.y.toDouble())
                         if (centroid != Offset.Unspecified) {
                             next = next.zoomBy(zoom.toDouble(), centroid.x.toDouble(), centroid.y.toDouble())
-                            if (rotating) next = next.rotateBy(rot.toDouble(), centroid.x.toDouble(), centroid.y.toDouble())
+                            if (rotating) {
+                                // Follow the fingers, but lock near 0/90/180/270°.
+                                rawAngle += rot
+                                val target = ViewTransform.snapAngle(rawAngle)
+                                val delta = ViewTransform.angleDelta(next.rotationDeg, target)
+                                if (delta != 0.0) next = next.rotateBy(delta, centroid.x.toDouble(), centroid.y.toDouble())
+                                val snapped = target % 90.0 == 0.0
+                                if (snapped && !wasSnapped) latest.onSnap()
+                                wasSnapped = snapped
+                            }
                         }
                         latest.onTransform(next)
                         event.changes.forEach { it.consume() }
@@ -260,6 +282,7 @@ private class LatestHolder {
     var rotation: Boolean = true
     var penWidthPx: Float = 4f
     var onStroke: (List<Pair<Double, Double>>, Float) -> Unit = { _, _ -> }
+    var onSnap: () -> Unit = {}
 }
 
 /** Frame-rate meter: frames drawn in the last second and average draw time. */

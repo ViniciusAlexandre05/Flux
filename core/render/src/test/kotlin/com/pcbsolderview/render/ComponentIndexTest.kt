@@ -19,9 +19,11 @@ class ComponentIndexTest {
         val under = comp("C99", Rect(4_200, 4_200, 4_600, 4_600), Side.BOTTOM)
         val idx = ComponentIndex(listOf(big, small, under))
         assertEquals("C1", idx.hitTest(4_500.0, 4_500.0, Side.TOP)?.refDes)
+        assertEquals("C99", idx.hitTest(4_400.0, 4_400.0, Side.BOTTOM)?.refDes)
         assertEquals("C99", idx.hitTest(4_500.0, 4_500.0, Side.BOTTOM)?.refDes)
         assertEquals("U1", idx.hitTest(1_000.0, 1_000.0, Side.TOP)?.refDes)
-        assertEquals("U1", idx.hitTest(1_000.0, 1_000.0, Side.BOTTOM)?.refDes) // only candidate
+        assertNull(idx.hitTest(1_000.0, 1_000.0, Side.BOTTOM)) // top part can't be picked from below
+        assertEquals("U1", idx.hitTest(1_000.0, 1_000.0, Side.BOTTOM, strictSide = false)?.refDes)
         assertNull(idx.hitTest(20_000.0, 20_000.0, Side.TOP))
     }
 
