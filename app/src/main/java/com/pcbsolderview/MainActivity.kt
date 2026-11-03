@@ -14,7 +14,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pcbsolderview.ui.BoardActions
 import com.pcbsolderview.ui.BoardScreen
 
 class MainActivity : ComponentActivity() {
@@ -29,19 +28,7 @@ class MainActivity : ComponentActivity() {
             val state by vm.state.collectAsStateWithLifecycle()
             val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { vm.open(it) }
             MaterialTheme(colorScheme = darkColorScheme()) {
-                BoardScreen(
-                    state = state,
-                    actions = BoardActions(
-                        openFiles = { picker.launch(arrayOf("*/*")) },
-                        openDemo = vm::openDemo,
-                        closeBoard = vm::closeBoard,
-                        select = vm::select,
-                        search = vm::search,
-                        pickResult = vm::pickResult,
-                        clearSearch = vm::clearSearch,
-                        dismissError = vm::dismissError,
-                    ),
-                )
+                BoardScreen(state = state, vm = vm, openFiles = { picker.launch(arrayOf("*/*")) })
             }
         }
     }

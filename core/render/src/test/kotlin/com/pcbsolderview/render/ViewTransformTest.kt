@@ -49,7 +49,33 @@ class ViewTransformTest {
         val back = r.rotate90(500.0, 500.0).rotate90(500.0, 500.0).rotate90(500.0, 500.0)
         assertEquals(t.a, back.a, eps); assertEquals(t.d, back.d, eps)
         assertEquals(t.tx, back.tx, 1e-6); assertEquals(t.ty, back.ty, 1e-6)
-        assertEquals(0, back.quarterTurns)
+        assertEquals(0.0, back.rotationDeg, 1e-9)
+    }
+
+    @Test
+    fun freeRotationKeepsPivotAndScale() {
+        val t = ViewTransform.fitted(board, 1000.0, 1000.0)
+        val (bx, by) = t.toBoard(320.0, 410.0)
+        val r = t.rotateBy(33.0, 320.0, 410.0)
+        assertEquals(320.0, r.toScreenX(bx, by), 1e-6)
+        assertEquals(410.0, r.toScreenY(bx, by), 1e-6)
+        assertEquals(t.scale, r.scale, 1e-12)
+        assertEquals(33.0, r.rotationDeg, 1e-9)
+        assertEquals(327.0, r.rotateBy(-66.0, 0.0, 0.0).rotationDeg, 1e-9)
+    }
+
+    @Test
+    fun fitRebuildsArbitraryRotationAndMirror() {
+        // A view reached by gestures equals the canonical rebuild with the same rotation/mirror.
+        val g = ViewTransform.fitted(board, 1000.0, 800.0).rotateBy(30.0, 100.0, 200.0).mirror(500.0).rotateBy(15.0, 0.0, 0.0)
+        val f = g.fit(board, 1000.0, 800.0)
+        val canon = ViewTransform.fitted(board, 1000.0, 800.0, g.rotationDeg, g.mirrored)
+        assertEquals(canon.a, f.a, 1e-12); assertEquals(canon.b, f.b, 1e-12)
+        assertEquals(canon.c, f.c, 1e-12); assertEquals(canon.d, f.d, 1e-12)
+        // Orientation of the gesture view matches the canonical one up to scale.
+        val k = g.scale / canon.scale
+        assertEquals(canon.a * k, g.a, 1e-9); assertEquals(canon.b * k, g.b, 1e-9)
+        assertEquals(canon.c * k, g.c, 1e-9); assertEquals(canon.d * k, g.d, 1e-9)
     }
 
     @Test
@@ -61,7 +87,7 @@ class ViewTransformTest {
         assertEquals(t.toScreenY(10_000.0, 20_000.0), m.toScreenY(10_000.0, 20_000.0), 1e-6)
         // Fitting a mirrored, rotated view keeps its orientation and fills the viewport.
         val f = m.rotate90(500.0, 500.0).fit(board, 1000.0, 1000.0, 0.0)
-        assertTrue(f.mirrored); assertEquals(1, f.quarterTurns)
+        assertTrue(f.mirrored); assertEquals(90.0, f.rotationDeg, 1e-9)
         val s = f.toScreen(board)
         assertEquals(1000.0, maxOf(s.width, s.height), 1e-6)
     }

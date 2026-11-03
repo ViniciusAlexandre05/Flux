@@ -2,6 +2,8 @@ package com.pcbsolderview.render
 
 import com.pcbsolderview.model.Rect
 import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
@@ -10,13 +12,16 @@ import kotlin.math.sqrt
  *   sy = b*x + d*y + ty
  *
  * This is the ONLY place where the Y axis is flipped. Immutable; every operation returns a copy.
+ *
+ * Canonical form: board -> (mirror X if [mirrored]) -> flip Y -> rotate [rotationDeg] clockwise on
+ * screen -> scale -> translate. [fit] rebuilds from that form, keeping rotation and mirroring.
  */
 data class ViewTransform(
     val a: Double = 1.0, val b: Double = 0.0,
     val c: Double = 0.0, val d: Double = -1.0,
     val tx: Double = 0.0, val ty: Double = 0.0,
-    /** Number of clockwise quarter turns applied on screen (0..3). */
-    val quarterTurns: Int = 0,
+    /** Clockwise screen rotation in degrees, 0..360. */
+    val rotationDeg: Double = 0.0,
     /** True when showing the board from the bottom (mirrored left-right). */
     val mirrored: Boolean = false,
     /** Scale at "fit to screen"; zoom limits are relative to it. */
@@ -62,25 +67,34 @@ data class ViewTransform(
         )
     }
 
-    /** Rotates the view 90° clockwise around screen point (px, py). */
-    fun rotate90(px: Double, py: Double): ViewTransform {
-        // Screen rotation by +90° (Y down => clockwise): (x, y) -> (-(y - py) + px, (x - px) + py)
+    /** Rotates the view [deg] degrees clockwise (as seen on screen) around screen point (px, py). */
+    fun rotateBy(deg: Double, px: Double, py: Double): ViewTransform {
+        if (deg == 0.0) return this
+        val r = Math.toRadians(deg)
+        val cs = cos(r); val sn = sin(r)
+        // Y-down screen: (x, y) -> (px + (x-px)cos - (y-py)sin, py + (x-px)sin + (y-py)cos) is clockwise.
         return copy(
-            a = -b, b = a, c = -d, d = c,
-            tx = px - (ty - py), ty = py + (tx - px),
-            quarterTurns = (quarterTurns + 1) % 4,
+            a = a * cs - b * sn, b = a * sn + b * cs,
+            c = c * cs - d * sn, d = c * sn + d * cs,
+            tx = px + (tx - px) * cs - (ty - py) * sn,
+            ty = py + (tx - px) * sn + (ty - py) * cs,
+            rotationDeg = normalize(rotationDeg + deg),
         )
     }
+
+    fun rotate90(px: Double, py: Double): ViewTransform = rotateBy(90.0, px, py).snapped()
 
     /** Mirrors the view left-right around screen x = px (top view <-> bottom view). */
     fun mirror(px: Double): ViewTransform = copy(
         a = -a, c = -c, tx = 2 * px - tx,
         mirrored = !mirrored,
+        // Flip ∘ rotate(θ) == rotate(-θ) ∘ flip, so the canonical rotation changes sign.
+        rotationDeg = normalize(-rotationDeg),
     )
 
     /** Same orientation (rotation/mirror), but scaled and centred so [bounds] fills the viewport. */
     fun fit(bounds: Rect, viewportW: Double, viewportH: Double, paddingPx: Double = 24.0): ViewTransform =
-        fitted(bounds, viewportW, viewportH, quarterTurns, mirrored, paddingPx)
+        fitted(bounds, viewportW, viewportH, rotationDeg, mirrored, paddingPx)
 
     /** Centres the view on board point (x, y) at the given zoom factor (relative to fit). */
     fun centerOn(x: Double, y: Double, viewportW: Double, viewportH: Double, zoom: Double = zoomFactor): ViewTransform {
@@ -92,17 +106,27 @@ data class ViewTransform(
         return scaled.copy(tx = viewportW / 2 - sx, ty = viewportH / 2 - sy)
     }
 
+    /** Removes floating-point drift after quarter turns (keeps exact 0/±1 coefficients). */
+    private fun snapped(): ViewTransform {
+        fun s(v: Double) = if (abs(v) < 1e-12 * scale.coerceAtLeast(1e-30)) 0.0 else v
+        return copy(a = s(a), b = s(b), c = s(c), d = s(d))
+    }
+
     companion object {
         const val MIN_ZOOM = 0.5
         const val MAX_ZOOM = 60.0
 
+        fun normalize(deg: Double): Double {
+            val r = deg % 360.0
+            return if (r < 0) r + 360.0 else r
+        }
+
         fun fitted(
             bounds: Rect, viewportW: Double, viewportH: Double,
-            quarterTurns: Int = 0, mirrored: Boolean = false, paddingPx: Double = 24.0,
+            rotationDeg: Double = 0.0, mirrored: Boolean = false, paddingPx: Double = 24.0,
         ): ViewTransform {
-            // Unit-scale orientation: mirror (board X), then flip Y, then rotate on screen.
-            var t = ViewTransform(a = if (mirrored) -1.0 else 1.0, d = -1.0, mirrored = mirrored)
-            repeat(((quarterTurns % 4) + 4) % 4) { t = t.rotate90(0.0, 0.0) }
+            val t = ViewTransform(a = if (mirrored) -1.0 else 1.0, d = -1.0, mirrored = mirrored)
+                .rotateBy(rotationDeg, 0.0, 0.0)
             val sr = t.toScreen(bounds)
             val bw = sr.width.coerceAtLeast(1.0)
             val bh = sr.height.coerceAtLeast(1.0)

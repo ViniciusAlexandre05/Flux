@@ -55,30 +55,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.pcbsolderview.BoardViewModel
+import com.pcbsolderview.Tool
 import com.pcbsolderview.UiState
 import com.pcbsolderview.model.Component
 import com.pcbsolderview.model.Side
 import com.pcbsolderview.render.BoardCanvas
 import com.pcbsolderview.render.BoardScene
+import com.pcbsolderview.render.CanvasTool
 import com.pcbsolderview.render.ViewTransform
 
-class BoardActions(
-    val openFiles: () -> Unit,
-    val openDemo: (String) -> Unit,
-    val closeBoard: () -> Unit,
-    val select: (Component?) -> Unit,
-    val search: (String) -> Unit,
-    val pickResult: (Component?) -> Unit,
-    val clearSearch: () -> Unit,
-    val dismissError: () -> Unit,
-)
-
 @Composable
-fun BoardScreen(state: UiState, actions: BoardActions) {
+fun BoardScreen(state: UiState, vm: BoardViewModel, openFiles: () -> Unit) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Box(Modifier.safeDrawingPadding()) {
             val scene = state.scene
-            if (scene == null) EmptyState(actions) else BoardContent(scene, state, actions)
+            if (scene == null) EmptyState(openFiles, vm::openDemo) else BoardContent(scene, state, vm)
 
             state.loading?.let { msg ->
                 Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.6f)), contentAlignment = Alignment.Center) {
@@ -98,8 +90,8 @@ fun BoardScreen(state: UiState, actions: BoardActions) {
             }
             state.error?.let { msg ->
                 AlertDialog(
-                    onDismissRequest = actions.dismissError,
-                    confirmButton = { TextButton(onClick = actions.dismissError) { Text("OK") } },
+                    onDismissRequest = vm::dismissError,
+                    confirmButton = { TextButton(onClick = vm::dismissError) { Text("OK") } },
                     title = { Text("Could not open board") },
                     text = { Text(msg) },
                 )
@@ -109,7 +101,7 @@ fun BoardScreen(state: UiState, actions: BoardActions) {
 }
 
 @Composable
-private fun EmptyState(actions: BoardActions) {
+private fun EmptyState(openFiles: () -> Unit, openDemo: (String) -> Unit) {
     Column(
         Modifier.fillMaxSize().padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -124,22 +116,22 @@ private fun EmptyState(actions: BoardActions) {
             modifier = Modifier.widthIn(max = 560.dp),
         )
         Spacer(Modifier.height(24.dp))
-        Button(onClick = actions.openFiles, modifier = Modifier.height(64.dp).widthIn(min = 280.dp)) {
+        Button(onClick = openFiles, modifier = Modifier.height(64.dp).widthIn(min = 280.dp)) {
             Text("Open board files", style = MaterialTheme.typography.titleLarge)
         }
         Spacer(Modifier.height(16.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = { actions.openDemo("simple") }, modifier = Modifier.height(56.dp)) { Text("Demo: simple") }
-            OutlinedButton(onClick = { actions.openDemo("double-sided") }, modifier = Modifier.height(56.dp)) { Text("Demo: double-sided") }
+            OutlinedButton(onClick = { openDemo("simple") }, modifier = Modifier.height(56.dp)) { Text("Demo: simple") }
+            OutlinedButton(onClick = { openDemo("double-sided") }, modifier = Modifier.height(56.dp)) { Text("Demo: double-sided") }
         }
     }
 }
 
 @Composable
-private fun BoardContent(scene: BoardScene, state: UiState, actions: BoardActions) {
+private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) {
     var transform by remember(scene) { mutableStateOf<ViewTransform?>(null) }
     var viewport by remember { mutableStateOf(0 to 0) }
-    val visibleSide = Side.TOP
+    var confirmClear by remember { mutableStateOf(false) }
 
     fun fit(t: ViewTransform?) {
         val (w, h) = viewport
@@ -157,69 +149,130 @@ private fun BoardContent(scene: BoardScene, state: UiState, actions: BoardAction
         val zoom = (minOf(w, h) * 0.25 / sizeUm / t.fitScale).coerceIn(2.0, ViewTransform.MAX_ZOOM)
         transform = t.centerOn(c.position.x.toDouble(), c.position.y.toDouble(), w.toDouble(), h.toDouble(), zoom)
     }
-    // Declared later = higher priority: Back first closes the details panel, then leaves the board.
-    BackHandler { actions.closeBoard() }
-    BackHandler(enabled = state.selected != null) { actions.select(null) }
+    // Declared later = higher priority: Back closes panels/selection first, then leaves the board.
+    BackHandler { vm.closeBoard() }
+    BackHandler(enabled = state.tool != Tool.SELECT) { vm.setTool(Tool.SELECT) }
+    BackHandler(enabled = state.showLayersPanel) { vm.toggleLayersPanel() }
+    BackHandler(enabled = state.selected != null || state.selectedNet != null) { vm.clearSelection() }
 
     Column(Modifier.fillMaxSize()) {
         TopBar(
             title = scene.board.name,
             state = state,
-            actions = actions,
+            vm = vm,
             onFit = { fit(transform) },
             onRotate = {
                 val (w, h) = viewport
                 transform = transform?.rotate90(w / 2.0, h / 2.0)?.fit(scene.extent, w.toDouble(), h.toDouble())
+            },
+            onFlip = {
+                val (w, _) = viewport
+                transform = transform?.mirror(w / 2.0)
+                vm.flipSide()
             },
         )
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val landscape = maxWidth > maxHeight
             val panelWidth = maxWidth * 0.3f
             val panelMaxHeight = maxHeight * 0.4f
-            val board = @Composable { mod: Modifier ->
+            val layersMaxHeight = maxHeight - 16.dp
+            val boardArea = @Composable { mod: Modifier ->
                 Box(mod) {
                     BoardCanvas(
                         scene = scene,
                         transform = transform,
                         onTransform = { transform = it },
                         onViewport = { w, h -> viewport = w to h },
-                        onTap = actions.select,
-                        visibleSide = visibleSide,
+                        onTap = vm::onBoardTap,
+                        visibleSide = state.visibleSide,
+                        options = state.display,
                         selected = state.selected,
                         highlighted = state.highlighted,
+                        selectedNet = state.selectedNet,
+                        marks = state.marks,
+                        strokes = state.strokes,
+                        tool = if (state.tool == Tool.PEN) CanvasTool.PEN else CanvasTool.NAVIGATE,
+                        penArgb = state.penArgb,
+                        penWidthPx = state.penWidthPx,
+                        onStroke = vm::addStroke,
                         modifier = Modifier.fillMaxSize().testTag("board"),
                     )
+                    Row(Modifier.align(Alignment.CenterStart).padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        ToolRail(state.tool, state.canUndo, vm::setTool, vm::undo, onClear = { confirmClear = true })
+                        Spacer(Modifier.width(8.dp))
+                        when (state.tool) {
+                            Tool.PEN -> PenOptions(state.penArgb, state.penWidthPx, vm::setPen, vm::setPenWidth)
+                            Tool.PAINT -> PaintOptions(state.paintStatus, vm::setPaintStatus)
+                            else -> Unit
+                        }
+                    }
                     if (state.results.isNotEmpty()) {
-                        SearchResults(state.results, actions.pickResult, Modifier.align(Alignment.TopStart).padding(8.dp))
+                        SearchResults(state.results, vm::pickResult, Modifier.align(Alignment.TopCenter).padding(8.dp))
+                    }
+                    if (state.showLayersPanel) {
+                        LayersPanel(
+                            scene, state.display, vm::setDisplay, vm::toggleLayer,
+                            onAll = { vm.setLayersVisible(scene.layers.map { it.name }, it) },
+                            onDefaults = vm::resetLayers,
+                            onClose = vm::toggleLayersPanel,
+                            modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).heightIn(max = layersMaxHeight),
+                        )
+                    }
+                    if (state.visibleSide == Side.BOTTOM) {
+                        Text(
+                            "BOTTOM VIEW (mirrored)",
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.align(Alignment.BottomCenter).padding(8.dp)
+                                .background(MaterialTheme.colorScheme.errorContainer, MaterialTheme.shapes.small).padding(horizontal = 12.dp, vertical = 6.dp),
+                        )
                     }
                 }
             }
-            val selected = state.selected
+            val side = @Composable { mod: Modifier ->
+                val sel = state.selected
+                val net = state.selectedNet
+                when {
+                    sel != null -> Surface(tonalElevation = 3.dp, modifier = mod) {
+                        DetailsPanel(
+                            scene.board, sel, onClose = vm::clearSelection,
+                            mark = state.marks[sel.refDes],
+                            onStatus = { s -> vm.setMark(sel.refDes, s?.argb) },
+                            onNet = vm::selectNet,
+                        )
+                    }
+                    net != null -> Surface(tonalElevation = 3.dp, modifier = mod) {
+                        NetPanel(scene.board, net, onClose = vm::clearSelection, onComponent = { ref -> scene.board.component(ref)?.let(vm::select) })
+                    }
+                }
+            }
+            val panelOpen = state.selected != null || state.selectedNet != null
             if (landscape) {
                 Row(Modifier.fillMaxSize()) {
-                    board(Modifier.weight(1f).fillMaxHeight())
-                    if (selected != null) {
-                        Surface(tonalElevation = 3.dp, modifier = Modifier.width(panelWidth).fillMaxHeight()) {
-                            DetailsPanel(scene.board, selected, onClose = { actions.select(null) })
-                        }
-                    }
+                    boardArea(Modifier.weight(1f).fillMaxHeight())
+                    if (panelOpen) side(Modifier.width(panelWidth).fillMaxHeight())
                 }
             } else {
                 Column(Modifier.fillMaxSize()) {
-                    board(Modifier.weight(1f).fillMaxWidth())
-                    if (selected != null) {
-                        Surface(tonalElevation = 3.dp, modifier = Modifier.fillMaxWidth().heightIn(max = panelMaxHeight)) {
-                            DetailsPanel(scene.board, selected, onClose = { actions.select(null) })
-                        }
-                    }
+                    boardArea(Modifier.weight(1f).fillMaxWidth())
+                    if (panelOpen) side(Modifier.fillMaxWidth().heightIn(max = panelMaxHeight))
                 }
             }
         }
     }
+
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text("Clear annotations?") },
+            text = { Text("Removes every drawing and status paint on this board. You can undo it.") },
+            confirmButton = { TextButton(onClick = { vm.clearAnnotations(); confirmClear = false }) { Text("Clear") } },
+            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancel") } },
+        )
+    }
 }
 
 @Composable
-private fun TopBar(title: String, state: UiState, actions: BoardActions, onFit: () -> Unit, onRotate: () -> Unit) {
+private fun TopBar(title: String, state: UiState, vm: BoardViewModel, onFit: () -> Unit, onRotate: () -> Unit, onFlip: () -> Unit) {
     val focus = LocalFocusManager.current
     Surface(tonalElevation = 2.dp) {
         Row(
@@ -227,30 +280,36 @@ private fun TopBar(title: String, state: UiState, actions: BoardActions, onFit: 
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            IconButton(onClick = actions.closeBoard, modifier = Modifier.size(56.dp).testTag("back")) {
+            IconButton(onClick = vm::closeBoard, modifier = Modifier.size(56.dp).testTag("back")) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to start")
             }
             Text(
                 title, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.titleMedium, modifier = Modifier.widthIn(max = 220.dp),
+                style = MaterialTheme.typography.titleMedium, modifier = Modifier.widthIn(max = 200.dp),
             )
             OutlinedTextField(
                 value = state.query,
-                onValueChange = actions.search,
+                onValueChange = vm::search,
                 singleLine = true,
                 placeholder = { Text("Search R12, 100nF…") },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 trailingIcon = {
-                    if (state.query.isNotEmpty()) IconButton(onClick = actions.clearSearch) {
+                    if (state.query.isNotEmpty()) IconButton(onClick = vm::clearSearch) {
                         Icon(Icons.Filled.Close, contentDescription = "Clear search")
                     }
                 },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { actions.pickResult(null); focus.clearFocus() }),
+                keyboardActions = KeyboardActions(onSearch = { vm.pickResult(null); focus.clearFocus() }),
                 modifier = Modifier.weight(1f).testTag("search"),
             )
             FilledTonalButton(onClick = onFit, modifier = Modifier.height(56.dp)) { Text("Fit") }
-            FilledTonalButton(onClick = onRotate, modifier = Modifier.height(56.dp)) { Text("Rotate 90°") }
+            FilledTonalButton(onClick = onRotate, modifier = Modifier.height(56.dp)) { Text("90°") }
+            FilledTonalButton(onClick = onFlip, modifier = Modifier.height(56.dp).testTag("flip")) {
+                Text(if (state.visibleSide == Side.TOP) "Top" else "Bottom")
+            }
+            val layersOn = state.showLayersPanel
+            if (layersOn) Button(onClick = vm::toggleLayersPanel, modifier = Modifier.height(56.dp)) { Text("Layers") }
+            else FilledTonalButton(onClick = vm::toggleLayersPanel, modifier = Modifier.height(56.dp)) { Text("Layers") }
         }
     }
 }

@@ -34,7 +34,8 @@ class LayerScene(
  * handles overlapping shapes and cut-outs correctly.
  */
 class BoardScene(val board: Board) {
-    val index = ComponentIndex(board.components)
+    val picker = BoardPicker(board)
+    val index: ComponentIndex get() = picker.components
 
     val outline: Path = Path().apply { board.outline.forEach { addPolygon(it) } }
     val hasOutline: Boolean = board.outline.isNotEmpty()
@@ -70,9 +71,13 @@ class BoardScene(val board: Board) {
 
     fun pathFor(components: Collection<Component>): Path = Path().apply { components.forEach { addBody(it) } }
 
-    /** Layers to draw for a view from [side], back to front. Hidden by default: mask, paste, docs. */
-    fun drawOrder(side: Side): List<LayerScene> {
-        val visible = layers.filter { it.layer.type == LayerType.COPPER || it.layer.type == LayerType.SILKSCREEN }
+    /** Layers hidden until the user turns them on: everything except copper and silkscreen. */
+    val defaultHiddenLayers: Set<String> =
+        layers.filter { it.layer.type != LayerType.COPPER && it.layer.type != LayerType.SILKSCREEN }.map { it.name }.toSet()
+
+    /** Layers to draw for a view from [side], back to front. */
+    fun drawOrder(side: Side, hidden: Set<String> = defaultHiddenLayers): List<LayerScene> {
+        val visible = layers.filter { it.name !in hidden }
         fun depth(l: LayerScene): Int {
             val fromFront = if (side == Side.TOP) l.layer.order else layers.size - l.layer.order
             // Silkscreen sits above copper on the same side.
@@ -80,6 +85,20 @@ class BoardScene(val board: Board) {
             return fromFront + bonus
         }
         return visible.sortedByDescending { depth(it) }
+    }
+
+    /** All copper of one net: pours + pads + vias as fill, tracks grouped by width. */
+    class NetGeometry(val fill: Path, val strokes: List<Pair<Float, Path>>)
+
+    fun netGeometry(net: String, hidden: Set<String>): NetGeometry {
+        val fill = Path()
+        board.fills.filter { it.net == net && it.layer !in hidden }.forEach { fill.addPolygon(it.polygon) }
+        board.pads.filter { it.net == net && (it.isThroughHole || it.layer !in hidden) }.forEach { fill.addRing(it.outline()) }
+        board.vias.filter { it.net == net }.forEach { fill.addCircle(it.position, it.diameter / 2.0) }
+        val strokes = board.tracks.filter { it.net == net && it.layer !in hidden }.groupBy { it.width }.map { (w, ts) ->
+            w.toFloat() to Path().apply { ts.forEach { addCenterline(it.centerline()) } }
+        }
+        return NetGeometry(fill, strokes)
     }
 
     private fun buildLayers(): List<LayerScene> {
@@ -91,13 +110,7 @@ class BoardScene(val board: Board) {
             fillsByLayer[layer.name].orEmpty().forEach { fill.addPolygon(it.polygon) }
             padsByLayer[layer.name].orEmpty().forEach { fill.addRing(it.outline()) }
             val strokes = tracksByLayer[layer.name].orEmpty().groupBy { it.width }.map { (w, ts) ->
-                w.toFloat() to Path().apply {
-                    ts.forEach { t ->
-                        val pts = t.centerline()
-                        moveTo(pts[0].first.toFloat(), pts[0].second.toFloat())
-                        for (i in 1 until pts.size) lineTo(pts[i].first.toFloat(), pts[i].second.toFloat())
-                    }
-                }
+                w.toFloat() to Path().apply { ts.forEach { addCenterline(it.centerline()) } }
             }
             val empty = fillsByLayer[layer.name].isNullOrEmpty() && padsByLayer[layer.name].isNullOrEmpty() && strokes.isEmpty()
             LayerScene(layer, layerColor(layer), fill, strokes, empty)
@@ -141,6 +154,13 @@ class BoardScene(val board: Board) {
             moveTo(pts[0].x.toFloat(), pts[0].y.toFloat())
             for (i in 1 until pts.size) lineTo(pts[i].x.toFloat(), pts[i].y.toFloat())
             close()
+        }
+
+        fun Path.addCenterline(pts: List<Pair<Double, Double>>) {
+            if (pts.isEmpty()) return
+            moveTo(pts[0].first.toFloat(), pts[0].second.toFloat())
+            if (pts.size == 1) lineTo(pts[0].first.toFloat(), pts[0].second.toFloat())
+            for (i in 1 until pts.size) lineTo(pts[i].first.toFloat(), pts[i].second.toFloat())
         }
 
         fun Path.addCircle(c: Point, r: Double) {

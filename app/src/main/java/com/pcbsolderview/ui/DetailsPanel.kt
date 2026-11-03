@@ -1,5 +1,14 @@
 package com.pcbsolderview.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
+import com.pcbsolderview.Status
+import com.pcbsolderview.render.ComponentMark
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -38,7 +47,15 @@ fun String?.orDash(): String = if (this.isNullOrBlank()) DASH else this
 fun formatMm(um: Long): String = String.format(Locale.US, "%.3f", um / 1000.0)
 
 @Composable
-fun DetailsPanel(board: Board, component: Component, onClose: () -> Unit, modifier: Modifier = Modifier) {
+fun DetailsPanel(
+    board: Board,
+    component: Component,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+    mark: ComponentMark? = null,
+    onStatus: (Status?) -> Unit = {},
+    onNet: (String) -> Unit = {},
+) {
     Column(modifier.padding(16.dp).verticalScroll(rememberScrollState()).testTag("details")) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -54,6 +71,21 @@ fun DetailsPanel(board: Board, component: Component, onClose: () -> Unit, modifi
         }
         Text(component.value.orDash(), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.testTag("details.value"))
         Spacer(Modifier.height(12.dp))
+        Text("Status", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 4.dp)) {
+            val current = mark?.let { Status.of(it.argb) }
+            Status.entries.forEach { s ->
+                val selected = current == s
+                Box(
+                    Modifier.size(width = 64.dp, height = 44.dp)
+                        .background(Color(s.argb).copy(alpha = if (selected) 1f else 0.35f), RoundedCornerShape(8.dp))
+                        .border(if (selected) 3.dp else 0.dp, Color.White, RoundedCornerShape(8.dp))
+                        .clickable { onStatus(if (selected) null else s) }
+                        .testTag("status.${s.name}"),
+                    contentAlignment = Alignment.Center,
+                ) { Text(s.label, color = Color.Black, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium) }
+            }
+        }
         Field("Description", component.description)
         Field("Footprint", component.footprint)
         Field("Part number", component.partNumber)
@@ -71,8 +103,14 @@ fun DetailsPanel(board: Board, component: Component, onClose: () -> Unit, modifi
         if (pads.isEmpty()) {
             Text(DASH, modifier = Modifier.padding(vertical = 4.dp))
         } else {
+            Text("Tap a pin to highlight its net", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             pads.forEach { p ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                Row(
+                    Modifier.fillMaxWidth().heightIn(min = 40.dp)
+                        .then(if (p.net != null) Modifier.clickable { onNet(p.net!!) } else Modifier)
+                        .padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Text(p.name, fontFamily = FontFamily.Monospace, modifier = Modifier.width(56.dp))
                     Text(p.net.orDash())
                 }
