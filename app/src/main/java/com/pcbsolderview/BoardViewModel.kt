@@ -7,7 +7,11 @@ import android.util.Xml
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.pcbsolderview.data.AppDatabase
+import com.pcbsolderview.data.BoardStore
 import com.pcbsolderview.data.MarkEntity
+import com.pcbsolderview.data.RecentBoardEntity
+import com.pcbsolderview.render.thumbnail
+import com.pcbsolderview.ui.boardColors
 import com.pcbsolderview.data.StrokeEntity
 import com.pcbsolderview.model.Board
 import com.pcbsolderview.model.Component
@@ -61,7 +65,19 @@ val PEN_COLORS: List<Int> = listOf(
 
 val PEN_WIDTHS: List<Float> = listOf(3f, 6f, 12f)
 
+/** A recent board with its annotation counts, for the start screen. */
+data class RecentItem(
+    val board: RecentBoardEntity,
+    val ok: Int = 0,
+    val problems: Int = 0,
+    val check: Int = 0,
+    val info: Int = 0,
+    val drawings: Int = 0,
+    val thumbnail: String? = null,
+)
+
 data class UiState(
+    val recents: List<RecentItem> = emptyList(),
     val scene: BoardScene? = null,
     val loading: String? = null,
     /** 0..1 while parsing, null when unknown. */
@@ -97,8 +113,39 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
     val state: StateFlow<UiState> = _state.asStateFlow()
 
     private val importer = BoardImporter(XmlParserFactory { Xml.newPullParser() })
-    private val dao = AppDatabase.get(app).annotations()
+    private val db = AppDatabase.get(app)
+    private val dao = db.annotations()
+    private val recentDao = db.recents()
+    private val store = BoardStore(app)
     private var loadJob: Job? = null
+
+    init {
+        viewModelScope.launch {
+            combine(recentDao.recents(), recentDao.markCounts(), recentDao.strokeCounts()) { recents, marks, strokes ->
+                val m = marks.groupBy { it.boardKey }
+                val s = strokes.associate { it.boardKey to it.n }
+                recents.map { r ->
+                    val counts = m[r.boardKey].orEmpty().associate { it.argb to it.n }
+                    RecentItem(
+                        board = r,
+                        ok = counts[Status.OK.argb] ?: 0,
+                        problems = counts[Status.PROBLEM.argb] ?: 0,
+                        check = counts[Status.CHECK.argb] ?: 0,
+                        info = counts[Status.INFO.argb] ?: 0,
+                        drawings = s[r.boardKey] ?: 0,
+                        thumbnail = store.thumbnail(r.dir)?.absolutePath,
+                    )
+                }
+            }.collect { list -> _state.update { it.copy(recents = list) } }
+        }
+    }
+
+    /** Where the files being opened come from. */
+    private sealed interface Origin {
+        data object New : Origin
+        data object Demo : Origin
+        data class Recent(val key: String) : Origin
+    }
     private var annotationsJob: Job? = null
     private var boardKey: String? = null
 
@@ -114,7 +161,7 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
 
     fun open(uris: List<Uri>) {
         if (uris.isEmpty()) return
-        load("Opening…") {
+        load("Opening…", Origin.New) {
             val resolver = getApplication<Application>().contentResolver
             uris.map { uri ->
                 val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
@@ -124,28 +171,45 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun openDemo(folder: String) = load("Opening demo…") {
+    fun openDemo(folder: String) = load("Opening demo…", Origin.Demo) {
         val assets = getApplication<Application>().assets
         assets.list(folder).orEmpty().map { name ->
             InputFile(name, assets.open("$folder/$name").use { it.readBytes() })
         }
     }
 
-    private fun load(message: String, files: suspend () -> List<InputFile>) {
+    /** Reopens a board from its saved copy; its drawings and status paint come back with it. */
+    fun openRecent(r: RecentBoardEntity) = load("Opening ${r.name}…", Origin.Recent(r.boardKey)) {
+        store.load(r.dir).ifEmpty { throw BoardParseException("The saved copy of this board is missing. Open the files again.") }
+    }
+
+    /** Removes a board from the list and deletes its saved copy. Annotations stay in the database. */
+    fun removeRecent(r: RecentBoardEntity) {
+        viewModelScope.launch {
+            recentDao.delete(r.boardKey)
+            withContext(Dispatchers.IO) { store.delete(r.dir) }
+        }
+    }
+
+    private fun load(message: String, origin: Origin, files: suspend () -> List<InputFile>) {
         loadJob?.cancel()
         _state.update { it.copy(loading = message, progress = null, error = null) }
         loadJob = viewModelScope.launch {
             val result = withContext(Dispatchers.Default) {
                 runCatching {
-                    val board = importer.import(files()) { p -> _state.update { it.copy(progress = p) } }
+                    val inputs = files()
+                    val board = importer.import(inputs) { p -> _state.update { it.copy(progress = p) } }
                     _state.update { it.copy(loading = "Preparing view…", progress = null) }
-                    BoardScene(board)
+                    val scene = BoardScene(board)
+                    remember(origin, keyOf(board), scene, inputs)
+                    scene
                 }
             }
             result.fold(
                 onSuccess = { scene ->
                     undo.clear()
                     _state.value = UiState(
+                        recents = _state.value.recents,
                         scene = scene,
                         display = DisplayOptions(hiddenLayers = scene.defaultHiddenLayers, penOnlyDrawing = penOnlyPref),
                     )
@@ -157,6 +221,26 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
                     _state.update { it.copy(loading = null, progress = null, error = msg) }
                 },
             )
+        }
+    }
+
+    /** Adds/updates the recent-boards entry. Demos are not listed. */
+    private suspend fun remember(origin: Origin, key: String, scene: BoardScene, inputs: List<InputFile>) {
+        val now = System.currentTimeMillis()
+        when (origin) {
+            Origin.Demo -> Unit
+            is Origin.Recent -> {
+                recentDao.touch(origin.key, now)
+                // Thumbnail predates this feature or was lost: rebuild it.
+                val dir = store.dirFor(origin.key)
+                if (store.thumbnail(dir.path) == null) runCatching { store.save(origin.key, inputs, scene.thumbnail(colors = boardColors)) }
+            }
+            Origin.New -> {
+                val thumb = runCatching { scene.thumbnail(colors = boardColors) }.getOrNull()
+                val dir = withContext(Dispatchers.IO) { store.save(key, inputs, thumb) }
+                val b = scene.board
+                recentDao.upsert(RecentBoardEntity(key, b.name, b.source.name, b.components.size, now, dir.absolutePath))
+            }
         }
     }
 
@@ -183,7 +267,7 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
         loadJob?.cancel(); annotationsJob?.cancel()
         eraserFromButton = false
         boardKey = null; undo.clear()
-        _state.value = UiState()
+        _state.value = UiState(recents = _state.value.recents)
     }
 
     // ------------------------------------------------------------------ selection & search
@@ -265,12 +349,12 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
     private var eraserFromButton = false
     private val erasing = HashSet<Long>()
 
-    /** First S Pen contact or hover: from now on only the pen draws; fingers move the board. */
+    /**
+     * First S Pen contact or hover. Deliberately does NOT switch to "only the pen draws": that made
+     * the Pen tool ignore fingers without the user asking. The option stays in the Display panel.
+     */
     fun onStylusSeen() {
-        if (stylusAutoApplied) return
         stylusAutoApplied = true
-        penOnlyPref = true
-        _state.update { it.copy(display = it.display.copy(penOnlyDrawing = true)) }
     }
 
     /** Side button held = eraser; released = back to writing. */

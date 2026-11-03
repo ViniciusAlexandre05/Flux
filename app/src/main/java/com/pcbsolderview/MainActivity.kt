@@ -10,6 +10,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import android.view.MotionEvent
+import com.pcbsolderview.render.StylusInput
 import com.pcbsolderview.ui.PcbTheme
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -30,6 +32,29 @@ class MainActivity : ComponentActivity() {
                 BoardScreen(state = state, vm = vm, openFiles = { picker.launch(arrayOf("*/*")) })
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // S Pen side button: held = eraser, released = pen.
+        StylusInput.listener = { pressed -> vm.onStylusButton(pressed) }
+    }
+
+    override fun onPause() {
+        StylusInput.listener = null
+        super.onPause()
+    }
+
+    /** Raw touch events carry the S Pen button state that Compose doesn't expose. */
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        StylusInput.onMotionEvent(ev)
+        return super.dispatchTouchEvent(ev)
+    }
+
+    /** Hover events (pen near the screen, not touching). */
+    override fun dispatchGenericMotionEvent(ev: MotionEvent): Boolean {
+        StylusInput.onMotionEvent(ev)
+        return super.dispatchGenericMotionEvent(ev)
     }
 
     override fun onNewIntent(intent: Intent) {

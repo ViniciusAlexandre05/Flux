@@ -98,7 +98,8 @@ fun BoardScreen(state: UiState, vm: BoardViewModel, openFiles: () -> Unit) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Box(Modifier.safeDrawingPadding()) {
             val scene = state.scene
-            if (scene == null) EmptyState(openFiles, vm::openDemo) else BoardContent(scene, state, vm)
+            if (scene == null) StartScreen(state.recents, openFiles, vm::openDemo, vm::openRecent, vm::removeRecent)
+            else BoardContent(scene, state, vm)
 
             state.loading?.let { msg ->
                 Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.6f)), contentAlignment = Alignment.Center) {
@@ -129,7 +130,7 @@ fun BoardScreen(state: UiState, vm: BoardViewModel, openFiles: () -> Unit) {
 }
 
 @Composable
-private fun EmptyState(openFiles: () -> Unit, openDemo: (String) -> Unit) {
+internal fun EmptyState(openFiles: () -> Unit, openDemo: (String) -> Unit) {
     Box(
         Modifier.fillMaxSize().background(
             Brush.radialGradient(listOf(Palette.SolderDeep.copy(alpha = 0.55f), Color.Transparent), radius = 1400f),

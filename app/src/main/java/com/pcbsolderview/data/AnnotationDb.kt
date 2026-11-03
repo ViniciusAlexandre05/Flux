@@ -12,6 +12,8 @@ import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Upsert
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.pcbsolderview.render.ComponentMark
 import com.pcbsolderview.render.InkStroke
 import kotlinx.coroutines.flow.Flow
@@ -42,6 +44,42 @@ data class StrokeEntity(
                 if (i < 0) null else (p.substring(0, i).toDoubleOrNull() ?: return@mapNotNull null) to (p.substring(i + 1).toDoubleOrNull() ?: return@mapNotNull null)
             }
     }
+}
+
+/** A board opened before; its files are copied into app storage at [dir]. */
+@Entity(tableName = "recent_boards")
+data class RecentBoardEntity(
+    @PrimaryKey val boardKey: String,
+    val name: String,
+    val source: String,
+    val components: Int,
+    val lastOpened: Long,
+    /** Absolute path of the folder holding the board's files and thumb.png. */
+    val dir: String,
+)
+
+data class MarkCount(val boardKey: String, val argb: Int, val n: Int)
+data class StrokeCount(val boardKey: String, val n: Int)
+
+@Dao
+interface RecentDao {
+    @Query("SELECT * FROM recent_boards ORDER BY lastOpened DESC")
+    fun recents(): Flow<List<RecentBoardEntity>>
+
+    @Upsert
+    suspend fun upsert(r: RecentBoardEntity)
+
+    @Query("UPDATE recent_boards SET lastOpened = :time WHERE boardKey = :key")
+    suspend fun touch(key: String, time: Long)
+
+    @Query("DELETE FROM recent_boards WHERE boardKey = :key")
+    suspend fun delete(key: String)
+
+    @Query("SELECT boardKey, argb, COUNT(*) AS n FROM marks GROUP BY boardKey, argb")
+    fun markCounts(): Flow<List<MarkCount>>
+
+    @Query("SELECT boardKey, COUNT(*) AS n FROM strokes GROUP BY boardKey")
+    fun strokeCounts(): Flow<List<StrokeCount>>
 }
 
 @Dao
@@ -89,14 +127,28 @@ interface AnnotationDao {
     suspend fun clearMarks(board: String)
 }
 
-@Database(entities = [MarkEntity::class, StrokeEntity::class], version = 1, exportSchema = false)
+@Database(entities = [MarkEntity::class, StrokeEntity::class, RecentBoardEntity::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun annotations(): AnnotationDao
+    abstract fun recents(): RecentDao
 
     companion object {
+        /** v1 -> v2: adds the recent boards table; existing annotations are kept. */
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `recent_boards` (`boardKey` TEXT NOT NULL, `name` TEXT NOT NULL, " +
+                        "`source` TEXT NOT NULL, `components` INTEGER NOT NULL, `lastOpened` INTEGER NOT NULL, " +
+                        "`dir` TEXT NOT NULL, PRIMARY KEY(`boardKey`))",
+                )
+            }
+        }
+
         @Volatile private var instance: AppDatabase? = null
         fun get(context: Context): AppDatabase = instance ?: synchronized(this) {
-            instance ?: Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "pcbsolderview.db").build().also { instance = it }
+            instance ?: Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "pcbsolderview.db")
+                .addMigrations(MIGRATION_1_2)
+                .build().also { instance = it }
         }
     }
 }
