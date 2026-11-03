@@ -69,7 +69,22 @@ fun DetailsPanel(
                 Icon(Icons.Filled.Close, contentDescription = "Close details")
             }
         }
-        Text(component.value.orDash(), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.testTag("details.value"))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                component.value.orDash(), style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f, fill = false).testTag("details.value"),
+            )
+            Spacer(Modifier.width(12.dp))
+            val top = component.side == Side.TOP
+            Text(
+                if (top) "TOP" else "BOTTOM",
+                style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold,
+                color = if (top) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier
+                    .background(if (top) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer, MaterialTheme.shapes.small)
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+            )
+        }
         Spacer(Modifier.height(12.dp))
         Text("Status", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 4.dp)) {

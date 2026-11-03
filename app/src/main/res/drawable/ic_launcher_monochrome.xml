@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon (Android 13+) silhouette: board outline, chip, solder drop. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="3"
+        android:pathData="M35,27.5h38a7.5,7.5 0,0 1,7.5 7.5v38a7.5,7.5 0,0 1,-7.5 7.5h-38a7.5,7.5 0,0 1,-7.5 -7.5v-38a7.5,7.5 0,0 1,7.5 -7.5z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M47.5,39h13a1.5,1.5 0,0 1,1.5 1.5v19a1.5,1.5 0,0 1,-1.5 1.5h-13a1.5,1.5 0,0 1,-1.5 -1.5v-19a1.5,1.5 0,0 1,1.5 -1.5zM42,42.5h4v3h-4zM42,48.5h4v3h-4zM42,54.5h4v3h-4zM62,42.5h4v3h-4zM62,48.5h4v3h-4zM62,54.5h4v3h-4zM74,70m-6,0a6,6 0,1 1,12 0a6,6 0,1 1,-12 0" />
+</vector>

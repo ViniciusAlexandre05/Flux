@@ -93,7 +93,7 @@ fun ToolsMenu(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(tonalElevation = 6.dp, shadowElevation = 6.dp, shape = RoundedCornerShape(16.dp), modifier = modifier.width(280.dp)) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 6.dp, shape = RoundedCornerShape(16.dp), modifier = modifier.width(280.dp)) {
         Column(Modifier.padding(12.dp).verticalScroll(rememberScrollState()).testTag("tools")) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Tools", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
@@ -164,7 +164,7 @@ private fun Hint(text: String) {
 /** Shown while a drawing tool is active and the menu is closed; tap ✕ to go back to inspecting. */
 @Composable
 fun ActiveToolChip(tool: Tool, argb: Int?, onOpen: () -> Unit, onDone: () -> Unit, modifier: Modifier = Modifier) {
-    Surface(tonalElevation = 6.dp, shadowElevation = 4.dp, shape = RoundedCornerShape(28.dp), modifier = modifier) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 4.dp, shape = RoundedCornerShape(28.dp), modifier = modifier) {
         Row(Modifier.clickable(onClick = onOpen).padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(toolIcon(tool), contentDescription = null)
             if (argb != null) { Spacer(Modifier.width(8.dp)); Box(Modifier.size(18.dp).background(Color(argb), CircleShape)) }
@@ -213,7 +213,7 @@ fun LayersPanel(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(tonalElevation = 6.dp, shadowElevation = 6.dp, shape = RoundedCornerShape(16.dp), modifier = modifier.width(340.dp)) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 6.dp, shape = RoundedCornerShape(16.dp), modifier = modifier.width(340.dp)) {
         Column(Modifier.padding(12.dp).verticalScroll(rememberScrollState()).testTag("layers")) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Display", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))

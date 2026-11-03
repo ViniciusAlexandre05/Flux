@@ -10,8 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
+import com.pcbsolderview.ui.PcbTheme
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pcbsolderview.ui.BoardScreen
@@ -27,7 +26,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val state by vm.state.collectAsStateWithLifecycle()
             val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { vm.open(it) }
-            MaterialTheme(colorScheme = darkColorScheme()) {
+            PcbTheme {
                 BoardScreen(state = state, vm = vm, openFiles = { picker.launch(arrayOf("*/*")) })
             }
         }

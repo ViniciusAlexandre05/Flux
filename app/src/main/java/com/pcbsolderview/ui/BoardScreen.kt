@@ -60,6 +60,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
+import com.pcbsolderview.R
+import com.pcbsolderview.Status
+import com.pcbsolderview.model.SourceFormat
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
@@ -115,27 +126,60 @@ fun BoardScreen(state: UiState, vm: BoardViewModel, openFiles: () -> Unit) {
 
 @Composable
 private fun EmptyState(openFiles: () -> Unit, openDemo: (String) -> Unit) {
-    Column(
-        Modifier.fillMaxSize().padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+    Box(
+        Modifier.fillMaxSize().background(
+            Brush.radialGradient(listOf(Palette.SolderDeep.copy(alpha = 0.55f), Color.Transparent), radius = 1400f),
+        ),
+        contentAlignment = Alignment.Center,
     ) {
-        Text("PCB Solder View", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Open an Altium export: IPC-2581 (.xml/.cvg), or a Pick & Place CSV together with its BOM. " +
-                "You can select several files at once, or a .zip.",
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.widthIn(max = 560.dp),
-        )
-        Spacer(Modifier.height(24.dp))
-        Button(onClick = openFiles, modifier = Modifier.height(64.dp).widthIn(min = 280.dp)) {
-            Text("Open board files", style = MaterialTheme.typography.titleLarge)
-        }
-        Spacer(Modifier.height(16.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = { openDemo("simple") }, modifier = Modifier.height(56.dp)) { Text("Demo: simple") }
-            OutlinedButton(onClick = { openDemo("double-sided") }, modifier = Modifier.height(56.dp)) { Text("Demo: double-sided") }
+        Column(
+            Modifier.padding(32.dp).widthIn(max = 620.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                Modifier.size(120.dp).background(Palette.Ink, MaterialTheme.shapes.extraLarge)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.extraLarge),
+                contentAlignment = Alignment.Center,
+            ) {
+                Image(painterResource(R.drawable.ic_launcher_foreground), contentDescription = null, modifier = Modifier.size(150.dp))
+            }
+            Spacer(Modifier.height(24.dp))
+            Text("PCB Solder View", style = MaterialTheme.typography.displaySmall)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Your Altium board at the soldering bench: find parts, follow nets, mark what's done.",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(32.dp))
+            Button(onClick = openFiles, modifier = Modifier.height(64.dp).widthIn(min = 300.dp).testTag("open")) {
+                Icon(Icons.Filled.FolderOpen, contentDescription = null)
+                Spacer(Modifier.width(12.dp))
+                Text("Open board files", style = MaterialTheme.typography.titleMedium)
+            }
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                listOf("IPC-2581 .cvg / .xml", "Pick & Place CSV", "BOM CSV / XLSX", ".zip").forEach { f ->
+                    Text(
+                        f, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.small)
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Tip: select the Pick & Place and the BOM together.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(32.dp))
+            Text("Try a demo", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                FilledTonalButton(onClick = { openDemo("simple") }, modifier = Modifier.height(52.dp)) { Text("Simple board") }
+                FilledTonalButton(onClick = { openDemo("double-sided") }, modifier = Modifier.height(52.dp)) { Text("Double-sided") }
+            }
         }
     }
 }
@@ -181,6 +225,11 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
     Column(Modifier.fillMaxSize()) {
         TopBar(
             title = scene.board.name,
+            subtitle = "${scene.board.components.size} parts · " + when (scene.board.source) {
+                SourceFormat.IPC2581 -> "IPC-2581"
+                SourceFormat.PICK_AND_PLACE -> "Pick & Place"
+                SourceFormat.PCBDOC -> "PcbDoc"
+            } + if (state.marks.isNotEmpty()) " · ${state.marks.count { it.value.argb == Status.OK.argb }}/${scene.board.components.size} OK" else "",
             state = state,
             vm = vm,
             onFit = { fit(transform) },
@@ -236,6 +285,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                                 if (i != null) applyRadial(r, i) else radial = r.copy(hovered = null)
                             }
                         },
+                        colors = boardColors,
                         modifier = Modifier.fillMaxSize().testTag("board"),
                     )
                     radial?.let { r -> RadialStatusMenu(r, onPick = { applyRadial(r, it) }, onDismiss = { radial = null }) }
@@ -287,7 +337,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                 val sel = state.selected
                 val net = state.selectedNet
                 when {
-                    sel != null -> Surface(tonalElevation = 3.dp, modifier = mod) {
+                    sel != null -> Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = mod) {
                         DetailsPanel(
                             scene.board, sel, onClose = vm::clearSelection,
                             mark = state.marks[sel.refDes],
@@ -295,7 +345,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                             onNet = vm::selectNet,
                         )
                     }
-                    net != null -> Surface(tonalElevation = 3.dp, modifier = mod) {
+                    net != null -> Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = mod) {
                         NetPanel(scene.board, net, onClose = vm::clearSelection, onComponent = { ref -> scene.board.component(ref)?.let(vm::select) })
                     }
                 }
@@ -335,29 +385,66 @@ private fun BarIcon(icon: ImageVector, label: String, onClick: () -> Unit, check
         tooltip = { PlainTooltip { Text(label) } },
         state = rememberTooltipState(),
     ) {
-        val mod = Modifier.size(56.dp).then(if (tag != null) Modifier.testTag(tag) else Modifier)
-        if (checked) FilledIconButton(onClick = onClick, modifier = mod) { Icon(icon, contentDescription = label, modifier = Modifier.size(28.dp)) }
-        else FilledTonalIconButton(onClick = onClick, modifier = mod) { Icon(icon, contentDescription = label, modifier = Modifier.size(28.dp)) }
+        val mod = Modifier.size(52.dp).then(if (tag != null) Modifier.testTag(tag) else Modifier)
+        if (checked) FilledIconButton(onClick = onClick, modifier = mod) { Icon(icon, contentDescription = label, modifier = Modifier.size(26.dp)) }
+        else IconButton(onClick = onClick, modifier = mod) { Icon(icon, contentDescription = label, modifier = Modifier.size(26.dp)) }
+    }
+}
+
+/** Parts / Nets as one two-option control with labels. */
+@Composable
+private fun InspectModeToggle(tool: Tool, onTool: (Tool) -> Unit) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerHighest, shape = MaterialTheme.shapes.extraLarge) {
+        Row(Modifier.padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            listOf(Tool.COMPONENTS to "Parts", Tool.NETS to "Nets").forEach { (t, label) ->
+                val on = tool == t
+                Row(
+                    Modifier.height(44.dp)
+                        .background(if (on) MaterialTheme.colorScheme.primary else Color.Transparent, MaterialTheme.shapes.extraLarge)
+                        .clickable { onTool(t) }
+                        .padding(horizontal = 14.dp)
+                        .testTag(if (t == Tool.COMPONENTS) "mode.parts" else "mode.nets"),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val fg = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                    Icon(toolIcon(t), contentDescription = toolLabel(t), tint = fg, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(label, color = fg, style = MaterialTheme.typography.labelLarge)
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun TopBar(title: String, state: UiState, vm: BoardViewModel, onFit: () -> Unit, onFlip: () -> Unit) {
+private fun BarDivider() {
+    Box(Modifier.width(1.dp).height(32.dp).background(MaterialTheme.colorScheme.outlineVariant))
+}
+
+@Composable
+private fun TopBar(title: String, subtitle: String, state: UiState, vm: BoardViewModel, onFit: () -> Unit, onFlip: () -> Unit) {
     val focus = LocalFocusManager.current
-    Surface(tonalElevation = 2.dp) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            IconButton(onClick = vm::closeBoard, modifier = Modifier.size(56.dp).testTag("back")) {
+            IconButton(onClick = vm::closeBoard, modifier = Modifier.size(52.dp).testTag("back")) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to start")
             }
-            Text(
-                title, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.titleMedium, modifier = Modifier.widthIn(max = 200.dp),
-            )
+            Column(Modifier.widthIn(max = 220.dp)) {
+                Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
+                Text(subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(Modifier.width(4.dp))
             OutlinedTextField(
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    unfocusedBorderColor = Color.Transparent,
+                ),
                 value = state.query,
                 onValueChange = vm::search,
                 singleLine = true,
@@ -372,8 +459,8 @@ private fun TopBar(title: String, state: UiState, vm: BoardViewModel, onFit: () 
                 keyboardActions = KeyboardActions(onSearch = { vm.pickResult(null); focus.clearFocus() }),
                 modifier = Modifier.weight(1f).testTag("search"),
             )
-            BarIcon(toolIcon(Tool.COMPONENTS), toolLabel(Tool.COMPONENTS), { vm.setTool(Tool.COMPONENTS) }, checked = state.tool == Tool.COMPONENTS, tag = "mode.parts")
-            BarIcon(toolIcon(Tool.NETS), toolLabel(Tool.NETS), { vm.setTool(Tool.NETS) }, checked = state.tool == Tool.NETS, tag = "mode.nets")
+            InspectModeToggle(state.tool, vm::setTool)
+            BarDivider()
             BarIcon(Icons.Filled.Handyman, "Tools", vm::toggleToolsPanel, checked = state.showToolsPanel, tag = "tools.button")
             BarIcon(Icons.Filled.FitScreen, "Fit to screen", onFit)
             BarIcon(
@@ -389,7 +476,7 @@ private fun TopBar(title: String, state: UiState, vm: BoardViewModel, onFit: () 
 @Composable
 private fun SearchResults(results: List<Component>, onPick: (Component) -> Unit, modifier: Modifier = Modifier) {
     val focus = LocalFocusManager.current
-    Surface(tonalElevation = 6.dp, shadowElevation = 6.dp, shape = MaterialTheme.shapes.medium, modifier = modifier.widthIn(max = 420.dp).heightIn(max = 360.dp)) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 6.dp, shape = MaterialTheme.shapes.medium, modifier = modifier.widthIn(max = 420.dp).heightIn(max = 360.dp)) {
         LazyColumn(Modifier.testTag("search.results")) {
             items(results, key = { it.refDes }) { c ->
                 Row(
