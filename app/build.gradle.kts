@@ -31,6 +31,8 @@ android {
     }
     buildFeatures { compose = true }
     testOptions { unitTests.all { it.useJUnitPlatform() } }
+    // Synthetic boards double as in-app demos.
+    sourceSets["main"].assets.srcDir(rootProject.file("samples/synthetic"))
     lint {
         abortOnError = true
         warningsAsErrors = false
