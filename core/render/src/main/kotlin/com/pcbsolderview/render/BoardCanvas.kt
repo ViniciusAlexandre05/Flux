@@ -77,6 +77,13 @@ fun BoardCanvas(
     penArgb: Int = 0xFFFFFFFF.toInt(),
     penWidthPx: Float = 4f,
     onStroke: (points: List<Pair<Double, Double>>, widthUm: Float) -> Unit = { _, _ -> },
+    /**
+     * Finger held still on [Offset] (screen px). Return true to take over the gesture: the canvas
+     * then reports finger moves and the release instead of panning.
+     */
+    onLongPress: ((Offset) -> Boolean)? = null,
+    onLongPressDrag: (Offset) -> Unit = {},
+    onLongPressRelease: (Offset) -> Unit = {},
     colors: BoardColors = BoardColors(),
 ) {
     val highlightPath = remember(scene, highlighted) { scene.pathFor(highlighted) }
@@ -117,6 +124,10 @@ fun BoardCanvas(
     latest.onStroke = onStroke
     val haptic = LocalHapticFeedback.current
     latest.onSnap = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
+    latest.longPressEnabled = onLongPress != null
+    latest.onLongPress = { p -> (onLongPress?.invoke(p) == true).also { if (it) haptic.performHapticFeedback(HapticFeedbackType.LongPress) } }
+    latest.onLongPressDrag = onLongPressDrag
+    latest.onLongPressRelease = onLongPressRelease
 
     Canvas(
         modifier
@@ -130,6 +141,45 @@ fun BoardCanvas(
                     var drawing = latest.tool == CanvasTool.PEN
                     if (drawing) { livePoints.clear(); latest.transform?.let { livePoints += it.toBoard(down.position.x.toDouble(), down.position.y.toDouble()) } }
                     var moved = false
+
+                    // Long press (finger held still): hand the gesture to the caller, e.g. a radial menu.
+                    if (!drawing && latest.longPressEnabled) {
+                        var still = 0f
+                        val outcome = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                            var r = 0
+                            while (r == 0) {
+                                val e = awaitPointerEvent()
+                                val pressed = e.changes.count { it.pressed }
+                                still += e.calculatePan().getDistance()
+                                r = when {
+                                    pressed == 0 -> LP_RELEASED
+                                    pressed >= 2 || still > slop -> LP_MOVED
+                                    else -> 0
+                                }
+                            }
+                            r
+                        }
+                        when (outcome) {
+                            null -> if (latest.onLongPress(down.position)) {
+                                while (true) {
+                                    val e = awaitPointerEvent()
+                                    val ch = e.changes.firstOrNull { it.id == down.id } ?: e.changes.first()
+                                    ch.consume()
+                                    if (!ch.pressed) { latest.onLongPressRelease(ch.position); break }
+                                    latest.onLongPressDrag(ch.position)
+                                }
+                                return@awaitEachGesture
+                            }
+                            LP_RELEASED -> {
+                                latest.transform?.let { t ->
+                                    val (bx, by) = t.toBoard(down.position.x.toDouble(), down.position.y.toDouble())
+                                    latest.onTap(bx, by, TOUCH_SLOP_PX / t.scale)
+                                }
+                                return@awaitEachGesture
+                            }
+                            else -> moved = true
+                        }
+                    }
                     var multi = false
                     var travel = 0f
                     var twist = 0f
@@ -283,7 +333,14 @@ private class LatestHolder {
     var penWidthPx: Float = 4f
     var onStroke: (List<Pair<Double, Double>>, Float) -> Unit = { _, _ -> }
     var onSnap: () -> Unit = {}
+    var longPressEnabled: Boolean = false
+    var onLongPress: (Offset) -> Boolean = { false }
+    var onLongPressDrag: (Offset) -> Unit = {}
+    var onLongPressRelease: (Offset) -> Unit = {}
 }
+
+private const val LP_RELEASED = 1
+private const val LP_MOVED = 2
 
 /** Frame-rate meter: frames drawn in the last second and average draw time. */
 private class FrameStats {

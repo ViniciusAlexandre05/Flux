@@ -17,7 +17,6 @@ import com.pcbsolderview.parser.BoardImporter
 import com.pcbsolderview.parser.BoardParseException
 import com.pcbsolderview.parser.InputFile
 import com.pcbsolderview.parser.xml.XmlParserFactory
-import com.pcbsolderview.render.BoardHit
 import com.pcbsolderview.render.BoardScene
 import com.pcbsolderview.render.ComponentMark
 import com.pcbsolderview.render.CopperIndex
@@ -33,7 +32,15 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-enum class Tool { SELECT, PEN, ERASER, PAINT }
+enum class Tool {
+    /** Tap selects a part (designator, value, pins). */
+    COMPONENTS,
+    /** Tap selects the net of a track, via, pad or copper pour. */
+    NETS,
+    PEN, ERASER, PAINT;
+
+    val isInspect: Boolean get() = this == COMPONENTS || this == NETS
+}
 
 /** Predefined component statuses for the paint tool. */
 enum class Status(val label: String, val argb: Int) {
@@ -73,7 +80,9 @@ data class UiState(
     val display: DisplayOptions = DisplayOptions(),
     val showLayersPanel: Boolean = false,
     val showToolsPanel: Boolean = false,
-    val tool: Tool = Tool.SELECT,
+    val tool: Tool = Tool.COMPONENTS,
+    /** Inspect tool to return to when a drawing tool is dismissed. */
+    val lastInspect: Tool = Tool.COMPONENTS,
     val penArgb: Int = PEN_COLORS.first(),
     val penWidthPx: Float = PEN_WIDTHS[1],
     val paintStatus: Status? = Status.OK,
@@ -224,7 +233,18 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
 
     // ------------------------------------------------------------------ tools
 
-    fun setTool(t: Tool) = _state.update { it.copy(tool = t) }
+    fun setTool(t: Tool) = _state.update { s ->
+        s.copy(
+            tool = t,
+            lastInspect = if (t.isInspect) t else s.lastInspect,
+            // Switching inspect mode clears the other mode's selection.
+            selected = if (t == Tool.NETS) null else s.selected,
+            selectedNet = if (t == Tool.COMPONENTS) null else s.selectedNet,
+        )
+    }
+
+    /** Leaves a drawing tool and returns to the last inspect tool. */
+    fun endDrawing() = _state.update { it.copy(tool = it.lastInspect) }
     fun setPen(argb: Int) = _state.update { it.copy(penArgb = argb) }
     fun setPenWidth(px: Float) = _state.update { it.copy(penWidthPx = px) }
     /** null = eraser for marks ("clear status"). */
@@ -235,15 +255,16 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
         val s = _state.value
         val scene = s.scene ?: return
         when (s.tool) {
-            Tool.SELECT -> when (val hit = scene.picker.pick(x, y, toleranceUm, s.visibleSide, s.display::isVisible)) {
-                is BoardHit.OnComponent -> _state.update { it.copy(selected = hit.component, selectedNet = null) }
-                is BoardHit.OnNet -> _state.update { it.copy(selectedNet = hit.net, selected = null) }
-                null -> clearSelection()
+            Tool.COMPONENTS -> {
+                val c = scene.picker.pickComponent(x, y, toleranceUm, s.visibleSide, s.display::isVisible)
+                _state.update { it.copy(selected = c, selectedNet = null) }
+            }
+            Tool.NETS -> {
+                val hit = scene.picker.pickNet(x, y, toleranceUm, s.visibleSide, s.display::isVisible)
+                _state.update { it.copy(selectedNet = hit?.net, selected = null) }
             }
             Tool.PAINT -> {
-                val c = (scene.picker.pick(x, y, toleranceUm, s.visibleSide, s.display::isVisible) as? BoardHit.OnComponent)?.component
-                    ?: scene.index.hitTest(x, y, s.visibleSide, toleranceUm)
-                    ?: return
+                val c = scene.picker.pickComponent(x, y, toleranceUm, s.visibleSide, s.display::isVisible) ?: return
                 val current = s.marks[c.refDes]
                 // Tapping a part already painted with the same colour removes the paint.
                 val target = s.paintStatus?.argb?.takeIf { it != current?.argb }
@@ -257,6 +278,12 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
             }
             Tool.PEN -> Unit
         }
+    }
+
+    /** Component under a board point on the visible side, for the long-press status ring. */
+    fun componentAt(x: Double, y: Double, toleranceUm: Double): Component? {
+        val s = _state.value
+        return s.scene?.picker?.pickComponent(x, y, toleranceUm, s.visibleSide, s.display::isVisible)
     }
 
     /** Sets (argb) or removes (null) the status colour of a component. */

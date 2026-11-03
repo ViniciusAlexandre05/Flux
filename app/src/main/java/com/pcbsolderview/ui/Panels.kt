@@ -24,7 +24,8 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FormatPaint
-import androidx.compose.material.icons.filled.TouchApp
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -60,14 +61,16 @@ import com.pcbsolderview.render.DisplayOptions
 // ---------------------------------------------------------------------------- toolbox
 
 fun toolIcon(t: Tool): ImageVector = when (t) {
-    Tool.SELECT -> Icons.Filled.TouchApp
+    Tool.COMPONENTS -> Icons.Filled.Memory
+    Tool.NETS -> Icons.Filled.Timeline
     Tool.PEN -> Icons.Filled.Edit
     Tool.ERASER -> AppIcons.Eraser
     Tool.PAINT -> Icons.Filled.FormatPaint
 }
 
 fun toolLabel(t: Tool): String = when (t) {
-    Tool.SELECT -> "Select / inspect"
+    Tool.COMPONENTS -> "Inspect parts"
+    Tool.NETS -> "Inspect tracks & planes"
     Tool.PEN -> "Pen"
     Tool.ERASER -> "Eraser"
     Tool.PAINT -> "Paint status"
@@ -136,8 +139,9 @@ fun ToolsMenu(
                     StatusRow("Remove status", null, paintStatus == null) { onPaintStatus(null) }
                     Text("Tapping a part again with the same colour removes it.", style = MaterialTheme.typography.bodySmall)
                 }
-                Tool.ERASER -> Text("Tap a drawing to delete it.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
-                Tool.SELECT -> Unit
+                Tool.ERASER -> Hint("Tap a drawing to delete it.")
+                Tool.COMPONENTS -> Hint("Tap a part to see its value, footprint and pins.")
+                Tool.NETS -> Hint("Tap a track, via, pad or copper plane to see its net and everything it connects.")
             }
             Spacer(Modifier.height(8.dp)); HorizontalDivider(); Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -152,7 +156,12 @@ fun ToolsMenu(
     }
 }
 
-/** Shown while a drawing tool is active and the menu is closed; tap ✕ to go back to Select. */
+@Composable
+private fun Hint(text: String) {
+    Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp, start = 4.dp))
+}
+
+/** Shown while a drawing tool is active and the menu is closed; tap ✕ to go back to inspecting. */
 @Composable
 fun ActiveToolChip(tool: Tool, argb: Int?, onOpen: () -> Unit, onDone: () -> Unit, modifier: Modifier = Modifier) {
     Surface(tonalElevation = 6.dp, shadowElevation = 4.dp, shape = RoundedCornerShape(28.dp), modifier = modifier) {

@@ -60,6 +60,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
@@ -144,6 +145,15 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
     var transform by remember(scene) { mutableStateOf<ViewTransform?>(null) }
     var viewport by remember { mutableStateOf(0 to 0) }
     var confirmClear by remember { mutableStateOf(false) }
+    var radial by remember(scene) { mutableStateOf<RadialState?>(null) }
+    val density = LocalDensity.current
+    val innerPx = with(density) { RADIAL_INNER.toPx() }
+    val outerPx = with(density) { RADIAL_OUTER.toPx() }
+
+    fun applyRadial(r: RadialState, index: Int) {
+        vm.setMark(r.refDes, RADIAL_ITEMS[index].status?.argb)
+        radial = null
+    }
 
     fun fit(t: ViewTransform?) {
         val (w, h) = viewport
@@ -163,7 +173,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
     }
     // Declared later = higher priority: Back closes panels/selection first, then leaves the board.
     BackHandler { vm.closeBoard() }
-    BackHandler(enabled = state.tool != Tool.SELECT) { vm.setTool(Tool.SELECT) }
+    BackHandler(enabled = !state.tool.isInspect) { vm.endDrawing() }
     BackHandler(enabled = state.showToolsPanel) { vm.toggleToolsPanel() }
     BackHandler(enabled = state.showLayersPanel) { vm.toggleLayersPanel() }
     BackHandler(enabled = state.selected != null || state.selectedNet != null) { vm.clearSelection() }
@@ -204,8 +214,31 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                         penArgb = state.penArgb,
                         penWidthPx = state.penWidthPx,
                         onStroke = vm::addStroke,
+                        // Long-press a part: status ring. Slide to an option and lift to apply.
+                        onLongPress = if (state.tool == Tool.PEN || state.tool == Tool.ERASER) null else { p ->
+                            val t = transform
+                            val c = t?.let {
+                                val (bx, by) = it.toBoard(p.x.toDouble(), p.y.toDouble())
+                                vm.componentAt(bx, by, com.pcbsolderview.render.TOUCH_SLOP_PX / it.scale)
+                            }
+                            if (c == null) false else {
+                                val current = state.marks[c.refDes]?.let { m -> RADIAL_ITEMS.indexOfFirst { it.status?.argb == m.argb }.takeIf { it >= 0 } }
+                                val (w, h) = viewport
+                                radial = RadialState(RadialGeometry.clamp(p, w.toFloat(), h.toFloat(), outerPx, 12f), c.refDes, current)
+                                true
+                            }
+                        },
+                        onLongPressDrag = { p -> radial = radial?.let { it.copy(hovered = RadialGeometry.itemAt(it.center, p, innerPx)) } },
+                        onLongPressRelease = { p ->
+                            radial?.let { r ->
+                                val i = RadialGeometry.itemAt(r.center, p, innerPx)
+                                // Lifted on an option: apply. Lifted in the middle: keep the ring open for a tap.
+                                if (i != null) applyRadial(r, i) else radial = r.copy(hovered = null)
+                            }
+                        },
                         modifier = Modifier.fillMaxSize().testTag("board"),
                     )
+                    radial?.let { r -> RadialStatusMenu(r, onPick = { applyRadial(r, it) }, onDismiss = { radial = null }) }
                     if (state.showToolsPanel) {
                         ToolsMenu(
                             tool = state.tool, penArgb = state.penArgb, penWidthPx = state.penWidthPx,
@@ -215,7 +248,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                             onClose = vm::toggleToolsPanel,
                             modifier = Modifier.align(Alignment.TopStart).padding(8.dp).heightIn(max = layersMaxHeight),
                         )
-                    } else if (state.tool != Tool.SELECT) {
+                    } else if (!state.tool.isInspect) {
                         ActiveToolChip(
                             tool = state.tool,
                             argb = when (state.tool) {
@@ -224,7 +257,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                                 else -> null
                             },
                             onOpen = vm::toggleToolsPanel,
-                            onDone = { vm.setTool(Tool.SELECT) },
+                            onDone = vm::endDrawing,
                             modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
                         )
                     }
@@ -339,6 +372,8 @@ private fun TopBar(title: String, state: UiState, vm: BoardViewModel, onFit: () 
                 keyboardActions = KeyboardActions(onSearch = { vm.pickResult(null); focus.clearFocus() }),
                 modifier = Modifier.weight(1f).testTag("search"),
             )
+            BarIcon(toolIcon(Tool.COMPONENTS), toolLabel(Tool.COMPONENTS), { vm.setTool(Tool.COMPONENTS) }, checked = state.tool == Tool.COMPONENTS, tag = "mode.parts")
+            BarIcon(toolIcon(Tool.NETS), toolLabel(Tool.NETS), { vm.setTool(Tool.NETS) }, checked = state.tool == Tool.NETS, tag = "mode.nets")
             BarIcon(Icons.Filled.Handyman, "Tools", vm::toggleToolsPanel, checked = state.showToolsPanel, tag = "tools.button")
             BarIcon(Icons.Filled.FitScreen, "Fit to screen", onFit)
             BarIcon(

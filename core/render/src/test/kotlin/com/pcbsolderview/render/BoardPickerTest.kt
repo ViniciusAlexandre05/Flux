@@ -65,6 +65,23 @@ class BoardPickerTest {
     }
 
     @Test
+    fun componentToolOnlyFindsComponents() {
+        assertEquals("R1", picker.pickComponent(5_500.0, 5_000.0, 300.0, Side.TOP)?.refDes)
+        assertNull(picker.pickComponent(10_000.0, 5_000.0, 300.0, Side.TOP)) // on a track, not a part
+        assertNull(picker.pickComponent(4_500.0, 5_000.0, 300.0, Side.BOTTOM))
+    }
+
+    @Test
+    fun netToolFindsNetsEvenOnPads() {
+        // A pad gives its net instead of its component.
+        assertEquals(BoardHit.OnNet("SIG", "TOP"), picker.pickNet(4_500.0, 5_000.0, 300.0, Side.TOP))
+        assertEquals(BoardHit.OnNet("VCC", "TOP"), picker.pickNet(10_000.0, 5_050.0, 300.0, Side.TOP))
+        assertEquals(BoardHit.OnNet("GND", "BOT"), picker.pickNet(25_000.0, 2_000.0, 300.0, Side.TOP))
+        // Inside R1's body but away from copper: nothing.
+        assertNull(picker.pickNet(5_000.0, 4_520.0, 10.0, Side.TOP))
+    }
+
+    @Test
     fun farSideComponentsCannotBePicked() {
         // Viewing from the bottom: R1 (top) is not selectable, neither by pad nor by body.
         val fromBottom = picker.pick(4_500.0, 5_000.0, 300.0, Side.BOTTOM)
