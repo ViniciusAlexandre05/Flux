@@ -145,7 +145,10 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
             result.fold(
                 onSuccess = { scene ->
                     undo.clear()
-                    _state.value = UiState(scene = scene, display = DisplayOptions(hiddenLayers = scene.defaultHiddenLayers))
+                    _state.value = UiState(
+                        scene = scene,
+                        display = DisplayOptions(hiddenLayers = scene.defaultHiddenLayers, penOnlyDrawing = penOnlyPref),
+                    )
                     watchAnnotations(scene.board)
                 },
                 onFailure = { e ->
@@ -178,6 +181,7 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
     /** Leaves the board and goes back to the start screen. */
     fun closeBoard() {
         loadJob?.cancel(); annotationsJob?.cancel()
+        eraserFromButton = false
         boardKey = null; undo.clear()
         _state.value = UiState()
     }
@@ -213,7 +217,10 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
 
     fun flipSide() = _state.update { it.copy(visibleSide = it.visibleSide.opposite) }
 
-    fun setDisplay(d: DisplayOptions) = _state.update { it.copy(display = d) }
+    fun setDisplay(d: DisplayOptions) {
+        penOnlyPref = d.penOnlyDrawing
+        _state.update { it.copy(display = d) }
+    }
 
     fun toggleLayer(name: String) = _state.update { s ->
         val h = s.display.hiddenLayers
@@ -250,11 +257,50 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
     /** null = eraser for marks ("clear status"). */
     fun setPaintStatus(s: Status?) = _state.update { it.copy(paintStatus = s) }
 
+    // ------------------------------------------------------------------ S Pen
+
+    private var stylusAutoApplied = false
+    /** Kept across boards: once the pen is in use, fingers don't draw (until the user turns it off). */
+    private var penOnlyPref = false
+    private var eraserFromButton = false
+    private val erasing = HashSet<Long>()
+
+    /** First S Pen contact or hover: from now on only the pen draws; fingers move the board. */
+    fun onStylusSeen() {
+        if (stylusAutoApplied) return
+        stylusAutoApplied = true
+        penOnlyPref = true
+        _state.update { it.copy(display = it.display.copy(penOnlyDrawing = true)) }
+    }
+
+    /** Side button held = eraser; released = back to writing. */
+    fun onStylusButton(pressed: Boolean) = _state.update { s ->
+        when {
+            pressed && s.tool != Tool.ERASER -> { eraserFromButton = true; s.copy(tool = Tool.ERASER) }
+            !pressed && eraserFromButton -> { eraserFromButton = false; s.copy(tool = Tool.PEN) }
+            else -> s
+        }
+    }
+
+    /** S Pen dragged in eraser mode: delete every drawing it touches. */
+    fun eraseAt(x: Double, y: Double, toleranceUm: Double) {
+        val hits = _state.value.strokes.filter { s ->
+            s.id !in erasing && CopperIndex.distToPolyline(x, y, s.points) - s.widthUm / 2 <= toleranceUm
+        }
+        hits.forEach { erasing += it.id; deleteStroke(it.id) }
+    }
+
     /** Tap on the board in board coordinates (µm). */
-    fun onBoardTap(x: Double, y: Double, toleranceUm: Double) {
+    fun onBoardTap(x: Double, y: Double, toleranceUm: Double, fromStylus: Boolean = false) {
         val s = _state.value
         val scene = s.scene ?: return
-        when (s.tool) {
+        // While writing with the S Pen, taps (pen or finger) inspect instead of doing nothing.
+        val effective = when {
+            fromStylus && s.tool == Tool.PEN -> s.lastInspect
+            !fromStylus && s.display.penOnlyDrawing && (s.tool == Tool.PEN || s.tool == Tool.ERASER) -> s.lastInspect
+            else -> s.tool
+        }
+        when (effective) {
             // Tapping the already-selected part/net again deselects it.
             Tool.COMPONENTS -> {
                 val c = scene.picker.pickComponent(x, y, toleranceUm, s.visibleSide, s.display::isVisible)
@@ -310,9 +356,12 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun deleteStroke(id: Long) = viewModelScope.launch {
-        val s = dao.stroke(id) ?: return@launch
-        dao.deleteStroke(id)
-        pushUndo(Undo.StrokeRemoved(s))
+        val s = dao.stroke(id)
+        if (s != null) {
+            dao.deleteStroke(id)
+            pushUndo(Undo.StrokeRemoved(s))
+        }
+        erasing -= id
     }
 
     fun clearAnnotations() {

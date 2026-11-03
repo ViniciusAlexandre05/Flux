@@ -29,6 +29,12 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.PointerEvent
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerType
+import androidx.compose.ui.input.pointer.isSecondaryPressed
+import androidx.compose.ui.input.pointer.isTertiaryPressed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onSizeChanged
@@ -63,8 +69,8 @@ fun BoardCanvas(
     transform: ViewTransform?,
     onTransform: (ViewTransform) -> Unit,
     onViewport: (width: Int, height: Int) -> Unit,
-    /** Board point (µm) and touch tolerance (µm). */
-    onTap: (x: Double, y: Double, toleranceUm: Double) -> Unit,
+    /** Board point (µm), touch tolerance (µm), and whether the tap came from the S Pen. */
+    onTap: (x: Double, y: Double, toleranceUm: Double, fromStylus: Boolean) -> Unit,
     modifier: Modifier = Modifier,
     visibleSide: Side = Side.TOP,
     options: DisplayOptions = DisplayOptions(hiddenLayers = scene.defaultHiddenLayers),
@@ -84,6 +90,14 @@ fun BoardCanvas(
     onLongPress: ((Offset) -> Boolean)? = null,
     onLongPressDrag: (Offset) -> Unit = {},
     onLongPressRelease: (Offset) -> Unit = {},
+    /** S Pen side button pressed (true) / released (false), while touching or hovering. */
+    onStylusButton: (Boolean) -> Unit = {},
+    /** First time an S Pen touches or hovers. */
+    onStylusSeen: () -> Unit = {},
+    /** S Pen erasing at a board point with a tolerance (µm). */
+    onErase: (x: Double, y: Double, toleranceUm: Double) -> Unit = { _, _, _ -> },
+    /** S Pen hovering at a screen point, or null when it leaves / touches. */
+    onHover: (Offset?) -> Unit = {},
     colors: BoardColors = BoardColors(),
 ) {
     val highlightPath = remember(scene, highlighted) { scene.pathFor(highlighted) }
@@ -128,6 +142,12 @@ fun BoardCanvas(
     latest.onLongPress = { p -> (onLongPress?.invoke(p) == true).also { if (it) haptic.performHapticFeedback(HapticFeedbackType.LongPress) } }
     latest.onLongPressDrag = onLongPressDrag
     latest.onLongPressRelease = onLongPressRelease
+    latest.penOnly = options.penOnlyDrawing
+    latest.onStylusButton = onStylusButton
+    latest.onErase = { p, tol -> onErase(p.first, p.second, tol) }
+    latest.onHover = onHover
+    val stylusSeen = remember { booleanArrayOf(false) }
+    latest.onStylusSeen = { if (!stylusSeen[0]) { stylusSeen[0] = true; onStylusSeen() } }
 
     Canvas(
         modifier
@@ -138,7 +158,53 @@ fun BoardCanvas(
                 val slop = viewConfiguration.touchSlop
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
-                    var drawing = latest.tool == CanvasTool.PEN
+
+                    // ---- S Pen: writes (or erases with the side button), never pans or zooms.
+                    if (down.type == PointerType.Stylus || down.type == PointerType.Eraser) {
+                        latest.onStylusSeen()
+                        fun board(p: Offset) = latest.transform?.toBoard(p.x.toDouble(), p.y.toDouble())
+                        fun erasingNow(e: PointerEvent?) =
+                            down.type == PointerType.Eraser || latest.tool == CanvasTool.ERASER || (e != null && e.stylusButton())
+                        var erasing = erasingNow(currentEvent)
+                        var penMoved = false
+                        var penTravel = 0f
+                        livePoints.clear()
+                        board(down.position)?.let { if (erasing) latest.onErase(it, STYLUS_ERASE_PX / latest.transform!!.scale) else livePoints += it }
+                        while (true) {
+                            val e = awaitPointerEvent()
+                            val ch = e.changes.firstOrNull { it.id == down.id } ?: break
+                            ch.consume() // palm/fingers touching meanwhile are ignored too
+                            e.changes.forEach { it.consume() }
+                            if (!ch.pressed) break
+                            penTravel += ch.positionChange().getDistance()
+                            if (penTravel > slop / 2) penMoved = true
+                            val nowErasing = erasingNow(e)
+                            if (nowErasing != erasing) {
+                                // Button pressed/released mid-stroke: finish the ink drawn so far.
+                                val t = latest.transform
+                                if (!erasing && livePoints.size >= 2 && t != null) latest.onStroke(livePoints.toList(), (latest.penWidthPx / t.scale).toFloat())
+                                livePoints.clear()
+                                erasing = nowErasing
+                            }
+                            val p = board(ch.position) ?: continue
+                            if (erasing) latest.onErase(p, STYLUS_ERASE_PX / latest.transform!!.scale) else livePoints += p
+                        }
+                        val t = latest.transform
+                        if (t != null) {
+                            if (!erasing && penMoved && livePoints.size >= 2) {
+                                latest.onStroke(livePoints.toList(), (latest.penWidthPx / t.scale).toFloat())
+                            } else if (!penMoved && !erasing) {
+                                // A quick tap with the pen selects, like a finger.
+                                val (bx, by) = t.toBoard(down.position.x.toDouble(), down.position.y.toDouble())
+                                latest.onTap(bx, by, TOUCH_SLOP_PX / t.scale, true)
+                            }
+                        }
+                        livePoints.clear()
+                        return@awaitEachGesture
+                    }
+
+                    // ---- Fingers. With penOnly, fingers never draw.
+                    var drawing = latest.tool == CanvasTool.PEN && !latest.penOnly
                     if (drawing) { livePoints.clear(); latest.transform?.let { livePoints += it.toBoard(down.position.x.toDouble(), down.position.y.toDouble()) } }
                     var moved = false
 
@@ -173,7 +239,7 @@ fun BoardCanvas(
                             LP_RELEASED -> {
                                 latest.transform?.let { t ->
                                     val (bx, by) = t.toBoard(down.position.x.toDouble(), down.position.y.toDouble())
-                                    latest.onTap(bx, by, TOUCH_SLOP_PX / t.scale)
+                                    latest.onTap(bx, by, TOUCH_SLOP_PX / t.scale, false)
                                 }
                                 return@awaitEachGesture
                             }
@@ -240,9 +306,26 @@ fun BoardCanvas(
                         latest.onStroke(livePoints.toList(), (latest.penWidthPx / t.scale).toFloat())
                     } else if (!moved && !multi && t != null) {
                         val (bx, by) = t.toBoard(down.position.x.toDouble(), down.position.y.toDouble())
-                        latest.onTap(bx, by, TOUCH_SLOP_PX / t.scale)
+                        latest.onTap(bx, by, TOUCH_SLOP_PX / t.scale, false)
                     }
                     livePoints.clear()
+                }
+            }
+            // S Pen observer (does not consume): side button changes and hover, also while hovering.
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    var buttonDown = false
+                    while (true) {
+                        val e = awaitPointerEvent(PointerEventPass.Initial)
+                        val ch = e.changes.firstOrNull { it.type == PointerType.Stylus || it.type == PointerType.Eraser } ?: continue
+                        latest.onStylusSeen()
+                        val btn = e.stylusButton() || ch.type == PointerType.Eraser
+                        if (btn != buttonDown) { buttonDown = btn; latest.onStylusButton(btn) }
+                        when {
+                            e.type == PointerEventType.Exit || ch.pressed -> latest.onHover(null)
+                            e.type == PointerEventType.Enter || e.type == PointerEventType.Move -> latest.onHover(ch.position)
+                        }
+                    }
                 }
             },
     ) {
@@ -327,7 +410,12 @@ fun BoardCanvas(
 private class LatestHolder {
     var transform: ViewTransform? = null
     var onTransform: (ViewTransform) -> Unit = {}
-    var onTap: (Double, Double, Double) -> Unit = { _, _, _ -> }
+    var onTap: (Double, Double, Double, Boolean) -> Unit = { _, _, _, _ -> }
+    var penOnly: Boolean = false
+    var onStylusButton: (Boolean) -> Unit = {}
+    var onStylusSeen: () -> Unit = {}
+    var onErase: (Pair<Double, Double>, Double) -> Unit = { _, _ -> }
+    var onHover: (Offset?) -> Unit = {}
     var tool: CanvasTool = CanvasTool.NAVIGATE
     var rotation: Boolean = true
     var penWidthPx: Float = 4f
@@ -338,6 +426,15 @@ private class LatestHolder {
     var onLongPressDrag: (Offset) -> Unit = {}
     var onLongPressRelease: (Offset) -> Unit = {}
 }
+
+/** Eraser reach of the S Pen, in screen pixels. */
+private const val STYLUS_ERASE_PX = 12.0
+
+/**
+ * S Pen side button. Android reports it as BUTTON_STYLUS_PRIMARY/SECONDARY, which Compose exposes
+ * as the secondary/tertiary buttons.
+ */
+private fun PointerEvent.stylusButton(): Boolean = buttons.isSecondaryPressed || buttons.isTertiaryPressed
 
 private const val LP_RELEASED = 1
 private const val LP_MOVED = 2

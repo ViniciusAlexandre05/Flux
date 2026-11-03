@@ -20,9 +20,11 @@ data class DisplayOptions(
     val showAnnotations: Boolean = true,
     val showFps: Boolean = false,
     val rotationGesture: Boolean = true,
+    /** When true only the stylus draws; fingers always navigate. Turned on when an S Pen is first seen. */
+    val penOnlyDrawing: Boolean = false,
 ) {
     fun isVisible(layer: String?): Boolean = layer == null || layer !in hiddenLayers
 }
 
-/** How single-finger drags are interpreted. */
-enum class CanvasTool { NAVIGATE, PEN }
+/** How single-finger drags are interpreted. The stylus always draws (or erases), never pans. */
+enum class CanvasTool { NAVIGATE, PEN, ERASER }

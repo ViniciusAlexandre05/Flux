@@ -71,6 +71,10 @@ import androidx.compose.ui.text.style.TextAlign
 import com.pcbsolderview.R
 import com.pcbsolderview.Status
 import com.pcbsolderview.model.SourceFormat
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
@@ -190,6 +194,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
     var viewport by remember { mutableStateOf(0 to 0) }
     var confirmClear by remember { mutableStateOf(false) }
     var radial by remember(scene) { mutableStateOf<RadialState?>(null) }
+    var hover by remember(scene) { mutableStateOf<Offset?>(null) }
     val density = LocalDensity.current
     val innerPx = with(density) { RADIAL_INNER.toPx() }
     val outerPx = with(density) { RADIAL_OUTER.toPx() }
@@ -259,7 +264,15 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                         selectedNet = state.selectedNet,
                         marks = state.marks,
                         strokes = state.strokes,
-                        tool = if (state.tool == Tool.PEN) CanvasTool.PEN else CanvasTool.NAVIGATE,
+                        tool = when (state.tool) {
+                            Tool.PEN -> CanvasTool.PEN
+                            Tool.ERASER -> CanvasTool.ERASER
+                            else -> CanvasTool.NAVIGATE
+                        },
+                        onStylusButton = vm::onStylusButton,
+                        onStylusSeen = vm::onStylusSeen,
+                        onErase = vm::eraseAt,
+                        onHover = { hover = it },
                         penArgb = state.penArgb,
                         penWidthPx = state.penWidthPx,
                         onStroke = vm::addStroke,
@@ -289,6 +302,28 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                         modifier = Modifier.fillMaxSize().testTag("board"),
                     )
                     radial?.let { r -> RadialStatusMenu(r, onPick = { applyRadial(r, it) }, onDismiss = { radial = null }) }
+                    // S Pen hover: designator + value of the part under the pen tip, without touching.
+                    val hoverPos = hover
+                    val hovered = remember(hoverPos, transform, state.visibleSide) {
+                        val t = transform
+                        if (hoverPos == null || t == null) null else {
+                            val (bx, by) = t.toBoard(hoverPos.x.toDouble(), hoverPos.y.toDouble())
+                            vm.componentAt(bx, by, 8.0 / t.scale)
+                        }
+                    }
+                    if (hoverPos != null && hovered != null) {
+                        Row(
+                            Modifier.offset { IntOffset(hoverPos.x.roundToInt() + 24, (hoverPos.y - 72).roundToInt().coerceAtLeast(0)) }
+                                .background(MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.shapes.small)
+                                .border(1.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small)
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(hovered.refDes, style = Mono, color = MaterialTheme.colorScheme.onSurface)
+                            Spacer(Modifier.width(8.dp))
+                            Text(hovered.value.orDash(), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
                     if (state.showToolsPanel) {
                         ToolsMenu(
                             tool = state.tool, penArgb = state.penArgb, penWidthPx = state.penWidthPx,

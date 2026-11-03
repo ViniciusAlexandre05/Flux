@@ -224,6 +224,7 @@ fun LayersPanel(
             if (scene.hasGeometry) ToggleRow("Through-hole pads & vias", display.showMultiLayer) { onDisplay(display.copy(showMultiLayer = it)) }
             ToggleRow("Annotations & status paint", display.showAnnotations) { onDisplay(display.copy(showAnnotations = it)) }
             ToggleRow("Two-finger rotation", display.rotationGesture) { onDisplay(display.copy(rotationGesture = it)) }
+            ToggleRow("Only the S Pen draws (fingers move the board)", display.penOnlyDrawing) { onDisplay(display.copy(penOnlyDrawing = it)) }
             ToggleRow("Frame rate (FPS)", display.showFps) { onDisplay(display.copy(showFps = it)) }
 
             if (scene.layers.isNotEmpty()) {
