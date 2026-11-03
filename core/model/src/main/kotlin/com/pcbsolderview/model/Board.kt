@@ -15,6 +15,8 @@ data class Board(
     val tracks: List<Track> = emptyList(),
     val vias: List<Via> = emptyList(),
     val pads: List<Pad> = emptyList(),
+    /** Every drilled hole (vias, through-hole pads, mounting holes), deduplicated. */
+    val holes: List<Hole> = emptyList(),
     val fills: List<Fill> = emptyList(),
     val texts: List<BoardText> = emptyList(),
     val components: List<Component> = emptyList(),
@@ -103,7 +105,11 @@ data class Layer(
     val side: Side?,
     /** Stack order, 0 = top. */
     val order: Int,
+    /** Colour from the source file (0xRRGGBB), if it defines one. */
+    val rgb: Int? = null,
 )
+
+data class Hole(val position: Point, val diameter: Long, val plated: Boolean)
 
 data class Track(
     val layer: String,
@@ -146,6 +152,8 @@ data class Pad(
     val componentRef: String? = null,
     /** Outline for [PadShape.POLYGON], absolute coordinates. */
     val polygon: List<Point>? = null,
+    /** Corner radius for [PadShape.ROUNDED_RECT]. */
+    val cornerRadius: Long = 0,
 ) {
     val isThroughHole: Boolean get() = drill != null
     val bounds: Rect

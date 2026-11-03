@@ -33,6 +33,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -82,9 +83,16 @@ fun BoardScreen(state: UiState, actions: BoardActions) {
             state.loading?.let { msg ->
                 Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.6f)), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator()
-                        Spacer(Modifier.height(16.dp))
-                        Text(msg, color = MaterialTheme.colorScheme.onSurface)
+                        val p = state.progress
+                        if (p != null) {
+                            LinearProgressIndicator(progress = { p }, modifier = Modifier.width(320.dp))
+                            Spacer(Modifier.height(16.dp))
+                            Text("$msg ${(p * 100).toInt()}%", color = MaterialTheme.colorScheme.onSurface)
+                        } else {
+                            CircularProgressIndicator()
+                            Spacer(Modifier.height(16.dp))
+                            Text(msg, color = MaterialTheme.colorScheme.onSurface)
+                        }
                     }
                 }
             }

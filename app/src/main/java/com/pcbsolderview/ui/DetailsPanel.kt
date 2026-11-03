@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pcbsolderview.model.Board
 import com.pcbsolderview.model.Component
+import com.pcbsolderview.model.NaturalOrder
 import com.pcbsolderview.model.Side
 import java.util.Locale
 
@@ -65,7 +66,8 @@ fun DetailsPanel(board: Board, component: Component, onClose: () -> Unit, modifi
         HorizontalDivider()
         Spacer(Modifier.height(8.dp))
         Text("Pads / nets", style = MaterialTheme.typography.titleMedium)
-        val pads = board.padsOf(component)
+        // Through-hole pins appear once per copper layer; list each pin once, in natural order.
+        val pads = board.padsOf(component).distinctBy { it.name to it.net }.sortedWith(compareBy(NaturalOrder) { it.name })
         if (pads.isEmpty()) {
             Text(DASH, modifier = Modifier.padding(vertical = 4.dp))
         } else {

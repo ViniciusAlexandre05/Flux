@@ -25,6 +25,8 @@ import kotlinx.coroutines.withContext
 data class UiState(
     val scene: BoardScene? = null,
     val loading: String? = null,
+    /** 0..1 while parsing, null when unknown. */
+    val progress: Float? = null,
     val error: String? = null,
     val selected: Component? = null,
     val query: String = "",
@@ -64,17 +66,21 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun load(message: String, files: suspend () -> List<InputFile>) {
         loadJob?.cancel()
-        _state.update { it.copy(loading = message, error = null) }
+        _state.update { it.copy(loading = message, progress = null, error = null) }
         loadJob = viewModelScope.launch {
             val result = withContext(Dispatchers.Default) {
-                runCatching { BoardScene(importer.import(files())) }
+                runCatching {
+                    val board = importer.import(files()) { p -> _state.update { it.copy(progress = p) } }
+                    _state.update { it.copy(loading = "Preparing view…", progress = null) }
+                    BoardScene(board)
+                }
             }
             result.fold(
                 onSuccess = { scene -> _state.value = UiState(scene = scene) },
                 onFailure = { e ->
                     val msg = (e as? BoardParseException)?.message
                         ?: "Could not open the file (${e.javaClass.simpleName}: ${e.message ?: "unknown error"})."
-                    _state.update { it.copy(loading = null, error = msg) }
+                    _state.update { it.copy(loading = null, progress = null, error = msg) }
                 },
             )
         }

@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SYNTHETIC fixture (hand-written, not an Altium export). Covers what the real sample lacks:
+     bottom-side mirrored part, PolyStepCurve, LogicalNet, Pad inside Set, DictionaryUser,
+     dictionary units different from CAD units, pads synthesised from package pins. -->
+<IPC-2581 revision="C" xmlns="http://webstds.ipc.org/2581">
+  <Content roleRef="Owner">
+    <StepRef name="MINI" />
+    <DictionaryStandard units="MICRON">
+      <EntryStandard id="R1x2"><RectCenter width="1000" height="2000" /></EntryStandard>
+      <EntryStandard id="C08"><Circle diameter="800" /></EntryStandard>
+      <EntryStandard id="RR"><RectRound width="1500" height="1000" radius="250" /></EntryStandard>
+    </DictionaryStandard>
+    <DictionaryUser units="MILLIMETER">
+      <EntryUser id="TRI">
+        <UserSpecial>
+          <Contour>
+            <Polygon>
+              <PolyBegin x="-0.5" y="-0.5" />
+              <PolyStepSegment x="0.5" y="-0.5" />
+              <PolyStepSegment x="0" y="0.5" />
+              <PolyStepSegment x="-0.5" y="-0.5" />
+            </Polygon>
+          </Contour>
+        </UserSpecial>
+      </EntryUser>
+    </DictionaryUser>
+    <DictionaryColor>
+      <EntryColor id="LAYER_COLOR_TOP"><Color r="255" g="0" b="0" /></EntryColor>
+    </DictionaryColor>
+  </Content>
+  <Bom name="BOM">
+    <BomItem OEMDesignNumberRef="Lib:RES 10K OHM 1%" quantity="1" description="Resistor 10k 0805">
+      <RefDes name="R1" packageRef="P0805" layerRef="TOP" />
+      <Characteristics category="ELECTRICAL">
+        <Textual definitionSource="Altium" textualCharacteristicName="Manufacturer Part Number" textualCharacteristicValue="RC0805FR-0710KL" />
+        <Textual definitionSource="Altium" textualCharacteristicName="Manufacturer" textualCharacteristicValue="Yageo" />
+      </Characteristics>
+    </BomItem>
+    <BomItem OEMDesignNumberRef="Lib:CAP CER 4.7UF 25V" quantity="1" description="Capacitor">
+      <RefDes name="C1" packageRef="P0805_1" layerRef="BOTTOM" />
+    </BomItem>
+  </Bom>
+  <Ecad name="mini">
+    <CadHeader units="MILLIMETER" />
+    <CadData>
+      <Layer name="TOP" layerFunction="CONDUCTOR" side="TOP" polarity="POSITIVE" />
+      <Layer name="BOTTOM" layerFunction="CONDUCTOR" side="BOTTOM" polarity="POSITIVE" />
+      <Layer name="SILK_B" layerFunction="SILKSCREEN" side="BOTTOM" polarity="POSITIVE" />
+      <Step name="MINI">
+        <Profile>
+          <Polygon>
+            <PolyBegin x="0" y="0" />
+            <PolyStepSegment x="20" y="0" />
+            <PolyStepCurve x="20" y="10" centerX="20" centerY="5" clockwise="false" />
+            <PolyStepSegment x="0" y="10" />
+            <PolyStepSegment x="0" y="0" />
+          </Polygon>
+          <Cutout>
+            <PolyBegin x="2" y="7" />
+            <PolyStepSegment x="3" y="7" />
+            <PolyStepSegment x="3" y="8" />
+            <PolyStepSegment x="2" y="8" />
+            <PolyStepSegment x="2" y="7" />
+          </Cutout>
+        </Profile>
+        <Package name="P0805">
+          <Outline>
+            <Polygon>
+              <PolyBegin x="-1" y="-0.6" />
+              <PolyStepSegment x="1" y="-0.6" />
+              <PolyStepSegment x="1" y="0.6" />
+              <PolyStepSegment x="-1" y="0.6" />
+              <PolyStepSegment x="-1" y="-0.6" />
+            </Polygon>
+          </Outline>
+          <Pin number="1"><Location x="-0.9" y="0" /><StandardPrimitiveRef id="R1x2" /></Pin>
+          <Pin number="2"><Location x="0.9" y="0" /><StandardPrimitiveRef id="R1x2" /></Pin>
+        </Package>
+        <Package name="P0805_1">
+          <Pin number="1"><Location x="-0.9" y="0" /><StandardPrimitiveRef id="RR" /></Pin>
+          <Pin number="2"><Location x="0.9" y="0" /><StandardPrimitiveRef id="RR" /></Pin>
+        </Package>
+        <LogicalNet name="VCC"><PinRef componentRef="R1" pin="1" /><PinRef componentRef="C1" pin="1" /></LogicalNet>
+        <LogicalNet name="GND"><PinRef componentRef="R1" pin="2" /></LogicalNet>
+        <Component refDes="R1" packageRef="P0805" layerRef="TOP" part="RES"><Xform rotation="90" /><Location x="5" y="5" /></Component>
+        <Component refDes="C1" packageRef="P0805_1" layerRef="BOTTOM" part="CAP"><Xform rotation="0" mirror="true" /><Location x="12" y="5" /></Component>
+        <LayerFeature layerRef="TOP">
+          <Set net="VCC">
+            <Features>
+              <Line startX="5" startY="4.1" endX="12" endY="4.1"><LineDesc lineEnd="ROUND" lineWidth="0.25" /></Line>
+            </Features>
+          </Set>
+          <Set net="VCC">
+            <Pad><Xform rotation="0" /><Location x="15" y="8" /><UserPrimitiveRef id="TRI" /></Pad>
+          </Set>
+          <Set>
+            <Features>
+              <Polyline>
+                <PolyBegin x="1" y="1" />
+                <PolyStepSegment x="4" y="1" />
+                <PolyStepCurve x="4" y="3" centerX="4" centerY="2" clockwise="false" />
+                <LineDesc lineEnd="ROUND" lineWidth="0.2" />
+              </Polyline>
+            </Features>
+          </Set>
+        </LayerFeature>
+        <LayerFeature layerRef="BOTTOM">
+          <Set net="GND">
+            <Pad><Location x="17" y="2" /><StandardPrimitiveRef id="C08" /><PinRef componentRef="TP1" pin="1" /></Pad>
+          </Set>
+        </LayerFeature>
+        <LayerFeature layerRef="SILK_B">
+          <Set>
+            <Features>
+              <UserSpecial>
+                <Arc startX="13" startY="5" endX="13" endY="5" centerX="12" centerY="5" clockwise="false"><LineDesc lineEnd="ROUND" lineWidth="0.15" /></Arc>
+              </UserSpecial>
+            </Features>
+            <Hole name="MH1" diameter="3" platingStatus="NONPLATED" plusTol="0" minusTol="0" x="18" y="8" />
+          </Set>
+        </LayerFeature>
+      </Step>
+    </CadData>
+  </Ecad>
+</IPC-2581>

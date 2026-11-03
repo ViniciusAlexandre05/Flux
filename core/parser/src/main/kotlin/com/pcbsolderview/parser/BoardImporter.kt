@@ -5,6 +5,7 @@ import com.pcbsolderview.parser.bom.Bom
 import com.pcbsolderview.parser.bom.BomParser
 import com.pcbsolderview.parser.bom.XlsxReader
 import com.pcbsolderview.parser.bom.withBom
+import com.pcbsolderview.parser.ipc2581.Ipc2581Parser
 import com.pcbsolderview.parser.pnp.PickPlaceParser
 import com.pcbsolderview.parser.text.Table
 import com.pcbsolderview.parser.text.decodeText
@@ -22,12 +23,10 @@ enum class FileKind { IPC2581, PICK_AND_PLACE, BOM, ZIP, UNKNOWN }
  * and it produces one [Board]. Pick & Place / IPC-2581 give geometry; a BOM, if present,
  * fills in descriptions, part numbers and manufacturers by designator.
  */
-class BoardImporter(
-    private val xml: XmlParserFactory,
-    private val ipc2581: ((InputFile) -> Board)? = null,
-) {
+class BoardImporter(private val xml: XmlParserFactory) {
 
-    fun import(files: List<InputFile>): Board {
+    /** @param onProgress 0..1 while parsing the geometry file. */
+    fun import(files: List<InputFile>, onProgress: (Float) -> Unit = {}): Board {
         val flat = files.flatMap { if (classify(it) == FileKind.ZIP) unzip(it) else listOf(it) }
         val kinds = flat.associateWith { classify(it) }
 
@@ -36,7 +35,9 @@ class BoardImporter(
             ?: throw UnsupportedFormatException()
 
         val board = when (kinds.getValue(geometryFile)) {
-            FileKind.IPC2581 -> (ipc2581 ?: throw UnsupportedFormatException("IPC-2581 support is not available yet."))(geometryFile)
+            FileKind.IPC2581 -> Ipc2581Parser(xml).parse(
+                ByteArrayInputStream(geometryFile.bytes), geometryFile.name, geometryFile.bytes.size.toLong(), onProgress,
+            )
             else -> PickPlaceParser.parse(decodeText(geometryFile.bytes), baseName(geometryFile.name))
         }
 

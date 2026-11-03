@@ -11,6 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -31,6 +33,7 @@ data class BoardColors(
     val label: Color = Color(0xFFFFFFFF),
     val selected: Color = Color(0xFFFFD400),
     val highlight: Color = Color(0xFFFF2BD6),
+    val multiLayer: Color = Color(0xFFC0C0C0),
 )
 
 /**
@@ -57,9 +60,12 @@ fun BoardCanvas(
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
             textAlign = Paint.Align.CENTER
+            // Dark halo keeps designators readable over copper.
+            setShadowLayer(3f, 0f, 0f, android.graphics.Color.BLACK)
         }
     }
     val matrix = remember { Matrix() }
+    val drawOrder = remember(scene, visibleSide) { scene.drawOrder(visibleSide) }
     val outlinePath = remember(scene) {
         if (scene.hasOutline) scene.outline.also { it.fillType = PathFillType.EvenOdd }
         else androidx.compose.ui.graphics.Path().apply { with(BoardScene) { addRect(scene.extent) } }
@@ -107,6 +113,19 @@ fun BoardCanvas(
 
         withTransform({ transform(matrix) }) {
             drawPath(outlinePath, colors.boardFill, style = Fill)
+
+            if (scene.hasGeometry) {
+                for (ls in drawOrder) {
+                    val alpha = if (ls.layer.side == null || ls.layer.side == visibleSide) 0.92f else 0.45f
+                    val c = ls.color.copy(alpha = alpha)
+                    drawPath(ls.fill, c, style = Fill)
+                    for ((w, path) in ls.strokes) {
+                        drawPath(path, c, style = Stroke(width = maxOf(w, px), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                    }
+                }
+                drawPath(scene.multiLayer, colors.multiLayer, style = Fill)
+                drawPath(scene.holes, colors.background, style = Fill)
+            }
             drawPath(outlinePath, colors.outline, style = Stroke(width = 2f * px))
 
             val (front, back) = if (visibleSide == Side.TOP) scene.componentsTop to scene.componentsBottom
@@ -114,10 +133,15 @@ fun BoardCanvas(
             val frontColor = if (visibleSide == Side.TOP) colors.topBody else colors.bottomBody
             val backColor = if (visibleSide == Side.TOP) colors.bottomBody else colors.topBody
 
-            drawPath(back, backColor.copy(alpha = 0.10f), style = Fill)
-            drawPath(back, backColor.copy(alpha = 0.35f), style = Stroke(width = 1f * px))
-            drawPath(front, frontColor.copy(alpha = 0.30f), style = Fill)
-            drawPath(front, frontColor, style = Stroke(width = 1.5f * px))
+            if (scene.hasGeometry) {
+                // Real copper is drawn; component boxes are only a faint guide.
+                drawPath(front, frontColor.copy(alpha = 0.45f), style = Stroke(width = 1f * px))
+            } else {
+                drawPath(back, backColor.copy(alpha = 0.10f), style = Fill)
+                drawPath(back, backColor.copy(alpha = 0.35f), style = Stroke(width = 1f * px))
+                drawPath(front, frontColor.copy(alpha = 0.30f), style = Fill)
+                drawPath(front, frontColor, style = Stroke(width = 1.5f * px))
+            }
 
             if (highlighted.isNotEmpty()) {
                 drawPath(highlightPath, colors.highlight.copy(alpha = 0.45f), style = Fill)
