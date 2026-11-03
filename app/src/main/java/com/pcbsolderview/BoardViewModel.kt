@@ -82,6 +82,12 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
 
     fun dismissError() = _state.update { it.copy(error = null) }
 
+    /** Leaves the board and goes back to the start screen. */
+    fun closeBoard() {
+        loadJob?.cancel()
+        _state.value = UiState()
+    }
+
     fun select(c: Component?) = _state.update { it.copy(selected = c) }
 
     fun search(query: String) {

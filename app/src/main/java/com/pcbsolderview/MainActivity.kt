@@ -34,6 +34,7 @@ class MainActivity : ComponentActivity() {
                     actions = BoardActions(
                         openFiles = { picker.launch(arrayOf("*/*")) },
                         openDemo = vm::openDemo,
+                        closeBoard = vm::closeBoard,
                         select = vm::select,
                         search = vm::search,
                         pickResult = vm::pickResult,

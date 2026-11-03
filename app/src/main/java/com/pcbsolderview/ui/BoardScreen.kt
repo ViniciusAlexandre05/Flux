@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,6 +24,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
@@ -62,6 +64,7 @@ import com.pcbsolderview.render.ViewTransform
 class BoardActions(
     val openFiles: () -> Unit,
     val openDemo: (String) -> Unit,
+    val closeBoard: () -> Unit,
     val select: (Component?) -> Unit,
     val search: (String) -> Unit,
     val pickResult: (Component?) -> Unit,
@@ -146,6 +149,8 @@ private fun BoardContent(scene: BoardScene, state: UiState, actions: BoardAction
         val zoom = (minOf(w, h) * 0.25 / sizeUm / t.fitScale).coerceIn(2.0, ViewTransform.MAX_ZOOM)
         transform = t.centerOn(c.position.x.toDouble(), c.position.y.toDouble(), w.toDouble(), h.toDouble(), zoom)
     }
+    // Declared later = higher priority: Back first closes the details panel, then leaves the board.
+    BackHandler { actions.closeBoard() }
     BackHandler(enabled = state.selected != null) { actions.select(null) }
 
     Column(Modifier.fillMaxSize()) {
@@ -214,7 +219,9 @@ private fun TopBar(title: String, state: UiState, actions: BoardActions, onFit: 
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            FilledTonalButton(onClick = actions.openFiles, modifier = Modifier.height(56.dp)) { Text("Open") }
+            IconButton(onClick = actions.closeBoard, modifier = Modifier.size(56.dp).testTag("back")) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to start")
+            }
             Text(
                 title, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.titleMedium, modifier = Modifier.widthIn(max = 220.dp),
