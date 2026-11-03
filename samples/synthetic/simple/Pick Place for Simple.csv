@@ -1,0 +1,23 @@
+Altium Designer Pick and Place Locations
+C:\Projects\Simple\Simple.PcbDoc
+
+========================================================================================================================
+File Design Information:
+
+Date:       03/11/26
+Time:       10:15
+Revision:   Not in VersionControl
+Variant:    No variations
+Units used: mm
+
+"Designator","Comment","Layer","Footprint","Center-X(mm)","Center-Y(mm)","Rotation","Description"
+"C1","100nF","TopLayer","C0603","10.0000","5.0000","90","Capacitor, ceramic"
+"C2","100nF","TopLayer","C0603","14.5000","5.0000","90","Capacitor, ceramic"
+"C3","10uF","TopLayer","C0805","20.2500","12.7500","0","Capacitor, ceramic"
+"R1","10k","TopLayer","R0603","8.0000","20.0000","180","Resistor"
+"R2","10k","TopLayer","R0603","11.0000","20.0000","180","Resistor"
+"R3","4k7","TopLayer","R0603","30.0000","20.0000","270","Resistor"
+"D1","LED Red","TopLayer","LED0805","35.0000","5.0000","0","Typical RED SiC LED"
+"U1","NE555","TopLayer","SOIC-8","22.0000","25.0000","0","Timer IC"
+"J1","Header 2","TopLayer","HDR1X2","3.0000","15.0000","90","Header, 2-Pin"
+"Q1","BC847","TopLayer","SOT-23","28.5000","32.1250","45","NPN transistor"

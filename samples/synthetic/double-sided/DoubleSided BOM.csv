@@ -1,0 +1,10 @@
+Bill of Materials for DoubleSided
+Source: DoubleSided.PrjPcb
+
+Designator;Value;Description;Manufacturer;Manufacturer Part Number;Qty
+C1-C2;100n;Capacitor 0805 50V;Murata;GRM21BR71H104KA01L;2
+C3;1u;Capacitor 0402 16V;Samsung;CL05A105KO5NNNC;1
+R10 R11;10k;Resistor 0603 1%;Yageo;RC0603FR-0710KL;2
+U2;STM32F030F4;ARM Cortex-M0 MCU, 16KB Flash;STMicroelectronics;STM32F030F4P6;1
+U3;ESP32 module;"Wi-Fi; BT module";Espressif;ESP32-C3-MINI-1;1
+L1;4.7uH;Inductor, shielded, 3A;Bourns;SRN4018-4R7M;1

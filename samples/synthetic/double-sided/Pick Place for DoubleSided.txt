@@ -1,0 +1,21 @@
+Altium Designer Pick and Place Locations
+C:\Projects\DoubleSided\DoubleSided.PcbDoc
+
+========================================================================================================================
+File Design Information:
+
+Date:       03/11/26
+Time:       10:20
+Revision:   Not in VersionControl
+Variant:    No variations
+Units used: mil
+
+Designator Footprint               Mid X         Mid Y         Ref X         Ref Y         Pad X         Pad Y TB      Rotation Comment
+C1         0805                    1325mil       1300mil       1325mil       1300mil       1365mil       1300mil  T      180.00 100n
+C2         0805                    1325mil       1100mil       1325mil       1100mil       1365mil       1100mil  B        0.00 100n
+C3         0402                    500mil        250mil        500mil        250mil        520mil        250mil   B       90.00 1u
+R10        0603                    2000mil       400mil        2000mil       400mil        2030mil       400mil   T      270.00 10k
+R11        0603                    2000mil       500mil        2000mil       500mil        2030mil       500mil   B      270.00 10k
+U2         TSSOP-20                1500mil       800mil        1500mil       800mil        1300mil       700mil   T        0.00 STM32F030F4
+U3         QFN-32                  1500mil       800mil        1500mil       800mil        1350mil       650mil   B       90.00 ESP32 module
+L1         1210                    250.5mil      1750.25mil    250.5mil      1750.25mil    300mil        1750mil  T       45.00 4.7uH shielded
