@@ -393,7 +393,7 @@ private fun BarIcon(icon: ImageVector, label: String, onClick: () -> Unit, check
 
 /** Parts / Nets as one two-option control with labels. */
 @Composable
-private fun InspectModeToggle(tool: Tool, onTool: (Tool) -> Unit) {
+private fun InspectModeToggle(tool: Tool, onTool: (Tool) -> Unit, showLabels: Boolean = true) {
     Surface(color = MaterialTheme.colorScheme.surfaceContainerHighest, shape = MaterialTheme.shapes.extraLarge) {
         Row(Modifier.padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             listOf(Tool.COMPONENTS to "Parts", Tool.NETS to "Nets").forEach { (t, label) ->
@@ -408,8 +408,10 @@ private fun InspectModeToggle(tool: Tool, onTool: (Tool) -> Unit) {
                 ) {
                     val fg = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                     Icon(toolIcon(t), contentDescription = toolLabel(t), tint = fg, modifier = Modifier.size(22.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(label, color = fg, style = MaterialTheme.typography.labelLarge)
+                    if (showLabels) {
+                        Spacer(Modifier.width(6.dp))
+                        Text(label, color = fg, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                    }
                 }
             }
         }
@@ -421,56 +423,71 @@ private fun BarDivider() {
     Box(Modifier.width(1.dp).height(32.dp).background(MaterialTheme.colorScheme.outlineVariant))
 }
 
+/** Below this width the search field moves to its own row (portrait tablet, phones). */
+private val SEARCH_INLINE_MIN_WIDTH = 1040.dp
+
 @Composable
 private fun TopBar(title: String, subtitle: String, state: UiState, vm: BoardViewModel, onFit: () -> Unit, onFlip: () -> Unit) {
-    val focus = LocalFocusManager.current
     Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            IconButton(onClick = vm::closeBoard, modifier = Modifier.size(52.dp).testTag("back")) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to start")
-            }
-            Column(Modifier.widthIn(max = 220.dp)) {
-                Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
-                Text(subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Spacer(Modifier.width(4.dp))
-            OutlinedTextField(
-                shape = MaterialTheme.shapes.extraLarge,
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    unfocusedBorderColor = Color.Transparent,
-                ),
-                value = state.query,
-                onValueChange = vm::search,
-                singleLine = true,
-                placeholder = { Text("Search R12, 100nF…") },
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (state.query.isNotEmpty()) IconButton(onClick = vm::clearSearch) {
-                        Icon(Icons.Filled.Close, contentDescription = "Clear search")
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val inline = maxWidth >= SEARCH_INLINE_MIN_WIDTH
+            val compactToggle = maxWidth < 640.dp
+            Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    IconButton(onClick = vm::closeBoard, modifier = Modifier.size(52.dp).testTag("back")) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to start")
                     }
-                },
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { vm.pickResult(null); focus.clearFocus() }),
-                modifier = Modifier.weight(1f).testTag("search"),
-            )
-            InspectModeToggle(state.tool, vm::setTool)
-            BarDivider()
-            BarIcon(Icons.Filled.Handyman, "Tools", vm::toggleToolsPanel, checked = state.showToolsPanel, tag = "tools.button")
-            BarIcon(Icons.Filled.FitScreen, "Fit to screen", onFit)
-            BarIcon(
-                Icons.Filled.Flip,
-                if (state.visibleSide == Side.TOP) "Showing top — tap for bottom view" else "Showing bottom — tap for top view",
-                onFlip, checked = state.visibleSide == Side.BOTTOM, tag = "flip",
-            )
-            BarIcon(Icons.Filled.Layers, "Layers & display", vm::toggleLayersPanel, checked = state.showLayersPanel)
+                    Column(if (inline) Modifier.widthIn(max = 220.dp) else Modifier.weight(1f)) {
+                        Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
+                        Text(subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    if (inline) SearchField(state, vm, Modifier.weight(1f))
+                    InspectModeToggle(state.tool, vm::setTool, showLabels = !compactToggle)
+                    BarDivider()
+                    BarIcon(Icons.Filled.Handyman, "Tools", vm::toggleToolsPanel, checked = state.showToolsPanel, tag = "tools.button")
+                    BarIcon(Icons.Filled.FitScreen, "Fit to screen", onFit)
+                    BarIcon(
+                        Icons.Filled.Flip,
+                        if (state.visibleSide == Side.TOP) "Showing top — tap for bottom view" else "Showing bottom — tap for top view",
+                        onFlip, checked = state.visibleSide == Side.BOTTOM, tag = "flip",
+                    )
+                    BarIcon(Icons.Filled.Layers, "Layers & display", vm::toggleLayersPanel, checked = state.showLayersPanel)
+                }
+                if (!inline) SearchField(state, vm, Modifier.fillMaxWidth())
+            }
         }
     }
+}
+
+@Composable
+private fun SearchField(state: UiState, vm: BoardViewModel, modifier: Modifier) {
+    val focus = LocalFocusManager.current
+    OutlinedTextField(
+        shape = MaterialTheme.shapes.extraLarge,
+        colors = OutlinedTextFieldDefaults.colors(
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            unfocusedBorderColor = Color.Transparent,
+        ),
+        value = state.query,
+        onValueChange = vm::search,
+        singleLine = true,
+        // One line only: a squeezed placeholder used to wrap word by word and grow the bar.
+        placeholder = { Text("Search R12, 100nF…", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, modifier = Modifier.size(24.dp)) },
+        trailingIcon = {
+            if (state.query.isNotEmpty()) IconButton(onClick = vm::clearSearch) {
+                Icon(Icons.Filled.Close, contentDescription = "Clear search")
+            }
+        },
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = { vm.pickResult(null); focus.clearFocus() }),
+        modifier = modifier.heightIn(max = 64.dp).testTag("search"),
+    )
 }
 
 @Composable
