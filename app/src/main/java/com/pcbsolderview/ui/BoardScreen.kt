@@ -279,6 +279,8 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                             penOnlyDrawing = appearance.penOnlyDrawing,
                             showFps = appearance.showFps,
                             grid = appearance.grid,
+                            gridAuto = appearance.gridAuto,
+                            gridStepUm = appearance.gridStepUm,
                         ),
                         selected = state.selected,
                         highlighted = state.highlighted,

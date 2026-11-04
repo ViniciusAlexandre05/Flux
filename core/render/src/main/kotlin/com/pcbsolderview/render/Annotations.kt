@@ -28,6 +28,10 @@ data class DisplayOptions(
     val maskArgb: Int = MASK_COLORS.first().second,
     /** Background grid behind the board. */
     val grid: GridStyle = GridStyle.NONE,
+    /** Fixed grid spacing in µm (default 1 mm), used when [gridAuto] is off. */
+    val gridStepUm: Long = 1_000,
+    /** Automatic grid: spacing follows the zoom instead of [gridStepUm]. */
+    val gridAuto: Boolean = false,
 ) {
     companion object {
         val MASK_COLORS: List<Pair<String, Int>> = listOf(

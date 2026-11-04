@@ -9,6 +9,8 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import com.pcbsolderview.render.GridStyle
+import com.pcbsolderview.render.GridUnit
+import androidx.datastore.preferences.core.longPreferencesKey
 
 enum class ThemeMode(val label: String) { DARK("Dark"), LIGHT("Light"), HIGH_CONTRAST("High contrast") }
 
@@ -28,6 +30,12 @@ data class Appearance(
     val showFps: Boolean = false,
     /** Background grid behind the board. */
     val grid: GridStyle = GridStyle.NONE,
+    /** Grid spacing follows the zoom (auto) or stays at [gridStepUm] (manual). */
+    val gridAuto: Boolean = false,
+    /** Unit for the manual spacing slider. */
+    val gridUnit: GridUnit = GridUnit.MM,
+    /** Manual grid spacing in µm. */
+    val gridStepUm: Long = 1_000,
 ) {
     companion object {
         val ACCENTS: List<Pair<String, Int>> = listOf(
@@ -58,6 +66,9 @@ class AppearancePrefs(private val context: Context) {
     private val kPenOnly = booleanPreferencesKey("pen_only_drawing")
     private val kFps = booleanPreferencesKey("show_fps")
     private val kGrid = stringPreferencesKey("grid")
+    private val kGridAuto = booleanPreferencesKey("grid_auto")
+    private val kGridUnit = stringPreferencesKey("grid_unit")
+    private val kGridStep = longPreferencesKey("grid_step_um")
 
     companion object {
         private const val SYNC = "appearance_sync"
@@ -78,6 +89,9 @@ class AppearancePrefs(private val context: Context) {
                 penOnlyDrawing = p.getBoolean("pen_only_drawing", d.penOnlyDrawing),
                 showFps = p.getBoolean("show_fps", d.showFps),
                 grid = p.getString("grid", null)?.let { runCatching { GridStyle.valueOf(it) }.getOrNull() } ?: d.grid,
+                gridAuto = p.getBoolean("grid_auto", d.gridAuto),
+                gridUnit = p.getString("grid_unit", null)?.let { runCatching { GridUnit.valueOf(it) }.getOrNull() } ?: d.gridUnit,
+                gridStepUm = p.getLong("grid_step_um", d.gridStepUm),
             )
         }
 
@@ -86,6 +100,7 @@ class AppearancePrefs(private val context: Context) {
                 .putString("mode", a.mode.name).putInt("accent", a.accent).putInt("board_background", a.boardBackground)
                 .putBoolean("rotation_gesture", a.rotationGesture).putBoolean("pen_only_drawing", a.penOnlyDrawing)
                 .putBoolean("show_fps", a.showFps).putString("grid", a.grid.name)
+                .putBoolean("grid_auto", a.gridAuto).putString("grid_unit", a.gridUnit.name).putLong("grid_step_um", a.gridStepUm)
                 .apply()
         }
     }
@@ -100,6 +115,9 @@ class AppearancePrefs(private val context: Context) {
             penOnlyDrawing = p[kPenOnly] ?: d.penOnlyDrawing,
             showFps = p[kFps] ?: d.showFps,
             grid = p[kGrid]?.let { runCatching { GridStyle.valueOf(it) }.getOrNull() } ?: d.grid,
+            gridAuto = p[kGridAuto] ?: d.gridAuto,
+            gridUnit = p[kGridUnit]?.let { runCatching { GridUnit.valueOf(it) }.getOrNull() } ?: d.gridUnit,
+            gridStepUm = p[kGridStep] ?: d.gridStepUm,
         )
     }
 
@@ -113,6 +131,9 @@ class AppearancePrefs(private val context: Context) {
             p[kPenOnly] = a.penOnlyDrawing
             p[kFps] = a.showFps
             p[kGrid] = a.grid.name
+            p[kGridAuto] = a.gridAuto
+            p[kGridUnit] = a.gridUnit.name
+            p[kGridStep] = a.gridStepUm
         }
     }
 }

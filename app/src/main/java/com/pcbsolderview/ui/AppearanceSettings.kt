@@ -36,6 +36,11 @@ import androidx.compose.ui.unit.dp
 import com.pcbsolderview.data.Appearance
 import com.pcbsolderview.data.ThemeMode
 import com.pcbsolderview.render.GridStyle
+import com.pcbsolderview.render.Grid
+import com.pcbsolderview.render.GridUnit
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Slider
+import kotlin.math.roundToInt
 
 /** Theme mode, accent colour and board background. Changes apply immediately and are saved. */
 @Composable
@@ -108,11 +113,49 @@ fun SettingsContent(a: Appearance, onChange: (Appearance) -> Unit, modifier: Mod
         Segmented(GridStyle.entries.map { it.label }, GridStyle.entries.indexOf(a.grid), tag = "grid") { i ->
             onChange(a.copy(grid = GridStyle.entries[i]))
         }
-        Text(
-            "Spacing adapts to the zoom (0.1 mm to 50 mm); every 5th line is brighter.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp),
-        )
+        if (a.grid != GridStyle.NONE) {
+            Spacer(Modifier.height(10.dp))
+            Text("Grid spacing", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(6.dp))
+            Segmented(listOf("Manual", "Automatic"), if (a.gridAuto) 1 else 0, tag = "gridmode") { i -> onChange(a.copy(gridAuto = i == 1)) }
+            if (a.gridAuto) {
+                Text(
+                    "Spacing follows the zoom (0.1 mm to 50 mm) so lines stay readable.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            } else {
+                Spacer(Modifier.height(8.dp))
+                Segmented(GridUnit.entries.map { it.label }, GridUnit.entries.indexOf(a.gridUnit), tag = "gridunit") { i ->
+                    val unit = GridUnit.entries[i]
+                    // Keep roughly the same spacing when switching units.
+                    val idx = Grid.nearestIndex(a.gridStepUm, unit)
+                    onChange(a.copy(gridUnit = unit, gridStepUm = Grid.toMicrons(Grid.steps(unit)[idx], unit)))
+                }
+                val steps = Grid.steps(a.gridUnit)
+                val idx = Grid.nearestIndex(a.gridStepUm, a.gridUnit)
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Slider(
+                        value = idx.toFloat(),
+                        onValueChange = { v ->
+                            val i = v.roundToInt().coerceIn(0, steps.lastIndex)
+                            val um = Grid.toMicrons(steps[i], a.gridUnit)
+                            if (um != a.gridStepUm) onChange(a.copy(gridStepUm = um))
+                        },
+                        valueRange = 0f..steps.lastIndex.toFloat(),
+                        steps = steps.size - 2,
+                        modifier = Modifier.weight(1f).testTag("grid.slider"),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(Grid.label(steps[idx], a.gridUnit), style = MaterialTheme.typography.titleSmall, modifier = Modifier.width(72.dp))
+                }
+                Text(
+                    "Fixed spacing; every 5th line is brighter. When zoomed far out only the bright lines are drawn.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         Spacer(Modifier.height(12.dp)); HorizontalDivider()
         SectionTitle("Touch & S Pen")
         ToggleRow("Two-finger rotation", a.rotationGesture, "Twist with two fingers to rotate; locks near 0°, 90°, 180° and 270°.") {

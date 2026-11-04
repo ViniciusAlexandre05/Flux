@@ -337,7 +337,7 @@ fun BoardCanvas(
         val mask = Color(options.maskArgb)
 
         withTransform({ transform(matrix) }) {
-            if (options.grid != GridStyle.NONE) drawGrid(t, options.grid, colors.background, px)
+            if (options.grid != GridStyle.NONE) drawGrid(t, options.grid, options.gridStepUm, options.gridAuto, colors.background, px)
 
             drawPath(outlinePath, if (realistic) mask else colors.boardFill, style = Fill)
 
@@ -470,14 +470,22 @@ private const val SHADOW_DY_PX = 3.5
 
 /**
  * Background grid in board coordinates (drawn under the board, inside the view transform).
- * Lines: minor + brighter major every [Grid.MAJOR_EVERY]; dots: one per intersection.
+ * Manual: fixed spacing [stepUm]; when zoomed out too far, minor lines are skipped, then the grid
+ * is hidden. Auto: the spacing follows the zoom. Lines: minor + brighter major every
+ * [Grid.MAJOR_EVERY]; dots: one per intersection.
  */
-private fun DrawScope.drawGrid(t: ViewTransform, style: GridStyle, background: Color, px: Float) {
-    val step = Grid.stepFor(t.scale)
+private fun DrawScope.drawGrid(t: ViewTransform, style: GridStyle, stepUm: Long, auto: Boolean, background: Color, px: Float) {
+    val density = if (auto) Grid.Density.ALL else Grid.density(stepUm, t.scale)
+    if (density == Grid.Density.NOTHING) return
+    // At MAJOR density, draw only the major lines (step × 5); they still sit on the chosen grid.
+    val majorsOnly = density == Grid.Density.MAJOR
+    val base = if (auto) Grid.autoStep(t.scale) else stepUm
+    val step = if (majorsOnly) base * Grid.MAJOR_EVERY else base
+    fun major(k: Long) = majorsOnly || Grid.isMajor(k)
     val v = Grid.visible(t, size.width.toDouble(), size.height.toDouble())
     val xs = Grid.range(v[0], v[2], step)
     val ys = Grid.range(v[1], v[3], step)
-    if ((xs.last - xs.first) * (ys.last - ys.first) > 20_000) return // safety: never flood a frame
+    if ((xs.last - xs.first) * (ys.last - ys.first) > 40_000) return // safety: never flood a frame
     val ink = if (background.luminance() > 0.5f) Color.Black else Color.White
     val minor = ink.copy(alpha = 0.09f)
     val major = ink.copy(alpha = 0.22f)
@@ -486,8 +494,8 @@ private fun DrawScope.drawGrid(t: ViewTransform, style: GridStyle, background: C
     when (style) {
         GridStyle.LINES -> {
             val minorPath = Path(); val majorPath = Path()
-            for (k in xs) { val p = if (Grid.isMajor(k)) majorPath else minorPath; val x = (k * step).toFloat(); p.moveTo(x, y0); p.lineTo(x, y1) }
-            for (k in ys) { val p = if (Grid.isMajor(k)) majorPath else minorPath; val y = (k * step).toFloat(); p.moveTo(x0, y); p.lineTo(x1, y) }
+            for (k in xs) { val p = if (major(k)) majorPath else minorPath; val x = (k * step).toFloat(); p.moveTo(x, y0); p.lineTo(x, y1) }
+            for (k in ys) { val p = if (major(k)) majorPath else minorPath; val y = (k * step).toFloat(); p.moveTo(x0, y); p.lineTo(x1, y) }
             drawPath(minorPath, minor, style = Stroke(width = 1f * px))
             drawPath(majorPath, major, style = Stroke(width = 1.4f * px))
         }
@@ -495,7 +503,7 @@ private fun DrawScope.drawGrid(t: ViewTransform, style: GridStyle, background: C
             val minorPts = ArrayList<Offset>(); val majorPts = ArrayList<Offset>()
             for (i in xs) for (j in ys) {
                 val o = Offset((i * step).toFloat(), (j * step).toFloat())
-                if (Grid.isMajor(i) && Grid.isMajor(j)) majorPts += o else minorPts += o
+                if (major(i) && major(j)) majorPts += o else minorPts += o
             }
             drawPoints(minorPts, PointMode.Points, ink.copy(alpha = 0.22f), strokeWidth = 2.2f * px, cap = StrokeCap.Round)
             drawPoints(majorPts, PointMode.Points, ink.copy(alpha = 0.45f), strokeWidth = 3.6f * px, cap = StrokeCap.Round)
