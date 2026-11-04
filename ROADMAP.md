@@ -5,6 +5,12 @@
 Board viewer for the soldering bench: IPC-2581 and Pick & Place/BOM import, CAD and realistic
 views, parts/nets inspection, status painting, drawing with the S Pen, recent boards, settings.
 
+## v0.0.1 — released
+
+Richer part details (part number, height, mounting, library) checked against the file and
+selectable in Settings; batch status on highlighted parts; box selection; vias in the
+realistic view. See [CHANGELOG.md](CHANGELOG.md).
+
 ## v0.1 — Schematic sync (next)
 
 Tracked in the [v0.1 Schematic sync milestone](https://github.com/ViniciusAlexandre05/Flux/milestone/1).

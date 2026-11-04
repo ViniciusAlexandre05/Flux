@@ -2,7 +2,7 @@
 
 All notable changes to Flux. Dates are in YYYY-MM-DD.
 
-## Unreleased
+## 0.0.1 — 2026-11-04
 
 ### Part details
 - New fields in the part details panel: **part number**, **library reference**, **height**,
