@@ -8,3 +8,6 @@ captures/
 *.keystore
 *.jks
 keystore.properties
+
+# Real board exports are private designs: kept on this machine for tests, never pushed.
+samples/real/

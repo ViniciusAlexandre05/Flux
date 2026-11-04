@@ -27,6 +27,12 @@ import kotlin.math.abs
 /** Real Altium export (revision B). Expected counts are computed independently from the raw text. */
 class Ipc2581RealBoardTest {
     private val path = "real/double-sided/IEPE_CONDITIONER_V1.cvg"
+
+    /** Real exports are private and not in the repository; these tests run only where the file exists. */
+    @org.junit.jupiter.api.BeforeEach
+    fun requireRealSample() {
+        org.junit.jupiter.api.Assumptions.assumeTrue(File(Samples.dir, path).exists(), "Real sample $path not present; skipping")
+    }
     private val text by lazy { Samples.text(path) }
     private val board: Board by lazy {
         BoardImporter(testXml).import(listOf(Samples.input(path)))

@@ -17,6 +17,8 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
-    // Fixtures live in <repo>/samples
+    // Fixtures live in <repo>/samples. Declared as inputs so adding/removing a sample re-runs the
+    // tests instead of reusing a cached result (samples/real/ is local-only and may be missing).
     systemProperty("samples.dir", rootProject.file("samples").absolutePath)
+    inputs.files(rootProject.fileTree("samples")).withPropertyName("samples")
 }
