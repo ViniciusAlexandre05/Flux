@@ -109,6 +109,12 @@ fun BoardCanvas(
         Path().apply { highlighted.forEach { c -> scene.board.padsOf(c).forEach { addRing(it.outline()) } } }
     }
     val highlightedRefs = remember(highlighted) { highlighted.map { it.refDes }.toSet() }
+    // Status paint of highlighted parts, redrawn above the focus fade so it stays visible.
+    val highlightedMarkPaths = remember(scene, highlighted, marks) {
+        highlighted.mapNotNull { c -> marks[c.refDes]?.let { it.argb to c } }
+            .groupBy({ it.first }, { it.second })
+            .mapValues { (_, cs) -> Path().apply { cs.forEach { addRect(it.bounds) } } }
+    }
     val selectedPath = remember(scene, selected) { scene.pathFor(listOfNotNull(selected)) }
     val netGeometry = remember(scene, selectedNet, options.hiddenLayers) { selectedNet?.let { scene.netGeometry(it, options.hiddenLayers) } }
     val markPaths = remember(scene, marks) {
@@ -420,6 +426,10 @@ fun BoardCanvas(
                 // background, then redraw only the highlighted parts — pads solid, body tinted.
                 drawPath(outlinePath, colors.background.copy(alpha = FOCUS_FADE), style = Fill)
                 drawPath(highlightPath, colors.highlight.copy(alpha = 0.22f), style = Fill)
+                // Highlighted parts keep their status colour (OK green, Problem red, …).
+                if (options.showAnnotations) {
+                    for ((argb, path) in highlightedMarkPaths) drawPath(path, Color(argb).copy(alpha = 0.7f), style = Fill)
+                }
                 drawPath(highlightPadsPath, colors.highlight, style = Fill)
                 drawPath(highlightPath, colors.highlight, style = Stroke(width = 2.5f * px))
             }
