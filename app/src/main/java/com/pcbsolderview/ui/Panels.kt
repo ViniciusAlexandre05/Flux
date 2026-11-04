@@ -58,6 +58,7 @@ import com.pcbsolderview.model.LayerType
 import com.pcbsolderview.model.NaturalOrder
 import com.pcbsolderview.render.BoardScene
 import com.pcbsolderview.render.DisplayOptions
+import com.pcbsolderview.render.ViewMode
 
 // ---------------------------------------------------------------------------- toolbox
 
@@ -135,6 +136,36 @@ fun LayersPanel(
                 Text("Layers & view", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                 IconButton(onClick = onClose, modifier = Modifier.size(48.dp)) { Icon(Icons.Filled.Close, contentDescription = "Close layers") }
             }
+            Text("View style", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(6.dp))
+            Segmented(listOf("CAD layers", "Realistic"), if (display.viewMode == ViewMode.REALISTIC) 1 else 0, tag = "viewmode") { i ->
+                onDisplay(display.copy(viewMode = if (i == 1) ViewMode.REALISTIC else ViewMode.CAD))
+            }
+            if (display.viewMode == ViewMode.REALISTIC) {
+                Spacer(Modifier.height(10.dp))
+                Text("Solder mask", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    DisplayOptions.MASK_COLORS.forEach { (name, argb) ->
+                        Box(
+                            Modifier.size(38.dp).background(Color(argb), RoundedCornerShape(10.dp))
+                                .border(
+                                    if (display.maskArgb == argb) 3.dp else 1.dp,
+                                    if (display.maskArgb == argb) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                                    RoundedCornerShape(10.dp),
+                                )
+                                .clickable { onDisplay(display.copy(maskArgb = argb)) }
+                                .testTag("mask.$name"),
+                        )
+                    }
+                }
+                Text(
+                    "Shows the board as assembled: mask, pads, silkscreen and part bodies; no tracks or planes.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+            Spacer(Modifier.height(8.dp)); HorizontalDivider(); Spacer(Modifier.height(4.dp))
             ToggleRow("Designators", display.showDesignators) { onDisplay(display.copy(showDesignators = it)) }
             ToggleRow("Component outlines", display.showComponentOutlines) { onDisplay(display.copy(showComponentOutlines = it)) }
             if (scene.hasGeometry) ToggleRow("Through-hole pads & vias", display.showMultiLayer) { onDisplay(display.copy(showMultiLayer = it)) }

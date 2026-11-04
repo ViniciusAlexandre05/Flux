@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import com.pcbsolderview.render.GridStyle
 
 enum class ThemeMode(val label: String) { DARK("Dark"), LIGHT("Light"), HIGH_CONTRAST("High contrast") }
 
@@ -25,6 +26,8 @@ data class Appearance(
     val penOnlyDrawing: Boolean = false,
     /** Frame-rate meter on the board. */
     val showFps: Boolean = false,
+    /** Background grid behind the board. */
+    val grid: GridStyle = GridStyle.NONE,
 ) {
     companion object {
         val ACCENTS: List<Pair<String, Int>> = listOf(
@@ -54,6 +57,7 @@ class AppearancePrefs(private val context: Context) {
     private val kRotation = booleanPreferencesKey("rotation_gesture")
     private val kPenOnly = booleanPreferencesKey("pen_only_drawing")
     private val kFps = booleanPreferencesKey("show_fps")
+    private val kGrid = stringPreferencesKey("grid")
 
     companion object {
         private const val SYNC = "appearance_sync"
@@ -73,6 +77,7 @@ class AppearancePrefs(private val context: Context) {
                 rotationGesture = p.getBoolean("rotation_gesture", d.rotationGesture),
                 penOnlyDrawing = p.getBoolean("pen_only_drawing", d.penOnlyDrawing),
                 showFps = p.getBoolean("show_fps", d.showFps),
+                grid = p.getString("grid", null)?.let { runCatching { GridStyle.valueOf(it) }.getOrNull() } ?: d.grid,
             )
         }
 
@@ -80,7 +85,7 @@ class AppearancePrefs(private val context: Context) {
             context.getSharedPreferences(SYNC, Context.MODE_PRIVATE).edit()
                 .putString("mode", a.mode.name).putInt("accent", a.accent).putInt("board_background", a.boardBackground)
                 .putBoolean("rotation_gesture", a.rotationGesture).putBoolean("pen_only_drawing", a.penOnlyDrawing)
-                .putBoolean("show_fps", a.showFps)
+                .putBoolean("show_fps", a.showFps).putString("grid", a.grid.name)
                 .apply()
         }
     }
@@ -94,6 +99,7 @@ class AppearancePrefs(private val context: Context) {
             rotationGesture = p[kRotation] ?: d.rotationGesture,
             penOnlyDrawing = p[kPenOnly] ?: d.penOnlyDrawing,
             showFps = p[kFps] ?: d.showFps,
+            grid = p[kGrid]?.let { runCatching { GridStyle.valueOf(it) }.getOrNull() } ?: d.grid,
         )
     }
 
@@ -106,6 +112,7 @@ class AppearancePrefs(private val context: Context) {
             p[kRotation] = a.rotationGesture
             p[kPenOnly] = a.penOnlyDrawing
             p[kFps] = a.showFps
+            p[kGrid] = a.grid.name
         }
     }
 }

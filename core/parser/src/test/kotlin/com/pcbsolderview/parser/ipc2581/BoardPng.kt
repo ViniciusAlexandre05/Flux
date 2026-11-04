@@ -20,6 +20,55 @@ import javax.imageio.ImageIO
  * Altium without a device. Top view: bottom layers first, then top.
  */
 object BoardPng {
+    /**
+     * Preview of the app's realistic view (mirrors render/BodyStyle): green mask, gold pads,
+     * white silkscreen, part bodies from package outlines with a drop shadow. No tracks/planes.
+     */
+    fun renderRealistic(board: Board, out: File, widthPx: Int = 1600) {
+        val b = board.bounds.inflate(1000)
+        val scale = widthPx.toDouble() / b.width
+        val heightPx = (b.height * scale).toInt().coerceAtLeast(1)
+        val img = BufferedImage(widthPx, heightPx, BufferedImage.TYPE_INT_RGB)
+        val g = img.createGraphics()
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+        g.color = Color(0x0B0F14); g.fillRect(0, 0, widthPx, heightPx)
+        fun sx(x: Double) = (x - b.minX) * scale
+        fun sy(y: Double) = (b.maxY - y) * scale
+        fun path(pts: List<Point>, p: Path2D.Double = Path2D.Double(Path2D.WIND_EVEN_ODD)): Path2D.Double {
+            pts.forEachIndexed { i, q -> if (i == 0) p.moveTo(sx(q.x.toDouble()), sy(q.y.toDouble())) else p.lineTo(sx(q.x.toDouble()), sy(q.y.toDouble())) }
+            p.closePath(); return p
+        }
+        board.outline.forEach { poly -> val p = path(poly.points); poly.holes.forEach { path(it, p) }; g.color = Color(0x1E5C3A); g.fill(p) }
+        g.color = Color(0xD8B45A)
+        board.pads.filter { it.isThroughHole || it.side == Side.TOP }.forEach { g.fill(path(it.outline())) }
+        g.color = Color(0x0B0F14)
+        val viaHoles = board.vias.map { it.position to it.drill }.toHashSet()
+        board.holes.filter { (it.position to it.diameter) !in viaHoles }.forEach { h -> val r = h.diameter / 2.0 * scale; g.fill(Ellipse2D.Double(sx(h.position.x.toDouble()) - r, sy(h.position.y.toDouble()) - r, 2 * r, 2 * r)) }
+        val silk = board.layers.filter { it.type == LayerType.SILKSCREEN && it.side == Side.TOP }.map { it.name }.toSet()
+        g.color = Color(0xF2F2EE)
+        board.fills.filter { it.layer in silk }.forEach { f -> val p = path(f.polygon.points); f.polygon.holes.forEach { path(it, p) }; g.fill(p) }
+        board.tracks.filter { it.layer in silk }.forEach { t ->
+            g.stroke = BasicStroke(maxOf(1.0, t.width * scale).toFloat(), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
+            val p = Path2D.Double(); t.centerline().forEachIndexed { i, (x, y) -> if (i == 0) p.moveTo(sx(x), sy(y)) else p.lineTo(sx(x), sy(y)) }; g.draw(p)
+        }
+        val parts = board.components.filter { it.side == Side.TOP && it.padIds.isNotEmpty() }
+        fun bodyColor(ref: String, desc: String): Color = if ("terminal" in desc || "borne" in desc) Color(0x2F6DB5) else when (ref.takeWhile { it.isLetter() }.uppercase()) {
+            "R" -> Color(0x1C1C1E); "C" -> Color(0xB99A6E); "U", "Q" -> Color(0x17181A)
+            "J", "P" -> if ("terminal" in desc || "borne" in desc) Color(0x2F6DB5) else Color(0xDCD5C0)
+            else -> Color(0x2A2C30)
+        }
+        val shadow = java.awt.geom.AffineTransform.getTranslateInstance(2.5, 3.5)
+        g.color = Color(0, 0, 0, 97)
+        parts.forEach { c -> c.outline?.let { g.fill(shadow.createTransformedShape(path(it))) } }
+        parts.forEach { c ->
+            val o = c.outline ?: return@forEach
+            val p = path(o)
+            g.color = bodyColor(c.refDes, (c.description ?: "").lowercase()); g.fill(p)
+            g.stroke = BasicStroke(1.6f); g.color = Color(255, 255, 255, 46); g.draw(p)
+        }
+        g.dispose(); out.parentFile.mkdirs(); ImageIO.write(img, "png", out)
+    }
+
     fun render(board: Board, out: File, widthPx: Int = 1600) {
         val b = board.bounds.inflate(1000)
         val scale = widthPx.toDouble() / b.width

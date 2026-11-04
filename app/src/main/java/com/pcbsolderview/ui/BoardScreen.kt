@@ -31,6 +31,8 @@ import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.Handyman
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ViewInAr
+import com.pcbsolderview.render.ViewMode
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -276,6 +278,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                             rotationGesture = appearance.rotationGesture,
                             penOnlyDrawing = appearance.penOnlyDrawing,
                             showFps = appearance.showFps,
+                            grid = appearance.grid,
                         ),
                         selected = state.selected,
                         highlighted = state.highlighted,
@@ -563,6 +566,13 @@ private fun TopBar(title: String, subtitle: String, state: UiState, vm: BoardVie
                     BarDivider()
                     BarIcon(Icons.Filled.Handyman, "Tools", vm::toggleToolsPanel, checked = state.showToolsPanel, tag = "tools.button")
                     BarIcon(Icons.Filled.FitScreen, "Fit to screen", onFit)
+            val realistic = state.display.viewMode == ViewMode.REALISTIC
+            BarIcon(
+                Icons.Filled.ViewInAr,
+                if (realistic) "Realistic view — tap for CAD layers" else "CAD layers — tap for realistic view",
+                { vm.setDisplay(state.display.copy(viewMode = if (realistic) ViewMode.CAD else ViewMode.REALISTIC)) },
+                checked = realistic, tag = "viewmode.button",
+            )
                     BarIcon(
                         Icons.Filled.Flip,
                         if (state.visibleSide == Side.TOP) "Showing top — tap for bottom view" else "Showing bottom — tap for top view",

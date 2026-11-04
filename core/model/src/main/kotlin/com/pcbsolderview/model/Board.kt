@@ -186,6 +186,8 @@ data class Component(
     val bounds: Rect,
     /** True when [bounds] was guessed (e.g. Pick&Place has no body size). */
     val boundsEstimated: Boolean = false,
+    /** Package body outline in board coordinates, when the source has one (IPC-2581). */
+    val outline: List<Point>? = null,
     val padIds: List<Int> = emptyList(),
 )
 

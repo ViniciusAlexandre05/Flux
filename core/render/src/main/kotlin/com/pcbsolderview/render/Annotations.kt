@@ -20,11 +20,31 @@ data class DisplayOptions(
     val showAnnotations: Boolean = true,
     val showFps: Boolean = false,
     val rotationGesture: Boolean = true,
-    /** When true only the stylus draws; fingers always navigate. Turned on when an S Pen is first seen. */
+    /** When true only the stylus draws; fingers always navigate. */
     val penOnlyDrawing: Boolean = false,
+    /** CAD layers (copper, silk) or a realistic, assembled-board look. */
+    val viewMode: ViewMode = ViewMode.CAD,
+    /** Solder-mask colour used by [ViewMode.REALISTIC]. */
+    val maskArgb: Int = MASK_COLORS.first().second,
+    /** Background grid behind the board. */
+    val grid: GridStyle = GridStyle.NONE,
 ) {
+    companion object {
+        val MASK_COLORS: List<Pair<String, Int>> = listOf(
+            "Green" to 0xFF1E5C3A.toInt(),
+            "Blue" to 0xFF1D3F78.toInt(),
+            "Red" to 0xFF8A1E1E.toInt(),
+            "Black" to 0xFF141414.toInt(),
+            "White" to 0xFFE9EAE6.toInt(),
+            "Purple" to 0xFF4B2A6E.toInt(),
+        )
+    }
     fun isVisible(layer: String?): Boolean = layer == null || layer !in hiddenLayers
 }
+
+enum class ViewMode { CAD, REALISTIC }
+
+enum class GridStyle(val label: String) { NONE("None"), LINES("Lines"), DOTS("Dots") }
 
 /** How single-finger drags are interpreted. The stylus always draws (or erases), never pans. */
 enum class CanvasTool { NAVIGATE, PEN, ERASER }

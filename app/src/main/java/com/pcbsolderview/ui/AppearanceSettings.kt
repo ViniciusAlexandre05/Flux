@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.pcbsolderview.data.Appearance
 import com.pcbsolderview.data.ThemeMode
+import com.pcbsolderview.render.GridStyle
 
 /** Theme mode, accent colour and board background. Changes apply immediately and are saved. */
 @Composable
@@ -101,6 +102,17 @@ fun SettingsContent(a: Appearance, onChange: (Appearance) -> Unit, modifier: Mod
     Column(modifier) {
         SectionTitle("Appearance")
         AppearanceSettings(a, onChange, Modifier.padding(vertical = 4.dp))
+        Spacer(Modifier.height(10.dp))
+        Text("Background grid", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(6.dp))
+        Segmented(GridStyle.entries.map { it.label }, GridStyle.entries.indexOf(a.grid), tag = "grid") { i ->
+            onChange(a.copy(grid = GridStyle.entries[i]))
+        }
+        Text(
+            "Spacing adapts to the zoom (0.1 mm to 50 mm); every 5th line is brighter.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp),
+        )
         Spacer(Modifier.height(12.dp)); HorizontalDivider()
         SectionTitle("Touch & S Pen")
         ToggleRow("Two-finger rotation", a.rotationGesture, "Twist with two fingers to rotate; locks near 0°, 90°, 180° and 270°.") {
@@ -113,6 +125,28 @@ fun SettingsContent(a: Appearance, onChange: (Appearance) -> Unit, modifier: Mod
         SectionTitle("Diagnostics")
         ToggleRow("Frame rate (FPS)", a.showFps, "Shows frames drawn per second while you pan and zoom.") {
             onChange(a.copy(showFps = it))
+        }
+    }
+}
+
+/** Row of equal options, one selected (used for theme, grid, view style). */
+@Composable
+internal fun Segmented(labels: List<String>, selected: Int, tag: String, onSelect: (Int) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        labels.forEachIndexed { i, label ->
+            val on = i == selected
+            Box(
+                Modifier.weight(1f).height(44.dp)
+                    .background(if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest, RoundedCornerShape(12.dp))
+                    .clickable { onSelect(i) }
+                    .testTag("$tag.$i"),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    label, textAlign = TextAlign.Center, style = MaterialTheme.typography.labelLarge, maxLines = 1,
+                    color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                )
+            }
         }
     }
 }

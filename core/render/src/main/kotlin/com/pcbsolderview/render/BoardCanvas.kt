@@ -21,6 +21,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.PointMode
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -330,10 +333,40 @@ fun BoardCanvas(
         t.writeTo(matrix)
         val px = 1f / t.scale.toFloat() // one screen pixel in board units
 
-        withTransform({ transform(matrix) }) {
-            drawPath(outlinePath, colors.boardFill, style = Fill)
+        val realistic = options.viewMode == ViewMode.REALISTIC
+        val mask = Color(options.maskArgb)
 
-            if (scene.hasGeometry) {
+        withTransform({ transform(matrix) }) {
+            if (options.grid != GridStyle.NONE) drawGrid(t, options.grid, colors.background, px)
+
+            drawPath(outlinePath, if (realistic) mask else colors.boardFill, style = Fill)
+
+            if (realistic) {
+                // Assembled-board look: mask, exposed pads, silkscreen and component bodies only.
+                val g = scene.realistic(visibleSide)
+                if (scene.hasGeometry) {
+                    drawPath(g.pads, BodyStyle.PadFinish, style = Fill)
+                    drawPath(scene.holesWithoutVias, colors.background, style = Fill)
+                    val ink = BodyStyle.silkFor(mask)
+                    for (ls in g.silk) {
+                        drawPath(ls.fill, ink, style = Fill)
+                        for ((w, path) in ls.strokes) drawPath(path, ink, style = Stroke(width = maxOf(w, px), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                    }
+                }
+                // Soft drop shadow (fixed screen offset, so it falls the same way at any rotation).
+                val (x0, y0) = t.toBoard(0.0, 0.0)
+                val (x1, y1) = t.toBoard(SHADOW_DX_PX, SHADOW_DY_PX)
+                withTransform({ translate((x1 - x0).toFloat(), (y1 - y0).toFloat()) }) {
+                    drawPath(g.allBodies, Color.Black.copy(alpha = 0.38f), style = Fill)
+                }
+                for ((c, path) in g.bodies) {
+                    drawPath(path, c, style = Fill)
+                    // Bevel: light rim + dark edge give the body a little volume.
+                    drawPath(path, Color.White.copy(alpha = 0.18f), style = Stroke(width = 1.6f * px))
+                    drawPath(path, Color.Black.copy(alpha = 0.55f), style = Stroke(width = 0.8f * px))
+                }
+                drawPath(outlinePath, lerp(mask, Color.Black, 0.45f), style = Stroke(width = 2f * px))
+            } else if (scene.hasGeometry) {
                 for (ls in drawOrder) {
                     val alpha = if (ls.layer.side == null || ls.layer.side == visibleSide) 0.92f else 0.45f
                     val c = ls.color.copy(alpha = alpha)
@@ -345,7 +378,7 @@ fun BoardCanvas(
                 if (options.showMultiLayer) drawPath(scene.multiLayer, colors.multiLayer, style = Fill)
                 drawPath(scene.holes, colors.background, style = Fill)
             }
-            drawPath(outlinePath, colors.outline, style = Stroke(width = 2f * px))
+            if (!realistic) drawPath(outlinePath, colors.outline, style = Stroke(width = 2f * px))
 
             netGeometry?.let { g ->
                 // Fade everything toward the background, then draw the net on top.
@@ -358,7 +391,7 @@ fun BoardCanvas(
             else scene.componentsBottom to scene.componentsTop
             val frontColor = if (visibleSide == Side.TOP) colors.topBody else colors.bottomBody
             val backColor = if (visibleSide == Side.TOP) colors.bottomBody else colors.topBody
-            if (options.showComponentOutlines) {
+            if (options.showComponentOutlines && !realistic) {
                 if (scene.hasGeometry) {
                     drawPath(front, frontColor.copy(alpha = 0.45f), style = Stroke(width = 1f * px))
                 } else {
@@ -424,6 +457,45 @@ private class LatestHolder {
     var onLongPress: (Offset) -> Boolean = { false }
     var onLongPressDrag: (Offset) -> Unit = {}
     var onLongPressRelease: (Offset) -> Unit = {}
+}
+
+private const val SHADOW_DX_PX = 2.5
+private const val SHADOW_DY_PX = 3.5
+
+/**
+ * Background grid in board coordinates (drawn under the board, inside the view transform).
+ * Lines: minor + brighter major every [Grid.MAJOR_EVERY]; dots: one per intersection.
+ */
+private fun DrawScope.drawGrid(t: ViewTransform, style: GridStyle, background: Color, px: Float) {
+    val step = Grid.stepFor(t.scale)
+    val v = Grid.visible(t, size.width.toDouble(), size.height.toDouble())
+    val xs = Grid.range(v[0], v[2], step)
+    val ys = Grid.range(v[1], v[3], step)
+    if ((xs.last - xs.first) * (ys.last - ys.first) > 20_000) return // safety: never flood a frame
+    val ink = if (background.luminance() > 0.5f) Color.Black else Color.White
+    val minor = ink.copy(alpha = 0.09f)
+    val major = ink.copy(alpha = 0.22f)
+    val x0 = (xs.first * step).toFloat(); val x1 = (xs.last * step).toFloat()
+    val y0 = (ys.first * step).toFloat(); val y1 = (ys.last * step).toFloat()
+    when (style) {
+        GridStyle.LINES -> {
+            val minorPath = Path(); val majorPath = Path()
+            for (k in xs) { val p = if (Grid.isMajor(k)) majorPath else minorPath; val x = (k * step).toFloat(); p.moveTo(x, y0); p.lineTo(x, y1) }
+            for (k in ys) { val p = if (Grid.isMajor(k)) majorPath else minorPath; val y = (k * step).toFloat(); p.moveTo(x0, y); p.lineTo(x1, y) }
+            drawPath(minorPath, minor, style = Stroke(width = 1f * px))
+            drawPath(majorPath, major, style = Stroke(width = 1.4f * px))
+        }
+        GridStyle.DOTS -> {
+            val minorPts = ArrayList<Offset>(); val majorPts = ArrayList<Offset>()
+            for (i in xs) for (j in ys) {
+                val o = Offset((i * step).toFloat(), (j * step).toFloat())
+                if (Grid.isMajor(i) && Grid.isMajor(j)) majorPts += o else minorPts += o
+            }
+            drawPoints(minorPts, PointMode.Points, ink.copy(alpha = 0.22f), strokeWidth = 2.2f * px, cap = StrokeCap.Round)
+            drawPoints(majorPts, PointMode.Points, ink.copy(alpha = 0.45f), strokeWidth = 3.6f * px, cap = StrokeCap.Round)
+        }
+        GridStyle.NONE -> Unit
+    }
 }
 
 /** How strongly the rest of the board fades when a net or identical parts are in focus. */

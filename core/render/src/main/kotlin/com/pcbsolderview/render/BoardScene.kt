@@ -62,6 +62,12 @@ class BoardScene(val board: Board) {
         if (board.holes.isEmpty()) board.vias.forEach { v -> addCircle(v.position, v.drill / 2.0) }
     }
 
+    /** Holes except via holes: vias are tented (covered by mask) on a real board. */
+    val holesWithoutVias: Path = Path().apply {
+        val viaHoles = board.vias.map { it.position to it.drill }.toHashSet()
+        board.holes.filter { (it.position to it.diameter) !in viaHoles }.forEach { h -> addCircle(h.position, h.diameter / 2.0) }
+    }
+
     val componentsTop: Path = componentPath(Side.TOP)
     val componentsBottom: Path = componentPath(Side.BOTTOM)
 
@@ -85,6 +91,31 @@ class BoardScene(val board: Board) {
             return fromFront + bonus
         }
         return visible.sortedByDescending { depth(it) }
+    }
+
+    /** Realistic (assembled-board) geometry for one side: exposed pads, silkscreen, component bodies. */
+    class Realistic(
+        val pads: Path,
+        val silk: List<LayerScene>,
+        val bodies: List<Pair<Color, Path>>,
+        val allBodies: Path,
+    )
+
+    private val realisticCache = HashMap<Side, Realistic>()
+
+    fun realistic(side: Side): Realistic = realisticCache.getOrPut(side) {
+        val pads = Path()
+        board.pads.filter { it.isThroughHole || it.side == side }
+            .distinctBy { Triple(it.position, it.componentRef, it.name) }
+            .forEach { pads.addRing(it.outline()) }
+        val silk = layers.filter { it.layer.type == LayerType.SILKSCREEN && it.layer.side == side }
+        // Parts without pads in a CAD export are artwork (logos), already in the silkscreen.
+        val parts = board.components.filter { it.side == side && (!hasGeometry || it.padIds.isNotEmpty()) }
+        val all = Path()
+        val bodies = parts.groupBy { BodyStyle.colorFor(it) }.map { (color, cs) ->
+            color to Path().apply { cs.forEach { c -> val s = BodyStyle.shapeFor(c); addRing(s); all.addRing(s) } }
+        }
+        Realistic(pads, silk, bodies, all)
     }
 
     /** All copper of one net: pours + pads + vias as fill, tracks grouped by width. */

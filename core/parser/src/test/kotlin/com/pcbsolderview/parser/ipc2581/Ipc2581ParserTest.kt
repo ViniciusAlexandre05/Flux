@@ -4,6 +4,7 @@ import com.pcbsolderview.model.Board
 import com.pcbsolderview.model.LayerType
 import com.pcbsolderview.model.PadShape
 import com.pcbsolderview.model.Point
+import com.pcbsolderview.model.Rect
 import com.pcbsolderview.model.Side
 import com.pcbsolderview.model.SourceFormat
 import com.pcbsolderview.model.identicalTo
@@ -53,6 +54,10 @@ class Ipc2581RealBoardTest {
         assertTrue(r205.bounds.contains(r205.position.x, r205.position.y))
         // Altium's "_1" de-duplication suffix is removed from the footprint name.
         assertEquals("CR1005-0402", board.component("R301")!!.footprint)
+        // Body outline from the package, rotated 270° with the part: 1.0 x 0.6 mm becomes 0.6 x 1.0.
+        val body = Rect.of(r205.outline!!)
+        assertTrue(abs(body.width - 600) <= 2 && abs(body.height - 1000) <= 2, "$body")
+        assertTrue(body.contains(r205.position.x, r205.position.y))
         assertEquals("4.7kΩ", board.component("R301")!!.value)
     }
 
@@ -137,6 +142,9 @@ class Ipc2581RealBoardTest {
         val out = File(Samples.dir.parentFile, "core/parser/build/renders/IEPE_CONDITIONER_V1.png")
         BoardPng.render(board, out)
         assertTrue(out.length() > 0)
+        val realistic = File(out.parentFile, "IEPE_CONDITIONER_V1-realistic.png")
+        BoardPng.renderRealistic(board, realistic)
+        assertTrue(realistic.length() > 0)
     }
 }
 

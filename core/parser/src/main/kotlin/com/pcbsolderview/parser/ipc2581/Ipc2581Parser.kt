@@ -394,6 +394,7 @@ class Ipc2581Parser(private val xml: XmlParserFactory) {
                     compPads = pads.filter { it.componentRef == rc.ref }
                 }
 
+                val bodyOutline = pkg?.outline?.takeIf { it.size >= 3 }?.map { pt(toBoard(it)) }
                 val outlineBox = pkg?.outline?.takeIf { it.size >= 2 }?.map { pt(toBoard(it)) }?.let { Rect.of(it) }
                 val padBox = compPads.map { it.bounds }.reduceOrNull { a, b -> a.union(b) }
                 val position = pt(loc)
@@ -411,6 +412,7 @@ class Ipc2581Parser(private val xml: XmlParserFactory) {
                     position = position,
                     rotationDeg = normalizeDeg(rc.xf?.rot ?: 0.0),
                     bounds = bounds,
+                    outline = bodyOutline,
                     padIds = compPads.map { it.id },
                 )
             }
