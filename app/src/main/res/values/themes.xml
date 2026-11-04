@@ -1,10 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Window theme: dark ink background from the first frame (no white flash before Compose). -->
-    <style name="Theme.PcbSolderView" parent="android:Theme.Material.NoActionBar">
+    <!--
+        Window themes, one per app theme. MainActivity picks the saved one before anything is drawn,
+        so the window background matches the app from the first frame (no dark flash in Light).
+    -->
+    <style name="Theme.Flux" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/ink</item>
         <item name="android:colorBackground">@color/ink</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <style name="Theme.Flux.Light" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/paper</item>
+        <item name="android:colorBackground">@color/paper</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
+    <style name="Theme.Flux.HighContrast" parent="Theme.Flux">
+        <item name="android:windowBackground">@color/black</item>
+        <item name="android:colorBackground">@color/black</item>
     </style>
 </resources>

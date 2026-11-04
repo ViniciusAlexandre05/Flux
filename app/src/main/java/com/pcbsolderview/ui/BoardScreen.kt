@@ -67,6 +67,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import com.pcbsolderview.R
 import com.pcbsolderview.Status
@@ -149,16 +150,14 @@ internal fun EmptyState(openFiles: () -> Unit, openDemo: (String) -> Unit) {
             Modifier.padding(32.dp).widthIn(max = 620.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Box(
-                Modifier.size(120.dp).background(Palette.Ink, MaterialTheme.shapes.extraLarge)
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.extraLarge),
-                contentAlignment = Alignment.Center,
-            ) {
-                Image(painterResource(R.drawable.ic_launcher_foreground), contentDescription = null, modifier = Modifier.size(150.dp))
-            }
+            FluxLogo(128.dp)
             Spacer(Modifier.height(24.dp))
-            Text("PCB Solder View", style = MaterialTheme.typography.displaySmall)
-            Spacer(Modifier.height(8.dp))
+            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.displayMedium)
+            Text(
+                stringResource(R.string.app_tagline), style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.height(12.dp))
             Text(
                 "Your Altium board at the soldering bench: find parts, follow nets, mark what's done.",
                 style = MaterialTheme.typography.titleMedium,

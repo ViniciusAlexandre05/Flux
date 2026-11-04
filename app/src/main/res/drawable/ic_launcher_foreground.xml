@@ -1,47 +1,68 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Adaptive icon foreground, 108dp canvas; artwork kept inside the 66dp safe zone (21..87). -->
+<!--
+    Flux icon: a soldering-iron tip touching a fresh solder joint on a pad, a trace to a via,
+    and two wisps of flux smoke. 108dp adaptive canvas; key artwork inside the 66dp safe circle.
+    The iron's grip runs off the corner on purpose.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Board -->
+    <!-- Artwork enlarged ~12% around the centre so it fills the launcher mask. -->
+    <group android:pivotX="54" android:pivotY="54" android:scaleX="1.12" android:scaleY="1.12" android:translateX="1" android:translateY="-2">
+
+    <!-- Flux smoke -->
     <path
-        android:fillColor="#1F6B45"
-        android:pathData="M35,26h38a9,9 0,0 1,9 9v38a9,9 0,0 1,-9 9h-38a9,9 0,0 1,-9 -9v-38a9,9 0,0 1,9 -9z" />
-    <!-- Board edge highlight -->
-    <path
-        android:strokeColor="#2E8A5C"
-        android:strokeWidth="1.5"
-        android:pathData="M35,27.5h38a7.5,7.5 0,0 1,7.5 7.5v38a7.5,7.5 0,0 1,-7.5 7.5h-38a7.5,7.5 0,0 1,-7.5 -7.5v-38a7.5,7.5 0,0 1,7.5 -7.5z" />
-    <!-- Traces -->
+        android:strokeColor="#73FFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:pathData="M40,49 C37,46 41,44 38,40 M44.5,47.5 C42.5,44.5 45.5,42.5 43.5,38.5" />
+
+    <!-- Trace to a via -->
     <path
         android:strokeColor="#E8C065"
-        android:strokeWidth="2.6"
+        android:strokeWidth="4.5"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
-        android:pathData="M37,50h5M37,56h5M66,50h5M71,50v-12h-6M66,56h3l5,5v7M42,62v6h10" />
-    <!-- Chip pins -->
+        android:pathData="M60,68.5 H65 L71,74.5" />
     <path
         android:fillColor="#E8C065"
-        android:pathData="M42,42.5h4v3h-4zM42,48.5h4v3h-4zM42,54.5h4v3h-4zM62,42.5h4v3h-4zM62,48.5h4v3h-4zM62,54.5h4v3h-4z" />
-    <!-- Chip body -->
+        android:pathData="M73,73m-4.6,0a4.6,4.6 0,1 1,9.2 0a4.6,4.6 0,1 1,-9.2 0" />
     <path
-        android:fillColor="#0D1117"
-        android:pathData="M47.5,39h13a1.5,1.5 0,0 1,1.5 1.5v19a1.5,1.5 0,0 1,-1.5 1.5h-13a1.5,1.5 0,0 1,-1.5 -1.5v-19a1.5,1.5 0,0 1,1.5 -1.5z" />
-    <!-- Pin-1 dot -->
-    <path
-        android:fillColor="#3A4656"
-        android:pathData="M50,43m-1.4,0a1.4,1.4 0,1 1,2.8 0a1.4,1.4 0,1 1,-2.8 0" />
-    <!-- Pads -->
+        android:fillColor="#0E1319"
+        android:pathData="M73,73m-1.9,0a1.9,1.9 0,1 1,3.8 0a1.9,1.9 0,1 1,-3.8 0" />
+
+    <!-- Pad -->
     <path
         android:fillColor="#E8C065"
-        android:pathData="M35,50m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0M35,56m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0M62,38m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0M54,68m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0" />
-    <!-- Solder drop on a pad -->
+        android:pathData="M34,64.5h24a2,2 0,0 1,2 2v4a2,2 0,0 1,-2 2h-24a2,2 0,0 1,-2 -2v-4a2,2 0,0 1,2 -2z" />
+
+    <!-- Solder joint (shiny dome) with highlight -->
+    <path
+        android:fillColor="#D9DFE6"
+        android:pathData="M37,64.5 C38.5,57 42.5,53 46,53 C49.5,53 53.5,57 55,64.5 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.85"
+        android:pathData="M42,60.5 C42.5,57.8 44,56.2 45.6,55.7 C44.6,57.2 44.1,58.8 43.9,60.7 Z" />
+
+    <!-- Iron: grip (accent), collar, heater shaft, tip -->
     <path
         android:fillColor="#F5B83D"
-        android:pathData="M74,70m-6,0a6,6 0,1 1,12 0a6,6 0,1 1,-12 0" />
+        android:pathData="M71.8,39.4 L81.9,31.2 L72.3,21 L63.6,30.6 Z" />
     <path
-        android:fillColor="#FFE7B0"
-        android:pathData="M72,67.6m-1.8,0a1.8,1.8 0,1 1,3.6 0a1.8,1.8 0,1 1,-3.6 0" />
+        android:fillColor="#2A313B"
+        android:pathData="M69.3,41 L71.8,39.4 L63.6,30.6 L61.7,33 Z" />
+    <path
+        android:fillColor="#6E7886"
+        android:pathData="M61.3,47.2 L69.3,41 L61.7,33 L55.1,40.6 Z" />
+    <path
+        android:fillColor="#D5DBE2"
+        android:pathData="M47,52.4 A1.5,1.5 0,0 0,49 54.6 L61.3,47.2 L55.1,40.6 Z" />
+    <!-- Tip edge shading -->
+    <path
+        android:fillColor="#9AA4B0"
+        android:pathData="M49,54.6 L61.3,47.2 L58.2,43.9 L48,53.5 Z" />
+    </group>
 </vector>

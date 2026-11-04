@@ -52,6 +52,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pcbsolderview.R
@@ -88,13 +89,10 @@ fun StartScreen(
     }
     Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.size(56.dp).background(Palette.Ink, MaterialTheme.shapes.medium),
-                contentAlignment = Alignment.Center,
-            ) { Image(painterResource(R.drawable.ic_launcher_foreground), contentDescription = null, modifier = Modifier.size(72.dp)) }
+            FluxLogo(56.dp)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text("PCB Solder View", style = MaterialTheme.typography.headlineSmall)
+                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineSmall)
                 Text("Pick up where you left off", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             gear()

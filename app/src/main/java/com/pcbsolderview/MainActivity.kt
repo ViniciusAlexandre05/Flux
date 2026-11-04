@@ -13,6 +13,7 @@ import androidx.activity.viewModels
 import android.view.MotionEvent
 import androidx.activity.SystemBarStyle
 import androidx.compose.runtime.LaunchedEffect
+import com.pcbsolderview.data.AppearancePrefs
 import com.pcbsolderview.data.ThemeMode
 import com.pcbsolderview.render.StylusInput
 import com.pcbsolderview.ui.PcbTheme
@@ -24,6 +25,14 @@ class MainActivity : ComponentActivity() {
     private val vm: BoardViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Window theme from the saved appearance, before anything is drawn (no flash of the wrong theme).
+        val saved = AppearancePrefs.snapshot(this)
+        val windowTheme = when (saved.mode) {
+            ThemeMode.LIGHT -> R.style.Theme_Flux_Light
+            ThemeMode.HIGH_CONTRAST -> R.style.Theme_Flux_HighContrast
+            ThemeMode.DARK -> R.style.Theme_Flux
+        }
+        setTheme(windowTheme)
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) handleIntent(intent)
@@ -40,6 +49,16 @@ class MainActivity : ComponentActivity() {
                     SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
                 }
                 enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+                // Android 13+: the system launch screen of the NEXT start follows the chosen theme.
+                if (Build.VERSION.SDK_INT >= 33) {
+                    splashScreen.setSplashScreenTheme(
+                        when (appearance.mode) {
+                            ThemeMode.LIGHT -> R.style.Theme_Flux_Light
+                            ThemeMode.HIGH_CONTRAST -> R.style.Theme_Flux_HighContrast
+                            ThemeMode.DARK -> R.style.Theme_Flux
+                        },
+                    )
+                }
             }
             PcbTheme(appearance) {
                 BoardScreen(state = state, vm = vm, openFiles = { picker.launch(arrayOf("*/*")) })

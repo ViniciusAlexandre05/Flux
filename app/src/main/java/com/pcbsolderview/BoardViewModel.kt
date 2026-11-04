@@ -129,7 +129,8 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Theme, accent and board background; persisted. */
     val appearance: StateFlow<Appearance> =
-        prefs.appearance.stateIn(viewModelScope, SharingStarted.Eagerly, Appearance())
+        // Start from the synchronous snapshot so the very first frame already has the right theme.
+        prefs.appearance.stateIn(viewModelScope, SharingStarted.Eagerly, AppearancePrefs.snapshot(app))
 
     fun setAppearance(a: Appearance) {
         viewModelScope.launch { prefs.save(a) }

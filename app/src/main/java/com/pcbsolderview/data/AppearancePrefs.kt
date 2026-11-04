@@ -42,6 +42,31 @@ class AppearancePrefs(private val context: Context) {
     private val kAccent = intPreferencesKey("accent")
     private val kBackground = intPreferencesKey("board_background")
 
+    companion object {
+        private const val SYNC = "appearance_sync"
+
+        /**
+         * Last saved appearance, read synchronously. DataStore loads asynchronously, which is too
+         * late for the window theme and the first frame; this small mirror avoids a dark flash
+         * when the Light theme is chosen.
+         */
+        fun snapshot(context: Context): Appearance {
+            val p = context.getSharedPreferences(SYNC, Context.MODE_PRIVATE)
+            val d = Appearance()
+            return Appearance(
+                mode = p.getString("mode", null)?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: d.mode,
+                accent = p.getInt("accent", d.accent),
+                boardBackground = p.getInt("board_background", d.boardBackground),
+            )
+        }
+
+        private fun mirror(context: Context, a: Appearance) {
+            context.getSharedPreferences(SYNC, Context.MODE_PRIVATE).edit()
+                .putString("mode", a.mode.name).putInt("accent", a.accent).putInt("board_background", a.boardBackground)
+                .apply()
+        }
+    }
+
     val appearance: Flow<Appearance> = context.dataStore.data.map { p ->
         Appearance(
             mode = p[kMode]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.DARK,
@@ -51,6 +76,7 @@ class AppearancePrefs(private val context: Context) {
     }
 
     suspend fun save(a: Appearance) {
+        mirror(context, a)
         context.dataStore.edit { p ->
             p[kMode] = a.mode.name
             p[kAccent] = a.accent
