@@ -358,7 +358,8 @@ fun BoardCanvas(
                         for ((w, path) in ls.strokes) drawPath(path, copperTone, style = Stroke(width = maxOf(w, px), cap = StrokeCap.Round, join = StrokeJoin.Round))
                     }
                     drawPath(g.pads, BodyStyle.PadFinish, style = Fill)
-                    drawPath(scene.holesWithoutVias, colors.background, style = Fill)
+                    drawPath(scene.viaRings, BodyStyle.PadFinish, style = Fill)
+                    drawPath(scene.holes, colors.background, style = Fill)
                     val ink = BodyStyle.silkFor(mask)
                     for (ls in g.silk) {
                         drawPath(ls.fill, ink, style = Fill)

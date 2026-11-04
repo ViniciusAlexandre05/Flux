@@ -49,9 +49,10 @@ object BoardPng {
         }
         g.color = Color(0xD8B45A)
         board.pads.filter { it.isThroughHole || it.side == Side.TOP }.forEach { g.fill(path(it.outline())) }
+        // Vias as exposed gold rings, then every hole (mirrors the app's realistic view).
+        board.vias.forEach { v -> val r = v.diameter / 2.0 * scale; g.fill(Ellipse2D.Double(sx(v.position.x.toDouble()) - r, sy(v.position.y.toDouble()) - r, 2 * r, 2 * r)) }
         g.color = Color(0x0B0F14)
-        val viaHoles = board.vias.map { it.position to it.drill }.toHashSet()
-        board.holes.filter { (it.position to it.diameter) !in viaHoles }.forEach { h -> val r = h.diameter / 2.0 * scale; g.fill(Ellipse2D.Double(sx(h.position.x.toDouble()) - r, sy(h.position.y.toDouble()) - r, 2 * r, 2 * r)) }
+        board.holes.forEach { h -> val r = h.diameter / 2.0 * scale; g.fill(Ellipse2D.Double(sx(h.position.x.toDouble()) - r, sy(h.position.y.toDouble()) - r, 2 * r, 2 * r)) }
         val silk = board.layers.filter { it.type == LayerType.SILKSCREEN && it.side == Side.TOP }.map { it.name }.toSet()
         g.color = Color(0xF2F2EE)
         board.fills.filter { it.layer in silk }.forEach { f -> val p = path(f.polygon.points); f.polygon.holes.forEach { path(it, p) }; g.fill(p) }

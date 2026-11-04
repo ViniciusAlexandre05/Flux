@@ -62,11 +62,8 @@ class BoardScene(val board: Board) {
         if (board.holes.isEmpty()) board.vias.forEach { v -> addCircle(v.position, v.drill / 2.0) }
     }
 
-    /** Holes except via holes: vias are tented (covered by mask) on a real board. */
-    val holesWithoutVias: Path = Path().apply {
-        val viaHoles = board.vias.map { it.position to it.drill }.toHashSet()
-        board.holes.filter { (it.position to it.diameter) !in viaHoles }.forEach { h -> addCircle(h.position, h.diameter / 2.0) }
-    }
+    /** Via copper rings (the realistic view shows them as exposed pads). */
+    val viaRings: Path = Path().apply { board.vias.forEach { v -> addCircle(v.position, v.diameter / 2.0) } }
 
     val componentsTop: Path = componentPath(Side.TOP)
     val componentsBottom: Path = componentPath(Side.BOTTOM)
