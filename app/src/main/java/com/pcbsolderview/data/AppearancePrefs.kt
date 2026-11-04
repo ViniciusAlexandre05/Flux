@@ -14,6 +14,24 @@ import androidx.datastore.preferences.core.longPreferencesKey
 
 enum class ThemeMode(val label: String) { DARK("Dark"), LIGHT("Light"), HIGH_CONTRAST("High contrast") }
 
+/** Rows of the part details panel; each can be shown or hidden in Settings. */
+enum class DetailField(val label: String) {
+    VALUE("Value"),
+    DESCRIPTION("Description"),
+    PART_NUMBER("Part number"),
+    MANUFACTURER("Manufacturer"),
+    FOOTPRINT("Footprint"),
+    LIBRARY("Library"),
+    LAYER("Layer"),
+    MOUNT("Mounting & pins"),
+    HEIGHT("Height"),
+    POSITION("Position"),
+    ROTATION("Rotation"),
+    STATUS("Status buttons"),
+    IDENTICAL("Identical parts"),
+    NETS("Pins & nets list"),
+}
+
 /**
  * App-wide settings (the gear menu): look, plus interaction options that apply to every board.
  * Colours are 0xAARRGGBB.
@@ -36,8 +54,15 @@ data class Appearance(
     val gridUnit: GridUnit = GridUnit.MM,
     /** Manual grid spacing in µm. */
     val gridStepUm: Long = 1_000,
+    /** Part detail rows the user turned off. */
+    val hiddenDetails: Set<DetailField> = setOf(DetailField.LIBRARY),
 ) {
+    fun shows(f: DetailField) = f !in hiddenDetails
+
     companion object {
+        fun encodeFields(s: Set<DetailField>) = s.joinToString(",") { it.name }
+        fun decodeFields(s: String?): Set<DetailField>? = s?.split(',')?.mapNotNull { n -> runCatching { DetailField.valueOf(n.trim()) }.getOrNull() }?.toSet()
+
         val ACCENTS: List<Pair<String, Int>> = listOf(
             "Solder" to 0xFFF5B83D.toInt(),
             "Cyan" to 0xFF4DD8E6.toInt(),
@@ -69,6 +94,7 @@ class AppearancePrefs(private val context: Context) {
     private val kGridAuto = booleanPreferencesKey("grid_auto")
     private val kGridUnit = stringPreferencesKey("grid_unit")
     private val kGridStep = longPreferencesKey("grid_step_um")
+    private val kHiddenDetails = stringPreferencesKey("hidden_details")
 
     companion object {
         private const val SYNC = "appearance_sync"
@@ -92,6 +118,7 @@ class AppearancePrefs(private val context: Context) {
                 gridAuto = p.getBoolean("grid_auto", d.gridAuto),
                 gridUnit = p.getString("grid_unit", null)?.let { runCatching { GridUnit.valueOf(it) }.getOrNull() } ?: d.gridUnit,
                 gridStepUm = p.getLong("grid_step_um", d.gridStepUm),
+                hiddenDetails = Appearance.decodeFields(p.getString("hidden_details", null)) ?: d.hiddenDetails,
             )
         }
 
@@ -101,6 +128,7 @@ class AppearancePrefs(private val context: Context) {
                 .putBoolean("rotation_gesture", a.rotationGesture).putBoolean("pen_only_drawing", a.penOnlyDrawing)
                 .putBoolean("show_fps", a.showFps).putString("grid", a.grid.name)
                 .putBoolean("grid_auto", a.gridAuto).putString("grid_unit", a.gridUnit.name).putLong("grid_step_um", a.gridStepUm)
+                .putString("hidden_details", Appearance.encodeFields(a.hiddenDetails))
                 .apply()
         }
     }
@@ -118,6 +146,7 @@ class AppearancePrefs(private val context: Context) {
             gridAuto = p[kGridAuto] ?: d.gridAuto,
             gridUnit = p[kGridUnit]?.let { runCatching { GridUnit.valueOf(it) }.getOrNull() } ?: d.gridUnit,
             gridStepUm = p[kGridStep] ?: d.gridStepUm,
+            hiddenDetails = Appearance.decodeFields(p[kHiddenDetails]) ?: d.hiddenDetails,
         )
     }
 
@@ -134,6 +163,7 @@ class AppearancePrefs(private val context: Context) {
             p[kGridAuto] = a.gridAuto
             p[kGridUnit] = a.gridUnit.name
             p[kGridStep] = a.gridStepUm
+            p[kHiddenDetails] = Appearance.encodeFields(a.hiddenDetails)
         }
     }
 }

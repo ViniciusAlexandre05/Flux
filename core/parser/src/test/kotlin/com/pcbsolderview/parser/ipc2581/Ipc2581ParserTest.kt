@@ -8,6 +8,7 @@ import com.pcbsolderview.model.Rect
 import com.pcbsolderview.model.Side
 import com.pcbsolderview.model.SourceFormat
 import com.pcbsolderview.model.identicalTo
+import com.pcbsolderview.parser.bom.withBom
 import com.pcbsolderview.parser.BoardImporter
 import com.pcbsolderview.parser.BoardParseException
 import com.pcbsolderview.parser.FileKind
@@ -81,6 +82,81 @@ class Ipc2581RealBoardTest {
         assertEquals("0.1uF", board.components.first { it.description!!.startsWith("CAP CER 0.1UF") }.value)
         assertEquals("820pF", board.components.first { it.description!!.startsWith("CAP CER 820PF") }.value)
         assertEquals("L7812CV", board.components.first { it.description == "Integrated Circuit" && it.footprint!!.startsWith("TO254") }.value)
+    }
+
+    /**
+     * Every component checked against the raw XML, read independently with regular expressions:
+     * position, rotation, side, footprint, height, BOM description and pin count.
+     * Also writes build/reports/components-<board>.csv for a manual look.
+     */
+    @Test
+    fun everyComponentMatchesRawXml() {
+        fun unescape(s: String) = s.replace("&quot;", "\"").replace("&apos;", "'").replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
+        val compRe = Regex("""<Component refDes="([^"]+)" packageRef="([^"]+)"[^>]*layerRef="([^"]+)"[^>]*height="([^"]+)"[^>]*>\s*<Xform(?: rotation="([^"]+)")?\s*/>\s*<Location x="([^"]+)" y="([^"]+)"""")
+        val raw = compRe.findAll(text).toList()
+        assertEquals(board.components.size, raw.size, "every <Component> is matched by the check")
+        val packages = Regex("""<Package name="([^"]+)"""").findAll(text).map { it.groupValues[1] }.toSet()
+        for (m in raw) {
+            val (ref, pkg, layer, height, rot, x, y) = m.destructured
+            val c = board.component(ref)!!
+            assertEquals(Point(mm(x.toDouble()), mm(y.toDouble())), c.position, "$ref position")
+            assertEquals(rot.ifEmpty { "0" }.toDouble(), c.rotationDeg, 1e-9, "$ref rotation")
+            assertEquals(if (layer.startsWith("Bottom")) Side.BOTTOM else Side.TOP, c.side, "$ref side")
+            val base = pkg.replace(Regex("_\\d+$"), "")
+            assertEquals(if (base in packages) base else pkg, c.footprint, "$ref footprint")
+            // A height of 0 (artwork such as logos) means "unknown" and is shown as a dash.
+            assertEquals(mm(height.toDouble()).takeIf { it > 0 }, c.heightUm, "$ref height")
+        }
+        val bomRe = Regex("""<BomItem ([^>]*)>(.*?)</BomItem>""", RegexOption.DOT_MATCHES_ALL)
+        var checked = 0
+        for (m in bomRe.findAll(text)) {
+            val attrs = m.groupValues[1]
+            val desc = Regex("""description="([^"]*)"""").find(attrs)?.groupValues?.get(1)?.let { com.pcbsolderview.parser.text.fixMojibake(unescape(it)).trim() }
+            val pins = Regex("""pinCount="(\d+)"""").find(attrs)?.groupValues?.get(1)?.toInt()
+            for (r in Regex("""<RefDes name="([^"]+)"""").findAll(m.groupValues[2])) {
+                val c = board.component(r.groupValues[1])!!
+                assertEquals(desc, c.description, "${c.refDes} description")
+                if (pins != null) assertEquals(pins, board.padsOf(c).map { it.name }.distinct().size, "${c.refDes} pin count")
+                checked++
+            }
+        }
+        assertEquals(board.components.size, checked, "every component has a BOM line")
+
+        val report = File(Samples.dir.parentFile, "core/parser/build/reports/components-IEPE_CONDITIONER_V1.csv")
+        report.parentFile.mkdirs()
+        report.writeText(buildString {
+            appendLine("Designator,Value,Description,Part number,PN source,Manufacturer,Footprint,Library,Side,X mm,Y mm,Rotation,Height mm,Pins")
+            fun q(s: Any?) = "\"" + (s?.toString() ?: "").replace("\"", "\"\"") + "\""
+            board.components.sortedWith(com.pcbsolderview.model.ComponentOrder).forEach { c ->
+                appendLine(listOf(
+                    c.refDes, c.value, c.description, c.partNumber, if (c.partNumberFromLibrary) "library name" else if (c.partNumber != null) "file" else "",
+                    c.manufacturer, c.footprint, c.libraryRef, c.side, c.position.x / 1000.0, c.position.y / 1000.0, c.rotationDeg,
+                    c.heightUm?.let { it / 1000.0 }, board.padsOf(c).map { it.name }.distinct().size,
+                ).joinToString(",") { q(it) })
+            }
+        }, Charsets.UTF_8)
+    }
+
+    @Test
+    fun repairsGarbledTextAndFindsPartNumbers() {
+        val opamp = board.components.first { it.description?.contains("Op Amp") == true }
+        assertTrue(opamp.description!!.contains("1.1nV/√Hz"), opamp.description)
+        // No part numbers in this export: ICs get theirs from the library name, passives get none.
+        val reg = board.components.first { it.value == "L7812CV" }
+        assertEquals("L7812CV", reg.partNumber); assertTrue(reg.partNumberFromLibrary)
+        assertNull(board.component("R205")!!.partNumber)
+        assertEquals("IEPE_CONDITIONER.PcbLib : RES 100K OHM 1% 1/16W 0402", board.component("R205")!!.libraryRef)
+        assertEquals(202L, board.component("R205")!!.heightUm)
+    }
+
+    @Test
+    fun bomCsvPartNumberReplacesLibraryGuess() {
+        val bom = com.pcbsolderview.parser.bom.BomParser.parse("Designator,Manufacturer Part Number 1,Manufacturer 1\nU100,L7812CV-DG,STMicroelectronics\nR205,RC0402FR-07100KL,Yageo\n")
+        val merged = board.withBom(bom)
+        val reg = merged.component("U100")!!
+        assertEquals("L7812CV-DG", reg.partNumber); assertEquals(false, reg.partNumberFromLibrary)
+        assertEquals("STMicroelectronics", reg.manufacturer)
+        assertEquals("RC0402FR-07100KL", merged.component("R205")!!.partNumber)
     }
 
     @Test

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import com.pcbsolderview.Status
+import com.pcbsolderview.data.DetailField
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
@@ -63,6 +64,8 @@ fun DetailsPanel(
     /** True while those identical parts are highlighted. */
     identicalHighlighted: Boolean = false,
     onHighlightIdentical: () -> Unit = {},
+    /** Which rows to show (Settings › Part details). */
+    shows: (DetailField) -> Boolean = { true },
 ) {
     Column(modifier.padding(16.dp).verticalScroll(rememberScrollState()).testTag("details")) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -78,7 +81,7 @@ fun DetailsPanel(
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
+            if (shows(DetailField.VALUE)) Text(
                 component.value.orDash(), style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.weight(1f, fill = false).testTag("details.value"),
             )
@@ -94,6 +97,7 @@ fun DetailsPanel(
             )
         }
         Spacer(Modifier.height(10.dp))
+        if (shows(DetailField.IDENTICAL)) {
         val others = identicalCount - 1
         val label = when {
             others <= 0 -> "No identical parts on this board"
@@ -110,6 +114,8 @@ fun DetailsPanel(
             }
         }
         Spacer(Modifier.height(12.dp))
+        }
+        if (shows(DetailField.STATUS)) {
         Text("Status", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 4.dp)) {
             val current = mark?.let { Status.of(it.argb) }
@@ -125,14 +131,23 @@ fun DetailsPanel(
                 ) { Text(s.label, color = Color.Black, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium) }
             }
         }
-        Field("Description", component.description)
-        Field("Footprint", component.footprint)
-        Field("Part number", component.partNumber)
-        Field("Manufacturer", component.manufacturer)
-        Field("Layer", if (component.side == Side.TOP) "Top" else "Bottom")
-        Field("Position (mm)", "${formatMm(component.position.x)}, ${formatMm(component.position.y)}")
-        Field("Rotation", String.format(Locale.US, "%.1f°", component.rotationDeg))
+        }
+        val compPads = board.padsOf(component)
+        if (shows(DetailField.DESCRIPTION)) Field("Description", component.description)
+        if (shows(DetailField.PART_NUMBER)) Field(
+            "Part number", component.partNumber,
+            note = if (component.partNumberFromLibrary) "From the library name; open a BOM with the board for the exact part number" else null,
+        )
+        if (shows(DetailField.MANUFACTURER)) Field("Manufacturer", component.manufacturer)
+        if (shows(DetailField.FOOTPRINT)) Field("Footprint", component.footprint)
+        if (shows(DetailField.LIBRARY)) Field("Library", component.libraryRef)
+        if (shows(DetailField.LAYER)) Field("Layer", if (component.side == Side.TOP) "Top" else "Bottom")
+        if (shows(DetailField.MOUNT)) Field("Mounting", mountingText(compPads))
+        if (shows(DetailField.HEIGHT)) Field("Height", component.heightUm?.let { String.format(Locale.US, "%.2f mm", it / 1000.0) })
+        if (shows(DetailField.POSITION)) Field("Position (mm)", "${formatMm(component.position.x)}, ${formatMm(component.position.y)}")
+        if (shows(DetailField.ROTATION)) Field("Rotation", String.format(Locale.US, "%.1f°", component.rotationDeg))
 
+        if (shows(DetailField.NETS)) {
         Spacer(Modifier.height(12.dp))
         HorizontalDivider()
         Spacer(Modifier.height(8.dp))
@@ -155,13 +170,24 @@ fun DetailsPanel(
                 }
             }
         }
+        }
     }
 }
 
+/** "SMD · 16 pins", "Through-hole · 3 pins", "Mixed …", or null when the part has no pads. */
+fun mountingText(pads: List<com.pcbsolderview.model.Pad>): String? {
+    val pins = pads.map { it.name }.distinct().size
+    if (pins == 0) return null
+    val th = pads.any { it.isThroughHole }; val smd = pads.any { !it.isThroughHole }
+    val kind = when { th && smd -> "Mixed SMD / through-hole"; th -> "Through-hole"; else -> "SMD" }
+    return "$kind · $pins pin" + if (pins == 1) "" else "s"
+}
+
 @Composable
-private fun Field(label: String, value: String?) {
+private fun Field(label: String, value: String?, note: String? = null) {
     Column(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value.orDash(), style = MaterialTheme.typography.bodyLarge)
+        if (note != null && value != null) Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

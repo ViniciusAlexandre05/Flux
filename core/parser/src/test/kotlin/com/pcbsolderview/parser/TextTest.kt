@@ -37,6 +37,28 @@ class TextTest {
     }
 
     @Test
+    fun repairsMojibake() {
+        assertEquals("1.1nV/√Hz", com.pcbsolderview.parser.text.fixMojibake("1.1nV/âˆšHz"))
+        assertEquals("Ø 3 mm µF", com.pcbsolderview.parser.text.fixMojibake("Ã˜ 3 mm Âµ" + "F"))
+        // Double-encoded text is repaired too; clean text and real accents stay as they are.
+        val once = String("√".toByteArray(Charsets.UTF_8), charset("windows-1252"))
+        val twice = String(once.toByteArray(Charsets.UTF_8), charset("windows-1252"))
+        assertEquals("√", com.pcbsolderview.parser.text.fixMojibake(twice))
+        assertEquals("Resistor 1%", com.pcbsolderview.parser.text.fixMojibake("Resistor 1%"))
+        assertEquals("Conector fêmea", com.pcbsolderview.parser.text.fixMojibake("Conector fêmea"))
+    }
+
+    @Test
+    fun recognisesPartNumbers() {
+        listOf("L7812CV", "LT6238CGNPBF", "TC7660HEOA", "BC847,215", "GRM188R71H104KA93D").forEach {
+            assertEquals(true, com.pcbsolderview.parser.text.looksLikePartNumber(it), it)
+        }
+        listOf("RES 100K OHM 1%", "BORNE 1X2", "LOGO LESC", "CAP", "1234", null).forEach {
+            assertEquals(false, com.pcbsolderview.parser.text.looksLikePartNumber(it), it.toString())
+        }
+    }
+
+    @Test
     fun keepsNewlinesInsideQuotes() {
         assertEquals(listOf("a,\"b\nc\"", "d"), DelimitedText.lines("a,\"b\nc\"\r\nd"))
     }

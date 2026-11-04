@@ -35,6 +35,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.pcbsolderview.data.Appearance
 import com.pcbsolderview.data.ThemeMode
+import com.pcbsolderview.data.DetailField
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.FilterChip
 import com.pcbsolderview.render.GridStyle
 import com.pcbsolderview.render.Grid
 import com.pcbsolderview.render.GridUnit
@@ -165,10 +169,39 @@ fun SettingsContent(a: Appearance, onChange: (Appearance) -> Unit, modifier: Mod
             onChange(a.copy(penOnlyDrawing = it))
         }
         Spacer(Modifier.height(8.dp)); HorizontalDivider()
+        SectionTitle("Part details")
+        Text(
+            "Choose what the panel shows when you select a part.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(8.dp))
+        DetailFieldChips(a, onChange)
+        Spacer(Modifier.height(8.dp)); HorizontalDivider()
         SectionTitle("Diagnostics")
         ToggleRow("Frame rate (FPS)", a.showFps, "Shows frames drawn per second while you pan and zoom.") {
             onChange(a.copy(showFps = it))
         }
+    }
+}
+
+/** One chip per detail row; selected = shown. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DetailFieldChips(a: Appearance, onChange: (Appearance) -> Unit) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        DetailField.entries.forEach { f ->
+            val on = a.shows(f)
+            FilterChip(
+                selected = on,
+                onClick = { onChange(a.copy(hiddenDetails = if (on) a.hiddenDetails + f else a.hiddenDetails - f)) },
+                label = { Text(f.label) },
+                leadingIcon = if (on) ({ Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }) else null,
+                modifier = Modifier.height(40.dp).testTag("detail.${f.name}"),
+            )
+        }
+    }
+    if (a.hiddenDetails.isNotEmpty()) {
+        TextButton(onClick = { onChange(a.copy(hiddenDetails = emptySet())) }) { Text("Show all") }
     }
 }
 

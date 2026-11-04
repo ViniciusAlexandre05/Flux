@@ -188,6 +188,12 @@ data class Component(
     val boundsEstimated: Boolean = false,
     /** Package body outline in board coordinates, when the source has one (IPC-2581). */
     val outline: List<Point>? = null,
+    /** Library reference, e.g. "IEPE_CONDITIONER.PcbLib : RES 100K OHM 1% 1/16W 0402". */
+    val libraryRef: String? = null,
+    /** Body height above the board, µm, when the source has it. */
+    val heightUm: Long? = null,
+    /** True when [partNumber] was taken from the library name (no part number in the file). */
+    val partNumberFromLibrary: Boolean = false,
     val padIds: List<Int> = emptyList(),
 )
 

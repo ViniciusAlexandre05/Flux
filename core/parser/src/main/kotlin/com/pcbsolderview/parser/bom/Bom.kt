@@ -83,11 +83,14 @@ object BomParser {
 fun Board.withBom(bom: Bom): Board = copy(
     components = components.map { c ->
         val e = bom[c.refDes] ?: return@map c
+        // A real part number from the BOM replaces one guessed from the library name.
+        val useBomPn = e.partNumber != null && (c.partNumber == null || c.partNumberFromLibrary)
         c.copy(
             value = c.value ?: e.value,
             description = c.description ?: e.description,
             footprint = c.footprint ?: e.footprint,
-            partNumber = c.partNumber ?: e.partNumber,
+            partNumber = if (useBomPn) e.partNumber else c.partNumber,
+            partNumberFromLibrary = if (useBomPn) false else c.partNumberFromLibrary,
             manufacturer = c.manufacturer ?: e.manufacturer,
         )
     },

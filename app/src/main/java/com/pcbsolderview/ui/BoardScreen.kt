@@ -434,6 +434,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                             identicalHighlighted = identical.size > 1 &&
                                 state.highlighted.map { it.refDes }.toSet() == identical.map { it.refDes }.toSet(),
                             onHighlightIdentical = { vm.toggleIdentical(sel) },
+                            shows = appearance::shows,
                         )
                     }
                     net != null -> Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = mod) {

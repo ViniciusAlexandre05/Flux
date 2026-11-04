@@ -56,3 +56,38 @@ fun parseNumberWithUnit(s: String): Pair<Double, Units?>? {
 fun parseDouble(s: String): Double? = parseNumberWithUnit(s)?.first
 
 fun String.blankToNull(): String? = trim().takeIf { it.isNotEmpty() && it != "-" && it != "—" }
+
+private val cp1252: Charset = Charset.forName("windows-1252")
+private val mojibakeMarkers = Regex("[ÃÂâ][\u0080-¿ŒœŠšŸŽžƒˆ˜–-›€™]")
+
+/**
+ * Repairs text that was UTF-8 but got decoded as Windows-1252 somewhere upstream (Altium writes
+ * some descriptions this way): "1.1nV/âˆšHz" -> "1.1nV/√Hz". Applied at most twice (double
+ * encoding); text that doesn't round-trip cleanly is returned unchanged.
+ */
+fun fixMojibake(s: String): String {
+    var cur = s
+    repeat(2) {
+        if (!mojibakeMarkers.containsMatchIn(cur)) return cur
+        val encoder = cp1252.newEncoder().onUnmappableCharacter(CodingErrorAction.REPORT)
+        val bytes = try { encoder.encode(java.nio.CharBuffer.wrap(cur)) } catch (_: CharacterCodingException) { return cur }
+        val fixed = try {
+            Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).decode(bytes).toString()
+        } catch (_: CharacterCodingException) { return cur }
+        if (fixed == cur) return cur
+        cur = fixed
+    }
+    return cur
+}
+
+private val partNumberLike = Regex("""^[A-Z0-9][A-Z0-9\-_.,/+#()]{3,39}$""")
+
+/**
+ * True for strings that look like a manufacturer part number ("L7812CV", "LT6238CGNPBF"):
+ * one token, upper-case letters and digits, both present. Library names that describe a
+ * passive ("RES 100K OHM 1%") are rejected because they contain spaces.
+ */
+fun looksLikePartNumber(s: String?): Boolean {
+    val t = s?.trim() ?: return false
+    return partNumberLike.matches(t) && t.any { it.isDigit() } && t.any { it.isLetter() }
+}

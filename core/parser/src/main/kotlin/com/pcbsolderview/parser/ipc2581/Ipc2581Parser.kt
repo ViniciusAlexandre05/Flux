@@ -20,6 +20,8 @@ import com.pcbsolderview.model.Via
 import com.pcbsolderview.model.arcPoints
 import com.pcbsolderview.model.oriented
 import com.pcbsolderview.parser.BoardParseException
+import com.pcbsolderview.parser.text.fixMojibake
+import com.pcbsolderview.parser.text.looksLikePartNumber
 import com.pcbsolderview.parser.xml.XmlParserFactory
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserException
@@ -79,9 +81,9 @@ class Ipc2581Parser(private val xml: XmlParserFactory) {
 
     private class RawPadStack(val net: String?, val holes: List<RawHole>, val pads: List<RawPad>)
 
-    private class RawPackage(val name: String, val outline: List<Pair<Double, Double>>, val pins: List<Triple<String, Pair<Double, Double>, String?>>)
+    private class RawPackage(val name: String, val outline: List<Pair<Double, Double>>, val pins: List<Triple<String, Pair<Double, Double>, String?>>, val height: Double?)
 
-    private class RawComponent(val ref: String, val pkg: String?, val layer: String?, val part: String?, val xf: Xf?, val loc: Pair<Double, Double>?)
+    private class RawComponent(val ref: String, val pkg: String?, val layer: String?, val part: String?, val xf: Xf?, val loc: Pair<Double, Double>?, val height: Double?)
 
     private class RawBom(val libRef: String?, val description: String?, val partNumber: String?, val manufacturer: String?, val refs: List<String>)
 
@@ -129,6 +131,8 @@ class Ipc2581Parser(private val xml: XmlParserFactory) {
         var contourOuter: List<Point>? = null
         val contourHoles = ArrayList<List<Point>>()
         var pkgName: String? = null
+        var pkgHeight: Double? = null
+        var compHeight: Double? = null
         var pkgOutline: List<Pair<Double, Double>> = emptyList()
         val pkgPins = ArrayList<Triple<String, Pair<Double, Double>, String?>>()
         var pinNumber: String? = null
@@ -221,11 +225,11 @@ class Ipc2581Parser(private val xml: XmlParserFactory) {
                 }
                 "LogicalNet" -> logicalNet = p.a("name")
 
-                "Package" -> { pkgName = p.a("name"); pkgOutline = emptyList(); pkgPins.clear() }
+                "Package" -> { pkgName = p.a("name"); pkgHeight = p.um("height"); pkgOutline = emptyList(); pkgPins.clear() }
                 "Pin" -> if (inside("Package")) { pinNumber = p.a("number") ?: p.a("name"); resetPending() }
 
                 "Component" -> if (inside("Step")) {
-                    compAttrs = arrayOf(p.a("refDes"), p.a("packageRef"), p.a("layerRef"), p.a("part")); resetPending()
+                    compAttrs = arrayOf(p.a("refDes"), p.a("packageRef"), p.a("layerRef"), p.a("part")); compHeight = p.um("height"); resetPending()
                 }
 
                 "PadStack" -> { psNet = netName(p.a("net")); psHoles.clear(); psPads.clear() }
@@ -295,9 +299,9 @@ class Ipc2581Parser(private val xml: XmlParserFactory) {
                 "LayerFeature" -> featureLayer = null
 
                 "Pin" -> if (inside("Package")) pinNumber?.let { pkgPins += Triple(it, pendLoc ?: (0.0 to 0.0), pendPrim) }
-                "Package" -> pkgName?.let { packages[it] = RawPackage(it, pkgOutline, pkgPins.toList()) }
+                "Package" -> pkgName?.let { packages[it] = RawPackage(it, pkgOutline, pkgPins.toList(), pkgHeight) }
                 "Component" -> compAttrs?.let { a ->
-                    a[0]?.let { components += RawComponent(it, a[1], a[2], a[3], pendXf, pendLoc) }
+                    a[0]?.let { components += RawComponent(it, a[1], a[2], a[3], pendXf, pendLoc, compHeight) }
                     compAttrs = null
                 }
                 "LayerHole" -> holeAttrs?.let { psHoles += RawHole(it.x, it.y, it.d, it.plating, pendPin ?: it.pin); holeAttrs = null }
@@ -307,8 +311,8 @@ class Ipc2581Parser(private val xml: XmlParserFactory) {
                 "BomItem" -> bomAttrs?.let { a ->
                     boms += RawBom(
                         a[0], a[1],
-                        bomChars["manufacturer part number"] ?: bomChars["mpn"] ?: bomChars["part number"],
-                        bomChars["manufacturer"] ?: bomChars["manufacturer 1"],
+                        PART_NUMBER_KEYS.firstNotNullOfOrNull { bomChars[it] }?.trim()?.takeIf { it.isNotEmpty() },
+                        MANUFACTURER_KEYS.firstNotNullOfOrNull { bomChars[it] }?.trim()?.takeIf { it.isNotEmpty() },
                         bomRefs.toList(),
                     )
                     bomAttrs = null
@@ -400,14 +404,22 @@ class Ipc2581Parser(private val xml: XmlParserFactory) {
                 val position = pt(loc)
                 val bounds = listOfNotNull(outlineBox, padBox).reduceOrNull { a, b -> a.union(b) } ?: Rect.around(position, 1000, 1000)
                 val bom = bomByRef[rc.ref.uppercase()]
-                val libName = bom?.libRef?.substringAfter(':')?.trim()?.takeIf { it.isNotEmpty() }
+                val libRef = bom?.libRef?.let { fixMojibake(it) }
+                val libName = libRef?.substringAfter(':')?.trim()?.takeIf { it.isNotEmpty() }
+                val description = bom?.description?.let { fixMojibake(it).trim() }?.takeIf { it.isNotEmpty() }
+                // No part number in the file: use the library name when it is one (e.g. "L7812CV").
+                val pnFromLib = bom?.partNumber == null && looksLikePartNumber(libName)
+                val height = rc.height ?: pkg?.height
                 Component(
                     refDes = rc.ref,
                     value = deriveValue(libName, bom?.description),
-                    description = bom?.description?.trim()?.takeIf { it.isNotEmpty() } ?: libName,
+                    description = description ?: libName,
                     footprint = footprintName(rc.pkg ?: rc.part),
-                    partNumber = bom?.partNumber,
+                    partNumber = bom?.partNumber ?: libName?.takeIf { pnFromLib },
+                    partNumberFromLibrary = pnFromLib,
                     manufacturer = bom?.manufacturer,
+                    libraryRef = libRef?.let { r -> if (':' in r) r.substringBefore(':').trim() + " : " + r.substringAfter(':').trim() else r.trim() },
+                    heightUm = height?.let { Math.round(it) }?.takeIf { it > 0 },
                     side = side,
                     position = position,
                     rotationDeg = normalizeDeg(rc.xf?.rot ?: 0.0),
@@ -512,6 +524,13 @@ class Ipc2581Parser(private val xml: XmlParserFactory) {
             "DOCUMENT", "COMPONENT_TOP", "COMPONENT_BOTTOM" -> LayerType.DOCUMENT
             else -> LayerType.OTHER
         }
+
+        /** BOM characteristic names that carry the manufacturer part number / manufacturer (lower case). */
+        val PART_NUMBER_KEYS = listOf(
+            "manufacturer part number", "manufacturer part number 1", "mpn", "mfr part number", "mfr. part number",
+            "manufacturer pn", "part number", "partnumber",
+        )
+        val MANUFACTURER_KEYS = listOf("manufacturer", "manufacturer 1", "manufacturer name", "mfr", "mfr.")
 
         fun netName(s: String?): String? = s?.trim()?.takeIf { it.isNotEmpty() && !it.equals("No Net", true) && !it.equals("NoNet", true) }
 
