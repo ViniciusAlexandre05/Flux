@@ -346,18 +346,24 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                         }
                     }
                     if (state.showToolsPanel) {
-                        // Floating, draggable palette; options flyout opens on whichever side has room.
+                        // Floating, draggable palette. Near the top/bottom edge it turns into a horizontal
+                        // bar, near the left/right edge a column; on release it snaps flush to that edge.
                         val (vw, vh) = viewport
                         val margin = with(density) { 8.dp.toPx() }
-                        val palW = with(density) { PALETTE_WIDTH.toPx() }
+                        val thick = with(density) { PALETTE_WIDTH.toPx() }
+                        val gripInset = with(density) { 13.dp.toPx() }
                         val optW = with(density) { OPTIONS_WIDTH.toPx() }
-                        var palH by remember { mutableFloatStateOf(0f) }
+                        var horizontal by remember { mutableStateOf(vm.toolboxHorizontal) }
+                        var palSize by remember { mutableStateOf(Offset(thick, thick * 8)) }
+                        var optH by remember { mutableFloatStateOf(with(density) { 420.dp.toPx() }) }
                         var pos by remember { mutableStateOf(vm.toolboxPos?.let { Offset(it.first, it.second) } ?: Offset(margin, margin)) }
                         var showOptions by remember { mutableStateOf(false) }
                         fun clamp(p: Offset) = Offset(
-                            p.x.coerceIn(0f, maxOf(0f, vw - palW)),
-                            p.y.coerceIn(0f, maxOf(0f, vh - palH)),
+                            p.x.coerceIn(0f, maxOf(0f, vw - palSize.x)),
+                            p.y.coerceIn(0f, maxOf(0f, vh - palSize.y)),
                         )
+                        // The grip sits at the top of a column and at the left end of a bar.
+                        fun grip(p: Offset) = if (horizontal) Offset(p.x + gripInset, p.y + palSize.y / 2) else Offset(p.x + palSize.x / 2, p.y + gripInset)
                         val at = clamp(pos)
                         val hasOptions = state.tool == Tool.PEN || state.tool == Tool.PAINT
                         ToolPalette(
@@ -370,19 +376,43 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                             },
                             onUndo = vm::undo,
                             onClear = { confirmClear = true },
-                            onDrag = { d -> pos = clamp(pos + d) },
-                            onDragEnd = { vm.toolboxPos = pos.x to pos.y },
+                            onDrag = { d ->
+                                pos = clamp(pos + d)
+                                val g = grip(pos)
+                                horizontal = PaletteDock.horizontalFor(g.x, g.y, vw.toFloat(), vh.toFloat(), horizontal, hysteresis = thick)
+                            },
+                            onDragEnd = {
+                                val g = grip(pos)
+                                val edge = if (horizontal) {
+                                    if (g.y < vh / 2f) PaletteDock.Edge.TOP else PaletteDock.Edge.BOTTOM
+                                } else {
+                                    if (g.x < vw / 2f) PaletteDock.Edge.LEFT else PaletteDock.Edge.RIGHT
+                                }
+                                pos = clamp(PaletteDock.snap(pos, palSize, vw.toFloat(), vh.toFloat(), edge, margin))
+                                vm.toolboxPos = pos.x to pos.y
+                                vm.toolboxHorizontal = horizontal
+                            },
+                            horizontal = horizontal,
                             modifier = Modifier.offset { IntOffset(at.x.roundToInt(), at.y.roundToInt()) }
-                                .onSizeChanged { palH = it.height.toFloat() },
+                                .onSizeChanged { palSize = Offset(it.width.toFloat(), it.height.toFloat()) },
                         )
                         if (showOptions && hasOptions) {
-                            val right = at.x + palW + margin + optW <= vw
-                            val ox = if (right) at.x + palW + margin else (at.x - margin - optW).coerceAtLeast(0f)
+                            val (ox, oy) = if (horizontal) {
+                                // Bar: options below it, or above when docked at the bottom.
+                                val below = at.y + palSize.y + margin + optH <= vh
+                                val x = at.x.coerceIn(0f, maxOf(0f, vw - optW))
+                                x to (if (below) at.y + palSize.y + margin else (at.y - margin - optH).coerceAtLeast(0f))
+                            } else {
+                                val right = at.x + palSize.x + margin + optW <= vw
+                                (if (right) at.x + palSize.x + margin else (at.x - margin - optW).coerceAtLeast(0f)) to at.y
+                            }
                             ToolOptions(
                                 tool = state.tool, penArgb = state.penArgb, penWidthPx = state.penWidthPx, paintStatus = state.paintStatus,
                                 onPenColor = vm::setPen, onPenWidth = vm::setPenWidth, onPaintStatus = vm::setPaintStatus,
                                 onClose = { showOptions = false },
-                                modifier = Modifier.offset { IntOffset(ox.roundToInt(), at.y.roundToInt()) }.heightIn(max = layersMaxHeight),
+                                modifier = Modifier.offset { IntOffset(ox.roundToInt(), oy.roundToInt()) }
+                                    .heightIn(max = layersMaxHeight)
+                                    .onSizeChanged { optH = it.height.toFloat() },
                             )
                         }
                     } else if (!state.tool.isInspect) {

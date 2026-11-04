@@ -27,6 +27,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.ui.draw.rotate
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -56,6 +58,7 @@ val OPTIONS_WIDTH = 264.dp
 
 /**
  * Floating tool palette (Photoshop-style): icons only, drag the grip to move it.
+ * [horizontal] lays it out as a bar (docked at the top/bottom) instead of a column (left/right).
  * The colour well shows the current pen / status colour and opens the options flyout.
  */
 @Composable
@@ -70,31 +73,37 @@ fun ToolPalette(
     onDrag: (Offset) -> Unit,
     onDragEnd: () -> Unit,
     modifier: Modifier = Modifier,
+    horizontal: Boolean = false,
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shape = RoundedCornerShape(18.dp),
         shadowElevation = 8.dp,
-        modifier = modifier.width(PALETTE_WIDTH).testTag("palette"),
+        modifier = modifier.then(if (horizontal) Modifier.height(PALETTE_WIDTH) else Modifier.width(PALETTE_WIDTH)).testTag("palette"),
     ) {
-        Column(Modifier.padding(6.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        val items: @Composable () -> Unit = {
             // Grip: drag to move the palette.
             Box(
-                Modifier.fillMaxWidth().height(26.dp)
+                (if (horizontal) Modifier.width(26.dp).height(48.dp) else Modifier.fillMaxWidth().height(26.dp))
                     .pointerInput(Unit) {
                         detectDragGestures(onDragEnd = onDragEnd, onDragCancel = onDragEnd) { change, amount -> change.consume(); onDrag(amount) }
                     }
                     .testTag("palette.grip"),
                 contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Filled.DragHandle, contentDescription = "Move toolbox", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            ) {
+                Icon(
+                    Icons.Filled.DragHandle, contentDescription = "Move toolbox", tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = if (horizontal) Modifier.rotate(90f) else Modifier,
+                )
+            }
 
             PaletteButton(toolIcon(Tool.COMPONENTS), "Inspect parts", tool == Tool.COMPONENTS) { onTool(Tool.COMPONENTS) }
             PaletteButton(toolIcon(Tool.NETS), "Inspect tracks & planes", tool == Tool.NETS) { onTool(Tool.NETS) }
-            PaletteDivider()
+            PaletteDivider(horizontal)
             PaletteButton(toolIcon(Tool.PEN), "Brush (draw)", tool == Tool.PEN) { onTool(Tool.PEN) }
             PaletteButton(toolIcon(Tool.ERASER), "Eraser", tool == Tool.ERASER) { onTool(Tool.ERASER) }
             PaletteButton(toolIcon(Tool.PAINT), "Paint status", tool == Tool.PAINT) { onTool(Tool.PAINT) }
-            PaletteDivider()
+            PaletteDivider(horizontal)
             // Colour well.
             Tip("Colour & size") {
                 Box(
@@ -105,16 +114,58 @@ fun ToolPalette(
                         .testTag("palette.well"),
                 )
             }
-            PaletteDivider()
+            PaletteDivider(horizontal)
             PaletteButton(Icons.AutoMirrored.Filled.Undo, "Undo", selected = false, enabled = canUndo, onClick = onUndo)
             PaletteButton(Icons.Filled.DeleteSweep, "Clear all annotations", selected = false, onClick = onClear)
+        }
+        if (horizontal) {
+            Row(Modifier.padding(6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) { items() }
+        } else {
+            Column(Modifier.padding(6.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) { items() }
         }
     }
 }
 
 @Composable
-private fun PaletteDivider() {
-    HorizontalDivider(Modifier.width(36.dp).padding(vertical = 2.dp), color = MaterialTheme.colorScheme.outlineVariant)
+private fun PaletteDivider(horizontal: Boolean) {
+    if (horizontal) {
+        VerticalDivider(Modifier.height(36.dp).padding(horizontal = 2.dp), color = MaterialTheme.colorScheme.outlineVariant)
+    } else {
+        HorizontalDivider(Modifier.width(36.dp).padding(vertical = 2.dp), color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+/** Which way the palette lies, from where it is: near the top/bottom edge it becomes a bar. */
+object PaletteDock {
+    enum class Edge { LEFT, RIGHT, TOP, BOTTOM }
+
+    /** Edge nearest to point (x, y) in a w×h area. */
+    fun nearestEdge(x: Float, y: Float, w: Float, h: Float): Edge {
+        val d = mapOf(Edge.LEFT to x, Edge.RIGHT to w - x, Edge.TOP to y, Edge.BOTTOM to h - y)
+        return d.minBy { it.value }.key
+    }
+
+    /**
+     * New orientation for a palette whose grip is at (x, y). Changes only when the other kind of
+     * edge is closer by more than [hysteresis] px, so it doesn't flicker near corners.
+     */
+    fun horizontalFor(x: Float, y: Float, w: Float, h: Float, current: Boolean, hysteresis: Float): Boolean {
+        val toSide = minOf(x, w - x)
+        val toTopBottom = minOf(y, h - y)
+        return when {
+            current && toSide + hysteresis < toTopBottom -> false
+            !current && toTopBottom + hysteresis < toSide -> true
+            else -> current
+        }
+    }
+
+    /** Position flush against [edge] (with [margin]), keeping the other coordinate. */
+    fun snap(pos: Offset, size: Offset, w: Float, h: Float, edge: Edge, margin: Float): Offset = when (edge) {
+        Edge.LEFT -> Offset(margin, pos.y)
+        Edge.RIGHT -> Offset(w - size.x - margin, pos.y)
+        Edge.TOP -> Offset(pos.x, margin)
+        Edge.BOTTOM -> Offset(pos.x, h - size.y - margin)
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

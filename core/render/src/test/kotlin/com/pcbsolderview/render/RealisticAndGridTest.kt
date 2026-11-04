@@ -41,6 +41,15 @@ class RealisticAndGridTest {
     }
 
     @Test
+    fun copperToneIsDarkerOnColouredMaskAndVisibleOnBlack() {
+        val green = Color(0xFF1E5C3A)
+        val tone = BodyStyle.copperUnderMask(green)
+        assertTrue(tone.green < green.green && tone.red <= green.red && tone.blue <= green.blue) // darker, same hue
+        val black = Color(0xFF141414)
+        assertTrue(BodyStyle.copperUnderMask(black).red > black.red) // lighter, so tracks still show
+    }
+
+    @Test
     fun gridStepAdaptsToZoom() {
         assertEquals(100L, Grid.stepFor(1.0))          // 1 px/µm: 0.1 mm = 100 px
         assertEquals(1_000L, Grid.stepFor(0.03))      // 1 mm = 30 px

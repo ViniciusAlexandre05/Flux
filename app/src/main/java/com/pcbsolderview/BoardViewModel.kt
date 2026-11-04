@@ -360,6 +360,9 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
     /** Where the user dragged the tool palette (px in the board area); kept across boards. */
     var toolboxPos: Pair<Float, Float>? = null
 
+    /** Palette lies horizontally (docked at the top or bottom edge). */
+    var toolboxHorizontal: Boolean = false
+
     // ------------------------------------------------------------------ tools
 
     fun setTool(t: Tool) = _state.update { s ->

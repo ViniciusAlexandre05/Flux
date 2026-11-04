@@ -95,6 +95,8 @@ class BoardScene(val board: Board) {
 
     /** Realistic (assembled-board) geometry for one side: exposed pads, silkscreen, component bodies. */
     class Realistic(
+        /** Copper layers on this side (tracks + planes), seen through the solder mask. */
+        val copper: List<LayerScene>,
         val pads: Path,
         val silk: List<LayerScene>,
         val bodies: List<Pair<Color, Path>>,
@@ -115,7 +117,8 @@ class BoardScene(val board: Board) {
         val bodies = parts.groupBy { BodyStyle.colorFor(it) }.map { (color, cs) ->
             color to Path().apply { cs.forEach { c -> val s = BodyStyle.shapeFor(c); addRing(s); all.addRing(s) } }
         }
-        Realistic(pads, silk, bodies, all)
+        val copper = layers.filter { it.layer.type == LayerType.COPPER && it.layer.side == side }
+        Realistic(copper, pads, silk, bodies, all)
     }
 
     /** All copper of one net: pours + pads + vias as fill, tracks grouped by width. */

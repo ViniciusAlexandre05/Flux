@@ -39,6 +39,14 @@ object BoardPng {
             p.closePath(); return p
         }
         board.outline.forEach { poly -> val p = path(poly.points); poly.holes.forEach { path(it, p) }; g.color = Color(0x1E5C3A); g.fill(p) }
+        // Copper under the mask: mask colour 30% darker (mirrors BodyStyle.copperUnderMask).
+        val topCopper = board.layers.filter { it.type == LayerType.COPPER && it.side == Side.TOP }.map { it.name }.toSet()
+        g.color = Color(0x15, 0x40, 0x29)
+        board.fills.filter { it.layer in topCopper }.forEach { f -> val p = path(f.polygon.points); f.polygon.holes.forEach { path(it, p) }; g.fill(p) }
+        board.tracks.filter { it.layer in topCopper }.forEach { t ->
+            g.stroke = BasicStroke(maxOf(1.0, t.width * scale).toFloat(), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
+            val p = Path2D.Double(); t.centerline().forEachIndexed { i, (x, y) -> if (i == 0) p.moveTo(sx(x), sy(y)) else p.lineTo(sx(x), sy(y)) }; g.draw(p)
+        }
         g.color = Color(0xD8B45A)
         board.pads.filter { it.isThroughHole || it.side == Side.TOP }.forEach { g.fill(path(it.outline())) }
         g.color = Color(0x0B0F14)

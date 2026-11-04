@@ -57,4 +57,14 @@ object BodyStyle {
     fun silkFor(mask: Color): Color = if (mask.red * 0.3f + mask.green * 0.59f + mask.blue * 0.11f > 0.6f) Color(0xFF1A1A1A) else Color(0xFFF2F2EE)
 
     val PadFinish = Color(0xFFD8B45A) // ENIG / HASL gold
+
+    /**
+     * Tone of copper (tracks, planes) seen through the mask: the mask colour, darker. On a black
+     * mask darker is invisible, so it goes slightly lighter instead.
+     */
+    fun copperUnderMask(mask: Color): Color {
+        val lum = mask.red * 0.3f + mask.green * 0.59f + mask.blue * 0.11f
+        return if (lum < 0.12f) androidx.compose.ui.graphics.lerp(mask, Color.White, 0.10f)
+        else androidx.compose.ui.graphics.lerp(mask, Color.Black, 0.30f)
+    }
 }

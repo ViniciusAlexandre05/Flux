@@ -345,6 +345,12 @@ fun BoardCanvas(
                 // Assembled-board look: mask, exposed pads, silkscreen and component bodies only.
                 val g = scene.realistic(visibleSide)
                 if (scene.hasGeometry) {
+                    // Copper under the mask: same hue, a darker tone (like a real board).
+                    val copperTone = BodyStyle.copperUnderMask(mask)
+                    for (ls in g.copper) {
+                        drawPath(ls.fill, copperTone, style = Fill)
+                        for ((w, path) in ls.strokes) drawPath(path, copperTone, style = Stroke(width = maxOf(w, px), cap = StrokeCap.Round, join = StrokeJoin.Round))
+                    }
                     drawPath(g.pads, BodyStyle.PadFinish, style = Fill)
                     drawPath(scene.holesWithoutVias, colors.background, style = Fill)
                     val ink = BodyStyle.silkFor(mask)

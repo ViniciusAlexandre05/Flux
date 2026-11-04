@@ -59,6 +59,7 @@ import com.pcbsolderview.model.NaturalOrder
 import com.pcbsolderview.render.BoardScene
 import com.pcbsolderview.render.DisplayOptions
 import com.pcbsolderview.render.ViewMode
+import androidx.compose.ui.draw.alpha
 
 // ---------------------------------------------------------------------------- toolbox
 
@@ -160,31 +161,42 @@ fun LayersPanel(
                     }
                 }
                 Text(
-                    "Shows the board as assembled: mask, pads, silkscreen and part bodies; no tracks or planes.",
+                    "Shows the board as assembled: mask with the copper showing through, gold pads, silkscreen and part bodies.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 6.dp),
                 )
             }
+            // Layer choices only apply to the CAD view; in the realistic view they are greyed out.
+            val cad = display.viewMode != ViewMode.REALISTIC
             Spacer(Modifier.height(8.dp)); HorizontalDivider(); Spacer(Modifier.height(4.dp))
             ToggleRow("Designators", display.showDesignators) { onDisplay(display.copy(showDesignators = it)) }
-            ToggleRow("Component outlines", display.showComponentOutlines) { onDisplay(display.copy(showComponentOutlines = it)) }
-            if (scene.hasGeometry) ToggleRow("Through-hole pads & vias", display.showMultiLayer) { onDisplay(display.copy(showMultiLayer = it)) }
+            ToggleRow("Component outlines", display.showComponentOutlines, enabled = cad) { onDisplay(display.copy(showComponentOutlines = it)) }
+            if (scene.hasGeometry) ToggleRow("Through-hole pads & vias", display.showMultiLayer, enabled = cad) { onDisplay(display.copy(showMultiLayer = it)) }
             ToggleRow("Annotations & status paint", display.showAnnotations) { onDisplay(display.copy(showAnnotations = it)) }
 
             if (scene.layers.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp)); HorizontalDivider(); Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Layers", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { onAll(true) }) { Text("All") }
-                    TextButton(onClick = { onAll(false) }) { Text("None") }
-                    TextButton(onClick = onDefaults) { Text("Default") }
+                    TextButton(onClick = { onAll(true) }, enabled = cad) { Text("All") }
+                    TextButton(onClick = { onAll(false) }, enabled = cad) { Text("None") }
+                    TextButton(onClick = onDefaults, enabled = cad) { Text("Default") }
+                }
+                if (!cad) {
+                    Text(
+                        "Layers apply to the CAD view. Switch the view style above to change them.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 4.dp).testTag("layers.disabled"),
+                    )
                 }
                 scene.layers.sortedBy { it.layer.order }.forEach { ls ->
                     Row(
-                        Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { onToggleLayer(ls.name) },
+                        Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                            .alpha(if (cad) 1f else 0.38f)
+                            .clickable(enabled = cad) { onToggleLayer(ls.name) },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Checkbox(checked = ls.name !in display.hiddenLayers, onCheckedChange = { onToggleLayer(ls.name) })
+                        Checkbox(checked = ls.name !in display.hiddenLayers, onCheckedChange = { onToggleLayer(ls.name) }, enabled = cad)
                         Box(Modifier.size(18.dp).background(ls.color, RoundedCornerShape(4.dp)))
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
@@ -211,13 +223,16 @@ private fun layerKind(t: LayerType) = when (t) {
 }
 
 @Composable
-internal fun ToggleRow(label: String, checked: Boolean, description: String? = null, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable { onChange(!checked) }, verticalAlignment = Alignment.CenterVertically) {
+internal fun ToggleRow(label: String, checked: Boolean, description: String? = null, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 52.dp).alpha(if (enabled) 1f else 0.38f).clickable(enabled = enabled) { onChange(!checked) },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Column(Modifier.weight(1f).padding(end = 8.dp)) {
             Text(label)
             if (description != null) Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Switch(checked = checked, onCheckedChange = onChange)
+        Switch(checked = checked, onCheckedChange = onChange, enabled = enabled)
     }
 }
 
