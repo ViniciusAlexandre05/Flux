@@ -22,8 +22,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FormatPaint
+import androidx.compose.material.icons.filled.Brush
+import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -64,102 +64,17 @@ import com.pcbsolderview.render.DisplayOptions
 fun toolIcon(t: Tool): ImageVector = when (t) {
     Tool.COMPONENTS -> Icons.Filled.Memory
     Tool.NETS -> Icons.Filled.Timeline
-    Tool.PEN -> Icons.Filled.Edit
+    Tool.PEN -> Icons.Filled.Brush
     Tool.ERASER -> AppIcons.Eraser
-    Tool.PAINT -> Icons.Filled.FormatPaint
+    Tool.PAINT -> Icons.Filled.FormatColorFill
 }
 
 fun toolLabel(t: Tool): String = when (t) {
     Tool.COMPONENTS -> "Inspect parts"
     Tool.NETS -> "Inspect tracks & planes"
-    Tool.PEN -> "Pen"
+    Tool.PEN -> "Brush"
     Tool.ERASER -> "Eraser"
     Tool.PAINT -> "Paint status"
-}
-
-/** Side menu opened from the Tools button. Large rows for use with gloves / tweezers in hand. */
-@Composable
-fun ToolsMenu(
-    tool: Tool,
-    penArgb: Int,
-    penWidthPx: Float,
-    paintStatus: Status?,
-    canUndo: Boolean,
-    onTool: (Tool) -> Unit,
-    onPenColor: (Int) -> Unit,
-    onPenWidth: (Float) -> Unit,
-    onPaintStatus: (Status?) -> Unit,
-    onUndo: () -> Unit,
-    onClear: () -> Unit,
-    onClose: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 6.dp, shape = RoundedCornerShape(16.dp), modifier = modifier.width(280.dp)) {
-        Column(Modifier.padding(12.dp).verticalScroll(rememberScrollState()).testTag("tools")) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Tools", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                IconButton(onClick = onClose, modifier = Modifier.size(48.dp)) { Icon(Icons.Filled.Close, contentDescription = "Close tools") }
-            }
-            Tool.entries.forEach { t ->
-                val selected = t == tool
-                Row(
-                    Modifier.fillMaxWidth().height(56.dp)
-                        .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent, RoundedCornerShape(12.dp))
-                        .clickable { onTool(t) }.padding(horizontal = 12.dp).testTag("tool.${t.name}"),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    Icon(toolIcon(t), contentDescription = null, modifier = Modifier.size(28.dp))
-                    Text(toolLabel(t), style = MaterialTheme.typography.titleMedium)
-                }
-            }
-            when (tool) {
-                Tool.PEN -> {
-                    Spacer(Modifier.height(8.dp)); HorizontalDivider(); Spacer(Modifier.height(8.dp))
-                    Text("Colour", style = MaterialTheme.typography.labelLarge)
-                    Spacer(Modifier.height(6.dp))
-                    PEN_COLORS.chunked(4).forEach { row ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(vertical = 4.dp)) {
-                            row.forEach { Swatch(it, it == penArgb) { onPenColor(it) } }
-                        }
-                    }
-                    Spacer(Modifier.height(6.dp))
-                    Text("Width", style = MaterialTheme.typography.labelLarge)
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        PEN_WIDTHS.zip(listOf("Thin", "Med", "Thick")).forEach { (w, l) ->
-                            if (w == penWidthPx) Button(onClick = { onPenWidth(w) }, contentPadding = ButtonDefaults.TextButtonContentPadding) { Text(l) }
-                            else OutlinedButton(onClick = { onPenWidth(w) }, contentPadding = ButtonDefaults.TextButtonContentPadding) { Text(l) }
-                        }
-                    }
-                    Text("Draw with one finger or the S Pen. Two fingers still move the board.", style = MaterialTheme.typography.bodySmall)
-                }
-                Tool.PAINT -> {
-                    Spacer(Modifier.height(8.dp)); HorizontalDivider(); Spacer(Modifier.height(8.dp))
-                    Text("Tap a part to paint it", style = MaterialTheme.typography.labelLarge)
-                    Status.entries.forEach { s -> StatusRow(s.label, Color(s.argb), paintStatus == s) { onPaintStatus(s) } }
-                    StatusRow("Remove status", null, paintStatus == null) { onPaintStatus(null) }
-                    Text("Tapping a part again with the same colour removes it.", style = MaterialTheme.typography.bodySmall)
-                }
-                Tool.ERASER -> Hint("Tap a drawing to delete it.")
-                Tool.COMPONENTS -> Hint("Tap a part to see its value, footprint and pins.")
-                Tool.NETS -> Hint("Tap a track, via, pad or copper plane to see its net and everything it connects.")
-            }
-            Spacer(Modifier.height(8.dp)); HorizontalDivider(); Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onUndo, enabled = canUndo, modifier = Modifier.weight(1f).height(52.dp)) {
-                    Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = null); Spacer(Modifier.width(6.dp)); Text("Undo")
-                }
-                OutlinedButton(onClick = onClear, modifier = Modifier.weight(1f).height(52.dp)) {
-                    Icon(Icons.Filled.DeleteSweep, contentDescription = null); Spacer(Modifier.width(6.dp)); Text("Clear")
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun Hint(text: String) {
-    Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp, start = 4.dp))
 }
 
 /** Shown while a drawing tool is active and the menu is closed; tap ✕ to go back to inspecting. */

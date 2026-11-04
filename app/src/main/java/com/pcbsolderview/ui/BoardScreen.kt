@@ -79,6 +79,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntOffset
 import kotlin.math.roundToInt
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
@@ -341,14 +343,45 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                         }
                     }
                     if (state.showToolsPanel) {
-                        ToolsMenu(
-                            tool = state.tool, penArgb = state.penArgb, penWidthPx = state.penWidthPx,
-                            paintStatus = state.paintStatus, canUndo = state.canUndo,
-                            onTool = vm::setTool, onPenColor = vm::setPen, onPenWidth = vm::setPenWidth,
-                            onPaintStatus = vm::setPaintStatus, onUndo = vm::undo, onClear = { confirmClear = true },
-                            onClose = vm::toggleToolsPanel,
-                            modifier = Modifier.align(Alignment.TopStart).padding(8.dp).heightIn(max = layersMaxHeight),
+                        // Floating, draggable palette; options flyout opens on whichever side has room.
+                        val (vw, vh) = viewport
+                        val margin = with(density) { 8.dp.toPx() }
+                        val palW = with(density) { PALETTE_WIDTH.toPx() }
+                        val optW = with(density) { OPTIONS_WIDTH.toPx() }
+                        var palH by remember { mutableFloatStateOf(0f) }
+                        var pos by remember { mutableStateOf(vm.toolboxPos?.let { Offset(it.first, it.second) } ?: Offset(margin, margin)) }
+                        var showOptions by remember { mutableStateOf(false) }
+                        fun clamp(p: Offset) = Offset(
+                            p.x.coerceIn(0f, maxOf(0f, vw - palW)),
+                            p.y.coerceIn(0f, maxOf(0f, vh - palH)),
                         )
+                        val at = clamp(pos)
+                        val hasOptions = state.tool == Tool.PEN || state.tool == Tool.PAINT
+                        ToolPalette(
+                            tool = state.tool,
+                            wellArgb = if (state.tool == Tool.PAINT) state.paintStatus?.argb else state.penArgb,
+                            canUndo = state.canUndo,
+                            onTool = { t -> vm.setTool(t); showOptions = t == Tool.PEN || t == Tool.PAINT },
+                            onWell = {
+                                if (!hasOptions) { vm.setTool(Tool.PEN); showOptions = true } else showOptions = !showOptions
+                            },
+                            onUndo = vm::undo,
+                            onClear = { confirmClear = true },
+                            onDrag = { d -> pos = clamp(pos + d) },
+                            onDragEnd = { vm.toolboxPos = pos.x to pos.y },
+                            modifier = Modifier.offset { IntOffset(at.x.roundToInt(), at.y.roundToInt()) }
+                                .onSizeChanged { palH = it.height.toFloat() },
+                        )
+                        if (showOptions && hasOptions) {
+                            val right = at.x + palW + margin + optW <= vw
+                            val ox = if (right) at.x + palW + margin else (at.x - margin - optW).coerceAtLeast(0f)
+                            ToolOptions(
+                                tool = state.tool, penArgb = state.penArgb, penWidthPx = state.penWidthPx, paintStatus = state.paintStatus,
+                                onPenColor = vm::setPen, onPenWidth = vm::setPenWidth, onPaintStatus = vm::setPaintStatus,
+                                onClose = { showOptions = false },
+                                modifier = Modifier.offset { IntOffset(ox.roundToInt(), at.y.roundToInt()) }.heightIn(max = layersMaxHeight),
+                            )
+                        }
                     } else if (!state.tool.isInspect) {
                         ActiveToolChip(
                             tool = state.tool,

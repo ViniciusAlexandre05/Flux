@@ -103,7 +103,8 @@ data class UiState(
     val display: DisplayOptions = DisplayOptions(),
     val showLayersPanel: Boolean = false,
     val showSettingsPanel: Boolean = false,
-    val showToolsPanel: Boolean = false,
+    /** Floating tool palette visible (toggled by the Tools button). */
+    val showToolsPanel: Boolean = true,
     val tool: Tool = Tool.COMPONENTS,
     /** Inspect tool to return to when a drawing tool is dismissed. */
     val lastInspect: Tool = Tool.COMPONENTS,
@@ -355,6 +356,9 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleSettingsPanel() = _state.update { it.copy(showSettingsPanel = !it.showSettingsPanel, showLayersPanel = false) }
 
     fun toggleToolsPanel() = _state.update { it.copy(showToolsPanel = !it.showToolsPanel) }
+
+    /** Where the user dragged the tool palette (px in the board area); kept across boards. */
+    var toolboxPos: Pair<Float, Float>? = null
 
     // ------------------------------------------------------------------ tools
 
