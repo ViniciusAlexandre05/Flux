@@ -25,7 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Settings
 import com.pcbsolderview.data.Appearance
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material3.Button
@@ -74,10 +74,10 @@ fun StartScreen(
     onAppearance: (Appearance) -> Unit = {},
 ) {
     var showAppearance by remember { mutableStateOf(false) }
-    if (showAppearance) AppearanceDialog(appearance, onAppearance, onDismiss = { showAppearance = false })
+    if (showAppearance) SettingsDialog(appearance, onAppearance, onDismiss = { showAppearance = false })
     val gear = @Composable {
-        IconButton(onClick = { showAppearance = true }, modifier = Modifier.size(52.dp).testTag("appearance.button")) {
-            Icon(Icons.Filled.Palette, contentDescription = "Appearance")
+        IconButton(onClick = { showAppearance = true }, modifier = Modifier.size(52.dp).testTag("settings.button")) {
+            Icon(Icons.Filled.Settings, contentDescription = "Settings")
         }
     }
     if (recents.isEmpty()) {

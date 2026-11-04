@@ -102,6 +102,7 @@ data class UiState(
     val visibleSide: Side = Side.TOP,
     val display: DisplayOptions = DisplayOptions(),
     val showLayersPanel: Boolean = false,
+    val showSettingsPanel: Boolean = false,
     val showToolsPanel: Boolean = false,
     val tool: Tool = Tool.COMPONENTS,
     /** Inspect tool to return to when a drawing tool is dismissed. */
@@ -228,7 +229,7 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
                     _state.value = UiState(
                         recents = _state.value.recents,
                         scene = scene,
-                        display = DisplayOptions(hiddenLayers = scene.defaultHiddenLayers, penOnlyDrawing = penOnlyPref),
+                        display = DisplayOptions(hiddenLayers = scene.defaultHiddenLayers),
                     )
                     watchAnnotations(scene.board)
                 },
@@ -334,10 +335,7 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
 
     fun flipSide() = _state.update { it.copy(visibleSide = it.visibleSide.opposite) }
 
-    fun setDisplay(d: DisplayOptions) {
-        penOnlyPref = d.penOnlyDrawing
-        _state.update { it.copy(display = d) }
-    }
+    fun setDisplay(d: DisplayOptions) = _state.update { it.copy(display = d) }
 
     fun toggleLayer(name: String) = _state.update { s ->
         val h = s.display.hiddenLayers
@@ -351,7 +349,10 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
 
     fun resetLayers() = _state.update { s -> s.copy(display = s.display.copy(hiddenLayers = s.scene?.defaultHiddenLayers.orEmpty())) }
 
-    fun toggleLayersPanel() = _state.update { it.copy(showLayersPanel = !it.showLayersPanel) }
+    // Layers and Settings share the right side: opening one closes the other.
+    fun toggleLayersPanel() = _state.update { it.copy(showLayersPanel = !it.showLayersPanel, showSettingsPanel = false) }
+
+    fun toggleSettingsPanel() = _state.update { it.copy(showSettingsPanel = !it.showSettingsPanel, showLayersPanel = false) }
 
     fun toggleToolsPanel() = _state.update { it.copy(showToolsPanel = !it.showToolsPanel) }
 
@@ -377,8 +378,6 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
     // ------------------------------------------------------------------ S Pen
 
     private var stylusAutoApplied = false
-    /** Kept across boards: once the pen is in use, fingers don't draw (until the user turns it off). */
-    private var penOnlyPref = false
     private var eraserFromButton = false
     private val erasing = HashSet<Long>()
 
@@ -414,7 +413,7 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
         // While writing with the S Pen, taps (pen or finger) inspect instead of doing nothing.
         val effective = when {
             fromStylus && s.tool == Tool.PEN -> s.lastInspect
-            !fromStylus && s.display.penOnlyDrawing && (s.tool == Tool.PEN || s.tool == Tool.ERASER) -> s.lastInspect
+            !fromStylus && appearance.value.penOnlyDrawing && (s.tool == Tool.PEN || s.tool == Tool.ERASER) -> s.lastInspect
             else -> s.tool
         }
         when (effective) {

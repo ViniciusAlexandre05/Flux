@@ -213,26 +213,17 @@ fun LayersPanel(
     onDefaults: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
-    appearance: Appearance? = null,
-    onAppearance: (Appearance) -> Unit = {},
 ) {
     Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 6.dp, shape = RoundedCornerShape(16.dp), modifier = modifier.width(360.dp)) {
         Column(Modifier.padding(12.dp).verticalScroll(rememberScrollState()).testTag("layers")) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Display", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                Text("Layers & view", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                 IconButton(onClick = onClose, modifier = Modifier.size(48.dp)) { Icon(Icons.Filled.Close, contentDescription = "Close layers") }
-            }
-            if (appearance != null) {
-                AppearanceSettings(appearance, onAppearance, Modifier.padding(vertical = 4.dp))
-                Spacer(Modifier.height(8.dp)); HorizontalDivider(); Spacer(Modifier.height(4.dp))
             }
             ToggleRow("Designators", display.showDesignators) { onDisplay(display.copy(showDesignators = it)) }
             ToggleRow("Component outlines", display.showComponentOutlines) { onDisplay(display.copy(showComponentOutlines = it)) }
             if (scene.hasGeometry) ToggleRow("Through-hole pads & vias", display.showMultiLayer) { onDisplay(display.copy(showMultiLayer = it)) }
             ToggleRow("Annotations & status paint", display.showAnnotations) { onDisplay(display.copy(showAnnotations = it)) }
-            ToggleRow("Two-finger rotation", display.rotationGesture) { onDisplay(display.copy(rotationGesture = it)) }
-            ToggleRow("Only the S Pen draws (fingers move the board)", display.penOnlyDrawing) { onDisplay(display.copy(penOnlyDrawing = it)) }
-            ToggleRow("Frame rate (FPS)", display.showFps) { onDisplay(display.copy(showFps = it)) }
 
             if (scene.layers.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp)); HorizontalDivider(); Spacer(Modifier.height(8.dp))
@@ -274,10 +265,27 @@ private fun layerKind(t: LayerType) = when (t) {
 }
 
 @Composable
-private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+internal fun ToggleRow(label: String, checked: Boolean, description: String? = null, onChange: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable { onChange(!checked) }, verticalAlignment = Alignment.CenterVertically) {
-        Text(label, modifier = Modifier.weight(1f))
+        Column(Modifier.weight(1f).padding(end = 8.dp)) {
+            Text(label)
+            if (description != null) Text(description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+/** The gear menu inside a board: app-wide settings, saved. */
+@Composable
+fun SettingsPanel(appearance: Appearance, onChange: (Appearance) -> Unit, onClose: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 6.dp, shape = RoundedCornerShape(16.dp), modifier = modifier.width(380.dp)) {
+        Column(Modifier.padding(12.dp).verticalScroll(rememberScrollState()).testTag("settings")) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Settings", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                IconButton(onClick = onClose, modifier = Modifier.size(48.dp)) { Icon(Icons.Filled.Close, contentDescription = "Close settings") }
+            }
+            SettingsContent(appearance, onChange)
+        }
     }
 }
 

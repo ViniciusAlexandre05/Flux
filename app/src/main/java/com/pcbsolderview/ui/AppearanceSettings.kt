@@ -16,7 +16,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -91,13 +95,48 @@ private fun ColorChoice(argb: Int, name: String, selected: Boolean, shape: andro
     }
 }
 
-/** Appearance as a dialog (start screen). */
+/** Everything in the gear menu: appearance, then interaction and diagnostics. */
 @Composable
-fun AppearanceDialog(appearance: Appearance, onChange: (Appearance) -> Unit, onDismiss: () -> Unit) {
+fun SettingsContent(a: Appearance, onChange: (Appearance) -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        SectionTitle("Appearance")
+        AppearanceSettings(a, onChange, Modifier.padding(vertical = 4.dp))
+        Spacer(Modifier.height(12.dp)); HorizontalDivider()
+        SectionTitle("Touch & S Pen")
+        ToggleRow("Two-finger rotation", a.rotationGesture, "Twist with two fingers to rotate; locks near 0°, 90°, 180° and 270°.") {
+            onChange(a.copy(rotationGesture = it))
+        }
+        ToggleRow("Only the S Pen draws", a.penOnlyDrawing, "Fingers always move the board, even with the Pen tool.") {
+            onChange(a.copy(penOnlyDrawing = it))
+        }
+        Spacer(Modifier.height(8.dp)); HorizontalDivider()
+        SectionTitle("Diagnostics")
+        ToggleRow("Frame rate (FPS)", a.showFps, "Shows frames drawn per second while you pan and zoom.") {
+            onChange(a.copy(showFps = it))
+        }
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String) {
+    Text(
+        text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(top = 12.dp, bottom = 6.dp),
+    )
+}
+
+/** The gear menu as a dialog (start screen). */
+@Composable
+fun SettingsDialog(appearance: Appearance, onChange: (Appearance) -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Appearance") },
-        text = { AppearanceSettings(appearance, onChange, Modifier.fillMaxWidth().padding(top = 4.dp)) },
+        title = { Text("Settings") },
+        text = {
+            SettingsContent(
+                appearance, onChange,
+                Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState()),
+            )
+        },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } },
     )
 }

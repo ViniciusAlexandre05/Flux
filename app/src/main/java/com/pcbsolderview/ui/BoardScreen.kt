@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.FitScreen
 import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.Handyman
 import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -234,6 +235,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
     BackHandler(enabled = !state.tool.isInspect) { vm.endDrawing() }
     BackHandler(enabled = state.showToolsPanel) { vm.toggleToolsPanel() }
     BackHandler(enabled = state.showLayersPanel) { vm.toggleLayersPanel() }
+    BackHandler(enabled = state.showSettingsPanel) { vm.toggleSettingsPanel() }
     BackHandler(enabled = state.selected != null || state.selectedNet != null) { vm.clearSelection() }
 
     Column(Modifier.fillMaxSize()) {
@@ -267,7 +269,12 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                         onViewport = { w, h -> viewport = w to h },
                         onTap = vm::onBoardTap,
                         visibleSide = state.visibleSide,
-                        options = state.display,
+                        // App-wide settings (gear menu) override the per-board view options.
+                        options = state.display.copy(
+                            rotationGesture = appearance.rotationGesture,
+                            penOnlyDrawing = appearance.penOnlyDrawing,
+                            showFps = appearance.showFps,
+                        ),
                         selected = state.selected,
                         highlighted = state.highlighted,
                         selectedNet = state.selectedNet,
@@ -364,8 +371,12 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                             onAll = { vm.setLayersVisible(scene.layers.map { it.name }, it) },
                             onDefaults = vm::resetLayers,
                             onClose = vm::toggleLayersPanel,
-                            appearance = appearance,
-                            onAppearance = vm::setAppearance,
+                            modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).heightIn(max = layersMaxHeight),
+                        )
+                    }
+                    if (state.showSettingsPanel) {
+                        SettingsPanel(
+                            appearance, vm::setAppearance, onClose = vm::toggleSettingsPanel,
                             modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).heightIn(max = layersMaxHeight),
                         )
                     }
@@ -524,7 +535,8 @@ private fun TopBar(title: String, subtitle: String, state: UiState, vm: BoardVie
                         if (state.visibleSide == Side.TOP) "Showing top — tap for bottom view" else "Showing bottom — tap for top view",
                         onFlip, checked = state.visibleSide == Side.BOTTOM, tag = "flip",
                     )
-                    BarIcon(Icons.Filled.Layers, "Layers & display", vm::toggleLayersPanel, checked = state.showLayersPanel)
+                    BarIcon(Icons.Filled.Layers, "Layers & view", vm::toggleLayersPanel, checked = state.showLayersPanel)
+            BarIcon(Icons.Filled.Settings, "Settings", vm::toggleSettingsPanel, checked = state.showSettingsPanel, tag = "settings.button")
                 }
                 if (!inline) SearchField(state, vm, Modifier.fillMaxWidth())
             }
