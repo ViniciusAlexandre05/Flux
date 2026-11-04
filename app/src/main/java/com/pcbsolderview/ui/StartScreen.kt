@@ -4,6 +4,7 @@ import android.graphics.BitmapFactory
 import android.text.format.DateUtils
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,13 +23,13 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Settings
-import com.pcbsolderview.data.Appearance
 import androidx.compose.material.icons.filled.Science
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
@@ -36,33 +37,43 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.pcbsolderview.R
 import com.pcbsolderview.RecentItem
 import com.pcbsolderview.Status
+import com.pcbsolderview.data.Appearance
 import com.pcbsolderview.data.RecentBoardEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Start screen: recent boards (with their annotation progress), open a new board, or a demo. */
+private val CardShape = RoundedCornerShape(16.dp)
+
+/**
+ * Start screen: a grid whose first cell opens new board files, followed by recent boards
+ * (preview, details, annotation progress). Demos and settings sit in the header.
+ */
 @Composable
 fun StartScreen(
     recents: List<RecentItem>,
@@ -70,57 +81,46 @@ fun StartScreen(
     openDemo: (String) -> Unit,
     openRecent: (RecentBoardEntity) -> Unit,
     removeRecent: (RecentBoardEntity) -> Unit,
+    renameRecent: (RecentBoardEntity, String) -> Unit = { _, _ -> },
     appearance: Appearance = Appearance(),
     onAppearance: (Appearance) -> Unit = {},
 ) {
-    var showAppearance by remember { mutableStateOf(false) }
-    if (showAppearance) SettingsDialog(appearance, onAppearance, onDismiss = { showAppearance = false })
-    val gear = @Composable {
-        IconButton(onClick = { showAppearance = true }, modifier = Modifier.size(52.dp).testTag("settings.button")) {
-            Icon(Icons.Filled.Settings, contentDescription = "Settings")
-        }
-    }
-    if (recents.isEmpty()) {
-        Box(Modifier.fillMaxSize()) {
-            EmptyState(openFiles, openDemo)
-            Box(Modifier.align(Alignment.TopEnd).padding(12.dp)) { gear() }
-        }
-        return
-    }
-    Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 20.dp)) {
+    var showSettings by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf<RecentBoardEntity?>(null) }
+    if (showSettings) SettingsDialog(appearance, onAppearance, onDismiss = { showSettings = false })
+    renaming?.let { r -> RenameDialog(r, onSave = { renameRecent(r, it); renaming = null }, onDismiss = { renaming = null }) }
+
+    Column(Modifier.fillMaxSize().padding(horizontal = 28.dp, vertical = 24.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            FluxLogo(56.dp)
-            Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineSmall)
-                Text("Pick up where you left off", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Boards", style = MaterialTheme.typography.headlineMedium)
+                Text(
+                    if (recents.isEmpty()) "Open an Altium export to get started"
+                    else "${recents.size} recent · pick up where you left off",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
-            gear()
-            Spacer(Modifier.width(8.dp))
             DemoButton(openDemo)
-            Spacer(Modifier.width(12.dp))
-            Button(onClick = openFiles, modifier = Modifier.height(56.dp).testTag("open")) {
-                Icon(Icons.Filled.FolderOpen, contentDescription = null)
-                Spacer(Modifier.width(10.dp))
-                Text("Open new board")
+            Spacer(Modifier.width(4.dp))
+            IconButton(onClick = { showSettings = true }, modifier = Modifier.size(52.dp).testTag("settings.button")) {
+                Icon(Icons.Filled.Settings, contentDescription = "Settings")
             }
         }
-        Spacer(Modifier.height(24.dp))
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text("Recent boards", style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.width(10.dp))
-            Text("${recents.size}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(20.dp))
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 300.dp),
+            columns = GridCells.Adaptive(minSize = 280.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(bottom = 24.dp),
             modifier = Modifier.fillMaxSize().testTag("recents"),
         ) {
+            item(key = "open") { OpenCard(openFiles) }
             items(recents, key = { it.board.boardKey }) { item ->
-                RecentCard(item, onOpen = { openRecent(item.board) }, onRemove = { removeRecent(item.board) })
+                RecentCard(item, onOpen = { openRecent(item.board) }, onRename = { renaming = item.board }, onRemove = { removeRecent(item.board) })
+            }
+            if (recents.isEmpty()) {
+                item(key = "demo.simple") { DemoCard("Simple board", "Pick & Place + BOM · 10 parts") { openDemo("simple") } }
+                item(key = "demo.double") { DemoCard("Double-sided board", "Pick & Place + BOM · parts on both sides") { openDemo("double-sided") } }
             }
         }
     }
@@ -130,8 +130,8 @@ fun StartScreen(
 private fun DemoButton(openDemo: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        FilledTonalButton(onClick = { open = true }, modifier = Modifier.height(56.dp)) {
-            Icon(Icons.Filled.Science, contentDescription = null)
+        FilledTonalButton(onClick = { open = true }, modifier = Modifier.height(48.dp)) {
+            Icon(Icons.Filled.Science, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(8.dp))
             Text("Demo")
         }
@@ -142,8 +142,74 @@ private fun DemoButton(openDemo: (String) -> Unit) {
     }
 }
 
+/** Card frame shared by every cell, so the grid reads as one set. */
 @Composable
-private fun RecentCard(item: RecentItem, onOpen: () -> Unit, onRemove: () -> Unit) {
+private fun CardFrame(onClick: () -> Unit, tag: String, content: @Composable () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = CardShape,
+        modifier = Modifier.fillMaxWidth()
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CardShape)
+            .clickable(onClick = onClick)
+            .testTag(tag),
+    ) { content() }
+}
+
+/** First cell: open new board files. Same footprint as a board card. */
+@Composable
+private fun OpenCard(onOpen: () -> Unit) {
+    val dash = MaterialTheme.colorScheme.outline
+    CardFrame(onOpen, "open") {
+        Column {
+            Box(
+                Modifier.fillMaxWidth().aspectRatio(16f / 10f).padding(10.dp)
+                    .drawBehind {
+                        drawRoundRect(
+                            color = dash, cornerRadius = CornerRadius(12.dp.toPx()),
+                            style = Stroke(width = 1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(10.dp.toPx(), 7.dp.toPx()))),
+                        )
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(Modifier.size(64.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.Add, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(34.dp))
+                }
+            }
+            Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 16.dp)) {
+                Text("Open new board", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "IPC-2581 (.cvg / .xml), or Pick & Place + BOM, or a .zip",
+                    style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "Select several files at once to combine them.",
+                    style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DemoCard(title: String, subtitle: String, onOpen: () -> Unit) {
+    CardFrame(onOpen, "demo.$title") {
+        Column {
+            Box(Modifier.fillMaxWidth().aspectRatio(16f / 10f).background(Palette.Ink), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.Science, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(40.dp))
+            }
+            Column(Modifier.padding(16.dp)) {
+                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(subtitle, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(10.dp))
+                Text("Demo", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecentCard(item: RecentItem, onOpen: () -> Unit, onRename: () -> Unit, onRemove: () -> Unit) {
     val b = item.board
     var thumb by remember(item.thumbnail) { mutableStateOf<ImageBitmap?>(null) }
     LaunchedEffect(item.thumbnail) {
@@ -151,40 +217,35 @@ private fun RecentCard(item: RecentItem, onOpen: () -> Unit, onRemove: () -> Uni
         thumb = withContext(Dispatchers.IO) { runCatching { BitmapFactory.decodeFile(path)?.asImageBitmap() }.getOrNull() }
     }
     var menu by remember { mutableStateOf(false) }
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        shape = MaterialTheme.shapes.large,
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen).testTag("recent.${b.name}"),
-    ) {
+    CardFrame(onOpen, "recent.${b.displayName}") {
         Column {
             Box(Modifier.fillMaxWidth().aspectRatio(16f / 10f).background(Palette.Ink), contentAlignment = Alignment.Center) {
-                val img = thumb
-                if (img != null) Image(img, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(8.dp))
-                else Image(painterResource(R.drawable.ic_launcher_foreground), contentDescription = null, modifier = Modifier.size(96.dp))
+                thumb?.let { Image(it, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().padding(10.dp)) }
             }
-            Column(Modifier.padding(start = 14.dp, end = 4.dp, top = 10.dp, bottom = 14.dp)) {
+            Column(Modifier.padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(b.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        val source = if (b.source == "IPC2581") "IPC-2581" else if (b.source == "PICK_AND_PLACE") "Pick & Place" else b.source
+                        Text(b.displayName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val source = when (b.source) { "IPC2581" -> "IPC-2581"; "PICK_AND_PLACE" -> "Pick & Place"; else -> b.source }
                         val ago = DateUtils.getRelativeTimeSpanString(b.lastOpened, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)
                         Text("$source · ${b.components} parts · $ago", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                     }
                     Box {
-                        IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More for ${b.name}") }
+                        IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More for ${b.displayName}") }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            DropdownMenuItem(text = { Text("Rename") }, onClick = { menu = false; onRename() })
                             DropdownMenuItem(text = { Text("Remove from list") }, onClick = { menu = false; onRemove() })
                         }
                     }
                 }
                 Spacer(Modifier.height(10.dp))
                 val progress = if (b.components > 0) item.ok.toFloat() / b.components else 0f
-                Row(Modifier.padding(end = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     LinearProgressIndicator(
                         progress = { progress.coerceIn(0f, 1f) },
                         color = Color(Status.OK.argb),
                         trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                        modifier = Modifier.weight(1f).height(6.dp),
+                        modifier = Modifier.weight(1f).height(5.dp),
                     )
                     Spacer(Modifier.width(10.dp))
                     Text("${item.ok}/${b.components} OK", style = MaterialTheme.typography.labelMedium)
@@ -202,6 +263,30 @@ private fun RecentCard(item: RecentItem, onOpen: () -> Unit, onRemove: () -> Uni
             }
         }
     }
+}
+
+@Composable
+private fun RenameDialog(r: RecentBoardEntity, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf(r.displayName) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rename board") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = text, onValueChange = { text = it }, singleLine = true, label = { Text("Name") },
+                    modifier = Modifier.fillMaxWidth().testTag("rename.field"),
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "File name: ${r.name}. Leave empty to use it again. Drawings and status stay with the board.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(text) }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable

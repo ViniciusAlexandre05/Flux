@@ -56,7 +56,11 @@ data class RecentBoardEntity(
     val lastOpened: Long,
     /** Absolute path of the folder holding the board's files and thumb.png. */
     val dir: String,
-)
+    /** Name chosen by the user; [name] (from the file) is kept because it identifies the board. */
+    val customName: String? = null,
+) {
+    val displayName: String get() = customName?.takeIf { it.isNotBlank() } ?: name
+}
 
 data class MarkCount(val boardKey: String, val argb: Int, val n: Int)
 data class StrokeCount(val boardKey: String, val n: Int)
@@ -74,6 +78,12 @@ interface RecentDao {
 
     @Query("DELETE FROM recent_boards WHERE boardKey = :key")
     suspend fun delete(key: String)
+
+    @Query("SELECT * FROM recent_boards WHERE boardKey = :key")
+    suspend fun get(key: String): RecentBoardEntity?
+
+    @Query("UPDATE recent_boards SET customName = :name WHERE boardKey = :key")
+    suspend fun rename(key: String, name: String?)
 
     @Query("SELECT boardKey, argb, COUNT(*) AS n FROM marks GROUP BY boardKey, argb")
     fun markCounts(): Flow<List<MarkCount>>
@@ -127,7 +137,7 @@ interface AnnotationDao {
     suspend fun clearMarks(board: String)
 }
 
-@Database(entities = [MarkEntity::class, StrokeEntity::class, RecentBoardEntity::class], version = 2, exportSchema = false)
+@Database(entities = [MarkEntity::class, StrokeEntity::class, RecentBoardEntity::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun annotations(): AnnotationDao
     abstract fun recents(): RecentDao
@@ -144,10 +154,17 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v2 -> v3: user-chosen board names. */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `recent_boards` ADD COLUMN `customName` TEXT")
+            }
+        }
+
         @Volatile private var instance: AppDatabase? = null
         fun get(context: Context): AppDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "pcbsolderview.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build().also { instance = it }
         }
     }

@@ -110,6 +110,7 @@ fun BoardScreen(state: UiState, vm: BoardViewModel, openFiles: () -> Unit) {
                 val appearance by vm.appearance.collectAsState()
                 StartScreen(
                     state.recents, openFiles, vm::openDemo, vm::openRecent, vm::removeRecent,
+                    renameRecent = vm::renameRecent,
                     appearance = appearance, onAppearance = vm::setAppearance,
                 )
             }
@@ -138,64 +139,6 @@ fun BoardScreen(state: UiState, vm: BoardViewModel, openFiles: () -> Unit) {
                     title = { Text("Could not open board") },
                     text = { Text(msg) },
                 )
-            }
-        }
-    }
-}
-
-@Composable
-internal fun EmptyState(openFiles: () -> Unit, openDemo: (String) -> Unit) {
-    Box(
-        Modifier.fillMaxSize().background(
-            Brush.radialGradient(listOf(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f), Color.Transparent), radius = 1400f),
-        ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            Modifier.padding(32.dp).widthIn(max = 620.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            FluxLogo(128.dp)
-            Spacer(Modifier.height(24.dp))
-            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.displayMedium)
-            Text(
-                stringResource(R.string.app_tagline), style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(Modifier.height(12.dp))
-            Text(
-                "Your Altium board at the soldering bench: find parts, follow nets, mark what's done.",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(Modifier.height(32.dp))
-            Button(onClick = openFiles, modifier = Modifier.height(64.dp).widthIn(min = 300.dp).testTag("open")) {
-                Icon(Icons.Filled.FolderOpen, contentDescription = null)
-                Spacer(Modifier.width(12.dp))
-                Text("Open board files", style = MaterialTheme.typography.titleMedium)
-            }
-            Spacer(Modifier.height(16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                listOf("IPC-2581 .cvg / .xml", "Pick & Place CSV", "BOM CSV / XLSX", ".zip").forEach { f ->
-                    Text(
-                        f, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.small)
-                            .padding(horizontal = 10.dp, vertical = 6.dp),
-                    )
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "Tip: select the Pick & Place and the BOM together.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(32.dp))
-            Text("Try a demo", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                FilledTonalButton(onClick = { openDemo("simple") }, modifier = Modifier.height(52.dp)) { Text("Simple board") }
-                FilledTonalButton(onClick = { openDemo("double-sided") }, modifier = Modifier.height(52.dp)) { Text("Double-sided") }
             }
         }
     }
@@ -244,7 +187,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
 
     Column(Modifier.fillMaxSize()) {
         TopBar(
-            title = scene.board.name,
+            title = state.boardTitle ?: scene.board.name,
             subtitle = "${scene.board.components.size} parts · " + when (scene.board.source) {
                 SourceFormat.IPC2581 -> "IPC-2581"
                 SourceFormat.PICK_AND_PLACE -> "Pick & Place"

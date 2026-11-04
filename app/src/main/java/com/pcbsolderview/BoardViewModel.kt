@@ -84,6 +84,8 @@ data class RecentItem(
 data class UiState(
     val recents: List<RecentItem> = emptyList(),
     val scene: BoardScene? = null,
+    /** Name to show for the open board (user-chosen), instead of the name from the file. */
+    val boardTitle: String? = null,
     val loading: String? = null,
     /** 0..1 while parsing, null when unknown. */
     val progress: Float? = null,
@@ -163,7 +165,7 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
     private sealed interface Origin {
         data object New : Origin
         data object Demo : Origin
-        data class Recent(val key: String) : Origin
+        data class Recent(val key: String, val title: String?) : Origin
     }
     private var annotationsJob: Job? = null
     private var boardKey: String? = null
@@ -198,8 +200,13 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Reopens a board from its saved copy; its drawings and status paint come back with it. */
-    fun openRecent(r: RecentBoardEntity) = load("Opening ${r.name}…", Origin.Recent(r.boardKey)) {
+    fun openRecent(r: RecentBoardEntity) = load("Opening ${r.displayName}…", Origin.Recent(r.boardKey, r.customName)) {
         store.load(r.dir).ifEmpty { throw BoardParseException("The saved copy of this board is missing. Open the files again.") }
+    }
+
+    /** Gives a recent board a display name (blank = back to the name from the file). */
+    fun renameRecent(r: RecentBoardEntity, name: String) {
+        viewModelScope.launch { recentDao.rename(r.boardKey, name.trim().takeIf { it.isNotEmpty() }) }
     }
 
     /** Removes a board from the list and deletes its saved copy. Annotations stay in the database. */
@@ -230,6 +237,7 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
                     _state.value = UiState(
                         recents = _state.value.recents,
                         scene = scene,
+                        boardTitle = (origin as? Origin.Recent)?.title?.takeIf { it.isNotBlank() },
                         display = DisplayOptions(hiddenLayers = scene.defaultHiddenLayers),
                     )
                     watchAnnotations(scene.board)
@@ -258,7 +266,10 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
                 val thumb = runCatching { scene.thumbnail(colors = boardColorsFor(appearance.value)) }.getOrNull()
                 val dir = withContext(Dispatchers.IO) { store.save(key, inputs, thumb) }
                 val b = scene.board
-                recentDao.upsert(RecentBoardEntity(key, b.name, b.source.name, b.components.size, now, dir.absolutePath))
+                // Re-opening the same board from files keeps the name the user gave it.
+                val customName = recentDao.get(key)?.customName
+                recentDao.upsert(RecentBoardEntity(key, b.name, b.source.name, b.components.size, now, dir.absolutePath, customName))
+                if (!customName.isNullOrBlank()) _state.update { it.copy(boardTitle = customName) }
             }
         }
     }
