@@ -150,6 +150,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
     var viewport by remember { mutableStateOf(0 to 0) }
     var confirmClear by remember { mutableStateOf(false) }
     var radial by remember(scene) { mutableStateOf<RadialState?>(null) }
+    var marquee by remember(scene) { mutableStateOf<Marquee?>(null) }
     var hover by remember(scene) { mutableStateOf<Offset?>(null) }
     val appearance by vm.appearance.collectAsState()
     val density = LocalDensity.current
@@ -249,25 +250,47 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                                 val (bx, by) = it.toBoard(p.x.toDouble(), p.y.toDouble())
                                 vm.componentAt(bx, by, com.pcbsolderview.render.TOUCH_SLOP_PX / it.scale)
                             }
-                            if (c == null) false else {
+                            if (c == null) {
+                                // Parts mode, empty spot: start a box selection.
+                                if (state.tool == Tool.COMPONENTS && t != null) { marquee = Marquee(p, p); true } else false
+                            } else {
                                 val current = state.marks[c.refDes]?.let { m -> RADIAL_ITEMS.indexOfFirst { it.status?.argb == m.argb }.takeIf { it >= 0 } }
                                 val (w, h) = viewport
                                 radial = RadialState(RadialGeometry.clamp(p, w.toFloat(), h.toFloat(), outerPx, 12f), c.refDes, current)
                                 true
                             }
                         },
-                        onLongPressDrag = { p -> radial = radial?.let { it.copy(hovered = RadialGeometry.itemAt(it.center, p, innerPx)) } },
+                        onLongPressDrag = { p ->
+                            if (radial != null) radial = radial?.let { it.copy(hovered = RadialGeometry.itemAt(it.center, p, innerPx)) }
+                            else marquee = marquee?.copy(end = p)
+                        },
                         onLongPressRelease = { p ->
                             radial?.let { r ->
                                 val i = RadialGeometry.itemAt(r.center, p, innerPx)
                                 // Lifted on an option: apply. Lifted in the middle: keep the ring open for a tap.
                                 if (i != null) applyRadial(r, i) else radial = r.copy(hovered = null)
                             }
+                            marquee?.let { m -> val done = m.copy(end = p, done = true); marquee = if (done.isTiny) null else done }
                         },
                         colors = LocalBoardColors.current,
                         modifier = Modifier.fillMaxSize().testTag("board"),
                     )
                     radial?.let { r -> RadialStatusMenu(r, onPick = { applyRadial(r, it) }, onDismiss = { radial = null }) }
+                    marquee?.let { m ->
+                        val t = transform
+                        val inside = remember(m, t, state.visibleSide) {
+                            if (t == null) emptyList() else MarqueeGeometry.partsInside(scene.board.components, m, t, state.visibleSide)
+                        }
+                        MarqueeOverlay(
+                            m, inside.size,
+                            onSelect = { vm.selectMany(inside); marquee = null },
+                            onAnnotate = {
+                                t?.let { vm.addStroke(MarqueeGeometry.annotationOutline(m, it), (state.penWidthPx / it.scale).toFloat()) }
+                                marquee = null
+                            },
+                            onDismiss = { marquee = null },
+                        )
+                    }
                     // S Pen hover: designator + value of the part under the pen tip, without touching.
                     val hoverPos = hover
                     val hovered = remember(hoverPos, transform, state.visibleSide) {
@@ -402,12 +425,31 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                                 Box(Modifier.size(12.dp).background(LocalBoardColors.current.highlight, androidx.compose.foundation.shape.CircleShape))
                                 Spacer(Modifier.width(8.dp))
                                 Text("Highlighting $label", style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.widthIn(max = 360.dp))
+                                    modifier = Modifier.widthIn(max = 300.dp))
+                                Spacer(Modifier.width(10.dp))
+                                // Set a status on every highlighted part at once.
+                                Status.entries.forEach { s ->
+                                    Box(
+                                        Modifier.padding(horizontal = 3.dp).size(30.dp)
+                                            .background(Color(s.argb), androidx.compose.foundation.shape.CircleShape)
+                                            .clickable { vm.applyToHighlighted(s.argb) }
+                                            .testTag("highlight.status.${s.name}"),
+                                    )
+                                }
                                 IconButton(onClick = vm::clearHighlight, modifier = Modifier.size(48.dp)) {
                                     Icon(Icons.Filled.Close, contentDescription = "Clear highlight")
                                 }
                             }
                         }
+                    }
+                    state.message?.let { msg ->
+                        LaunchedEffect(msg) { kotlinx.coroutines.delay(2800); vm.dismissMessage() }
+                        Text(
+                            msg, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.inverseOnSurface,
+                            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp)
+                                .background(MaterialTheme.colorScheme.inverseSurface, MaterialTheme.shapes.small)
+                                .padding(horizontal = 14.dp, vertical = 8.dp).testTag("message"),
+                        )
                     }
                     if (state.visibleSide == Side.BOTTOM) {
                         Text(

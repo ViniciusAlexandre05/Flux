@@ -41,6 +41,16 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/**
+ * Which highlighted parts a batch status change applies to: parts without a status, parts that
+ * already have this status, and [origin] (the part acted on). Others keep their status.
+ * Clearing (argb = null) applies to all.
+ */
+object BatchStatus {
+    fun split(refs: List<String>, current: Map<String, Int>, argb: Int?, origin: String?): Pair<List<String>, List<String>> =
+        refs.partition { r -> argb == null || r == origin || current[r] == null || current[r] == argb }
+}
+
 enum class Tool {
     /** Tap selects a part (designator, value, pins). */
     COMPONENTS,
@@ -116,6 +126,8 @@ data class UiState(
     val marks: Map<String, ComponentMark> = emptyMap(),
     val strokes: List<InkStroke> = emptyList(),
     val canUndo: Boolean = false,
+    /** Short confirmation shown at the bottom of the board, e.g. "OK on 6 parts". */
+    val message: String? = null,
 )
 
 class BoardViewModel(app: Application) : AndroidViewModel(app) {
@@ -174,6 +186,8 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
         data class StrokeAdded(val id: Long) : Undo
         data class StrokeRemoved(val stroke: StrokeEntity) : Undo
         data class MarkChanged(val refDes: String, val before: MarkEntity?) : Undo
+        /** One batch status change; undone in one step. */
+        data class MarksChanged(val before: List<Pair<String, MarkEntity?>>) : Undo
         data class Cleared(val marks: List<MarkEntity>, val strokes: List<StrokeEntity>) : Undo
     }
     private val undo = ArrayDeque<Undo>()
@@ -343,6 +357,17 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
 
     fun clearHighlight() = _state.update { it.copy(highlighted = emptyList(), highlightLabel = null) }
 
+    /** Box selection: highlights these parts so a status can be set on all of them at once. */
+    fun selectMany(parts: List<Component>) = _state.update {
+        if (parts.isEmpty()) it.copy(message = "No parts inside the box")
+        else it.copy(
+            highlighted = parts, selected = null, selectedNet = null,
+            highlightLabel = "${parts.size} part" + (if (parts.size == 1) "" else "s") + " selected",
+        )
+    }
+
+    fun dismissMessage() = _state.update { it.copy(message = null) }
+
     // ------------------------------------------------------------------ view & display
 
     fun flipSide() = _state.update { it.copy(visibleSide = it.visibleSide.opposite) }
@@ -451,7 +476,8 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
                 val current = s.marks[c.refDes]
                 // Tapping a part already painted with the same colour removes the paint.
                 val target = s.paintStatus?.argb?.takeIf { it != current?.argb }
-                setMark(c.refDes, target)
+                // The paint bucket always paints the one part tapped.
+                setMarks(listOf(c.refDes), target)
             }
             Tool.ERASER -> {
                 val hit = s.strokes.minByOrNull { CopperIndex.distToPolyline(x, y, it.points) - it.widthUm / 2 }
@@ -471,12 +497,37 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Sets (argb) or removes (null) the status colour of a component. */
     fun setMark(refDes: String, argb: Int?) {
+        val s = _state.value
+        val group = s.highlighted.map { it.refDes }
+        if (refDes in group && group.size > 1) applyToHighlighted(argb, origin = refDes) else setMarks(listOf(refDes), argb)
+    }
+
+    /**
+     * Sets [argb] on every highlighted part. Parts that already carry a different status keep it
+     * (a "Problem" is not overwritten by a batch "OK"); [origin], the part acted on, always changes.
+     * Clearing (null) clears all highlighted parts.
+     */
+    fun applyToHighlighted(argb: Int?, origin: String? = null) {
+        val s = _state.value
+        val refs = s.highlighted.map { it.refDes }
+        if (refs.isEmpty()) return
+        val (change, keep) = BatchStatus.split(refs, s.marks.mapValues { it.value.argb }, argb, origin)
+        setMarks(change, argb)
+        val what = if (argb == null) "Status cleared" else (Status.of(argb)?.label ?: "Status") + " set"
+        val msg = "$what on ${change.size} part" + (if (change.size == 1) "" else "s") +
+            if (keep.isNotEmpty()) " · ${keep.size} kept their status" else ""
+        _state.update { it.copy(message = msg) }
+    }
+
+    /** Sets (argb) or removes (null) the status of [refs]; one undo step. */
+    fun setMarks(refs: List<String>, argb: Int?) {
         val key = boardKey ?: return
+        if (refs.isEmpty()) return
         viewModelScope.launch {
-            val before = dao.mark(key, refDes)
-            if (argb == null) dao.deleteMark(key, refDes)
-            else dao.upsertMark(MarkEntity(key, refDes, argb, before?.note))
-            pushUndo(Undo.MarkChanged(refDes, before))
+            val before = refs.map { it to dao.mark(key, it) }
+            if (argb == null) refs.forEach { dao.deleteMark(key, it) }
+            else dao.upsertMarks(before.map { (r, b) -> MarkEntity(key, r, argb, b?.note) })
+            pushUndo(if (before.size == 1) Undo.MarkChanged(before[0].first, before[0].second) else Undo.MarksChanged(before))
         }
     }
 
@@ -516,6 +567,7 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
                 is Undo.StrokeAdded -> dao.deleteStroke(u.id)
                 is Undo.StrokeRemoved -> dao.restoreStrokes(listOf(u.stroke))
                 is Undo.MarkChanged -> if (u.before == null) dao.deleteMark(key, u.refDes) else dao.upsertMark(u.before)
+                is Undo.MarksChanged -> u.before.forEach { (r, b) -> if (b == null) dao.deleteMark(key, r) else dao.upsertMark(b) }
                 is Undo.Cleared -> { dao.upsertMarks(u.marks); dao.restoreStrokes(u.strokes) }
             }
             _state.update { it.copy(canUndo = undo.isNotEmpty()) }
