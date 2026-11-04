@@ -25,6 +25,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Palette
+import com.pcbsolderview.data.Appearance
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -67,9 +69,21 @@ fun StartScreen(
     openDemo: (String) -> Unit,
     openRecent: (RecentBoardEntity) -> Unit,
     removeRecent: (RecentBoardEntity) -> Unit,
+    appearance: Appearance = Appearance(),
+    onAppearance: (Appearance) -> Unit = {},
 ) {
+    var showAppearance by remember { mutableStateOf(false) }
+    if (showAppearance) AppearanceDialog(appearance, onAppearance, onDismiss = { showAppearance = false })
+    val gear = @Composable {
+        IconButton(onClick = { showAppearance = true }, modifier = Modifier.size(52.dp).testTag("appearance.button")) {
+            Icon(Icons.Filled.Palette, contentDescription = "Appearance")
+        }
+    }
     if (recents.isEmpty()) {
-        EmptyState(openFiles, openDemo)
+        Box(Modifier.fillMaxSize()) {
+            EmptyState(openFiles, openDemo)
+            Box(Modifier.align(Alignment.TopEnd).padding(12.dp)) { gear() }
+        }
         return
     }
     Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 20.dp)) {
@@ -83,6 +97,8 @@ fun StartScreen(
                 Text("PCB Solder View", style = MaterialTheme.typography.headlineSmall)
                 Text("Pick up where you left off", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            gear()
+            Spacer(Modifier.width(8.dp))
             DemoButton(openDemo)
             Spacer(Modifier.width(12.dp))
             Button(onClick = openFiles, modifier = Modifier.height(56.dp).testTag("open")) {

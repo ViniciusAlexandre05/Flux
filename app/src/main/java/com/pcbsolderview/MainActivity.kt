@@ -11,6 +11,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import android.view.MotionEvent
+import androidx.activity.SystemBarStyle
+import androidx.compose.runtime.LaunchedEffect
+import com.pcbsolderview.data.ThemeMode
 import com.pcbsolderview.render.StylusInput
 import com.pcbsolderview.ui.PcbTheme
 import androidx.compose.runtime.getValue
@@ -27,8 +30,18 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val state by vm.state.collectAsStateWithLifecycle()
+            val appearance by vm.appearance.collectAsStateWithLifecycle()
             val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { vm.open(it) }
-            PcbTheme {
+            // Status/navigation bar icons follow the app theme, not the system setting.
+            LaunchedEffect(appearance.mode) {
+                val style = if (appearance.mode == ThemeMode.LIGHT) {
+                    SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+                } else {
+                    SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+                }
+                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+            }
+            PcbTheme(appearance) {
                 BoardScreen(state = state, vm = vm, openFiles = { picker.launch(arrayOf("*/*")) })
             }
         }

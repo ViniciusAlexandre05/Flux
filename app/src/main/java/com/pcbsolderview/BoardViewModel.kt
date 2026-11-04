@@ -7,11 +7,15 @@ import android.util.Xml
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.pcbsolderview.data.AppDatabase
+import com.pcbsolderview.data.Appearance
+import com.pcbsolderview.data.AppearancePrefs
 import com.pcbsolderview.data.BoardStore
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import com.pcbsolderview.data.MarkEntity
 import com.pcbsolderview.data.RecentBoardEntity
 import com.pcbsolderview.render.thumbnail
-import com.pcbsolderview.ui.boardColors
+import com.pcbsolderview.ui.boardColorsFor
 import com.pcbsolderview.data.StrokeEntity
 import com.pcbsolderview.model.Board
 import com.pcbsolderview.model.Component
@@ -120,7 +124,16 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
     private val dao = db.annotations()
     private val recentDao = db.recents()
     private val store = BoardStore(app)
+    private val prefs = AppearancePrefs(app)
     private var loadJob: Job? = null
+
+    /** Theme, accent and board background; persisted. */
+    val appearance: StateFlow<Appearance> =
+        prefs.appearance.stateIn(viewModelScope, SharingStarted.Eagerly, Appearance())
+
+    fun setAppearance(a: Appearance) {
+        viewModelScope.launch { prefs.save(a) }
+    }
 
     init {
         viewModelScope.launch {
@@ -236,10 +249,10 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
                 recentDao.touch(origin.key, now)
                 // Thumbnail predates this feature or was lost: rebuild it.
                 val dir = store.dirFor(origin.key)
-                if (store.thumbnail(dir.path) == null) runCatching { store.save(origin.key, inputs, scene.thumbnail(colors = boardColors)) }
+                if (store.thumbnail(dir.path) == null) runCatching { store.save(origin.key, inputs, scene.thumbnail(colors = boardColorsFor(appearance.value))) }
             }
             Origin.New -> {
-                val thumb = runCatching { scene.thumbnail(colors = boardColors) }.getOrNull()
+                val thumb = runCatching { scene.thumbnail(colors = boardColorsFor(appearance.value)) }.getOrNull()
                 val dir = withContext(Dispatchers.IO) { store.save(key, inputs, thumb) }
                 val b = scene.board
                 recentDao.upsert(RecentBoardEntity(key, b.name, b.source.name, b.components.size, now, dir.absolutePath))

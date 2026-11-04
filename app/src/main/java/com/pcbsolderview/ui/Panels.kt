@@ -49,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.pcbsolderview.PEN_COLORS
+import com.pcbsolderview.data.Appearance
 import com.pcbsolderview.PEN_WIDTHS
 import com.pcbsolderview.Status
 import com.pcbsolderview.Tool
@@ -212,12 +213,18 @@ fun LayersPanel(
     onDefaults: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    appearance: Appearance? = null,
+    onAppearance: (Appearance) -> Unit = {},
 ) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 6.dp, shape = RoundedCornerShape(16.dp), modifier = modifier.width(340.dp)) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 6.dp, shape = RoundedCornerShape(16.dp), modifier = modifier.width(360.dp)) {
         Column(Modifier.padding(12.dp).verticalScroll(rememberScrollState()).testTag("layers")) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Display", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                 IconButton(onClick = onClose, modifier = Modifier.size(48.dp)) { Icon(Icons.Filled.Close, contentDescription = "Close layers") }
+            }
+            if (appearance != null) {
+                AppearanceSettings(appearance, onAppearance, Modifier.padding(vertical = 4.dp))
+                Spacer(Modifier.height(8.dp)); HorizontalDivider(); Spacer(Modifier.height(4.dp))
             }
             ToggleRow("Designators", display.showDesignators) { onDisplay(display.copy(showDesignators = it)) }
             ToggleRow("Component outlines", display.showComponentOutlines) { onDisplay(display.copy(showComponentOutlines = it)) }

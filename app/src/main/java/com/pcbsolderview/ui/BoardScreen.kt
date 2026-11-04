@@ -76,6 +76,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntOffset
 import kotlin.math.roundToInt
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
@@ -99,7 +100,13 @@ fun BoardScreen(state: UiState, vm: BoardViewModel, openFiles: () -> Unit) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Box(Modifier.safeDrawingPadding()) {
             val scene = state.scene
-            if (scene == null) StartScreen(state.recents, openFiles, vm::openDemo, vm::openRecent, vm::removeRecent)
+            if (scene == null) {
+                val appearance by vm.appearance.collectAsState()
+                StartScreen(
+                    state.recents, openFiles, vm::openDemo, vm::openRecent, vm::removeRecent,
+                    appearance = appearance, onAppearance = vm::setAppearance,
+                )
+            }
             else BoardContent(scene, state, vm)
 
             state.loading?.let { msg ->
@@ -134,7 +141,7 @@ fun BoardScreen(state: UiState, vm: BoardViewModel, openFiles: () -> Unit) {
 internal fun EmptyState(openFiles: () -> Unit, openDemo: (String) -> Unit) {
     Box(
         Modifier.fillMaxSize().background(
-            Brush.radialGradient(listOf(Palette.SolderDeep.copy(alpha = 0.55f), Color.Transparent), radius = 1400f),
+            Brush.radialGradient(listOf(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f), Color.Transparent), radius = 1400f),
         ),
         contentAlignment = Alignment.Center,
     ) {
@@ -197,6 +204,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
     var confirmClear by remember { mutableStateOf(false) }
     var radial by remember(scene) { mutableStateOf<RadialState?>(null) }
     var hover by remember(scene) { mutableStateOf<Offset?>(null) }
+    val appearance by vm.appearance.collectAsState()
     val density = LocalDensity.current
     val innerPx = with(density) { RADIAL_INNER.toPx() }
     val outerPx = with(density) { RADIAL_OUTER.toPx() }
@@ -300,7 +308,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                                 if (i != null) applyRadial(r, i) else radial = r.copy(hovered = null)
                             }
                         },
-                        colors = boardColors,
+                        colors = LocalBoardColors.current,
                         modifier = Modifier.fillMaxSize().testTag("board"),
                     )
                     radial?.let { r -> RadialStatusMenu(r, onPick = { applyRadial(r, it) }, onDismiss = { radial = null }) }
@@ -357,6 +365,8 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                             onAll = { vm.setLayersVisible(scene.layers.map { it.name }, it) },
                             onDefaults = vm::resetLayers,
                             onClose = vm::toggleLayersPanel,
+                            appearance = appearance,
+                            onAppearance = vm::setAppearance,
                             modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).heightIn(max = layersMaxHeight),
                         )
                     }
@@ -368,7 +378,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                             modifier = Modifier.align(Alignment.BottomStart).padding(12.dp).testTag("highlight.chip"),
                         ) {
                             Row(Modifier.padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Box(Modifier.size(12.dp).background(boardColors.highlight, androidx.compose.foundation.shape.CircleShape))
+                                Box(Modifier.size(12.dp).background(LocalBoardColors.current.highlight, androidx.compose.foundation.shape.CircleShape))
                                 Spacer(Modifier.width(8.dp))
                                 Text("Highlighting $label", style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
                                     modifier = Modifier.widthIn(max = 360.dp))

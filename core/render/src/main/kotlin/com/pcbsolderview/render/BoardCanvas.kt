@@ -41,6 +41,8 @@ import com.pcbsolderview.model.Component
 import com.pcbsolderview.model.Side
 import com.pcbsolderview.render.BoardScene.Companion.addCenterline
 import com.pcbsolderview.render.BoardScene.Companion.addRect
+import com.pcbsolderview.render.BoardScene.Companion.addRing
+import com.pcbsolderview.model.outline
 import kotlin.math.abs
 
 data class BoardColors(
@@ -100,6 +102,10 @@ fun BoardCanvas(
     colors: BoardColors = BoardColors(),
 ) {
     val highlightPath = remember(scene, highlighted) { scene.pathFor(highlighted) }
+    val highlightPadsPath = remember(scene, highlighted) {
+        Path().apply { highlighted.forEach { c -> scene.board.padsOf(c).forEach { addRing(it.outline()) } } }
+    }
+    val highlightedRefs = remember(highlighted) { highlighted.map { it.refDes }.toSet() }
     val selectedPath = remember(scene, selected) { scene.pathFor(listOfNotNull(selected)) }
     val netGeometry = remember(scene, selectedNet, options.hiddenLayers) { selectedNet?.let { scene.netGeometry(it, options.hiddenLayers) } }
     val markPaths = remember(scene, marks) {
@@ -342,8 +348,8 @@ fun BoardCanvas(
             drawPath(outlinePath, colors.outline, style = Stroke(width = 2f * px))
 
             netGeometry?.let { g ->
-                // Dim everything, then draw the net on top.
-                drawPath(outlinePath, Color.Black.copy(alpha = 0.55f), style = Fill)
+                // Fade everything toward the background, then draw the net on top.
+                drawPath(outlinePath, colors.background.copy(alpha = FOCUS_FADE), style = Fill)
                 drawPath(g.fill, colors.net, style = Fill)
                 for ((w, path) in g.strokes) drawPath(path, colors.net, style = Stroke(width = maxOf(w, 2 * px), cap = StrokeCap.Round, join = StrokeJoin.Round))
             }
@@ -371,7 +377,11 @@ fun BoardCanvas(
                 }
             }
             if (highlighted.isNotEmpty()) {
-                drawPath(highlightPath, colors.highlight.copy(alpha = 0.45f), style = Fill)
+                // Focus: fade the rest of the board (copper, outlines, status paint) toward the
+                // background, then redraw only the highlighted parts — pads solid, body tinted.
+                drawPath(outlinePath, colors.background.copy(alpha = FOCUS_FADE), style = Fill)
+                drawPath(highlightPath, colors.highlight.copy(alpha = 0.22f), style = Fill)
+                drawPath(highlightPadsPath, colors.highlight, style = Fill)
                 drawPath(highlightPath, colors.highlight, style = Stroke(width = 2.5f * px))
             }
             if (selected != null) {
@@ -388,7 +398,7 @@ fun BoardCanvas(
                 drawPath(live, Color(penArgb), style = Stroke(width = penWidthPx * px, cap = StrokeCap.Round, join = StrokeJoin.Round))
             }
         }
-        if (options.showDesignators) drawLabels(scene, t, visibleSide, labelPaint, colors)
+        if (options.showDesignators) drawLabels(scene, t, visibleSide, labelPaint, colors, highlightedRefs)
         if (options.showFps) {
             val fps = stats.frame(start, System.nanoTime())
             drawContext.canvas.nativeCanvas.drawText(fps, 16f, size.height - 16f, fpsPaint)
@@ -415,6 +425,9 @@ private class LatestHolder {
     var onLongPressDrag: (Offset) -> Unit = {}
     var onLongPressRelease: (Offset) -> Unit = {}
 }
+
+/** How strongly the rest of the board fades when a net or identical parts are in focus. */
+private const val FOCUS_FADE = 0.72f
 
 /** Eraser reach of the S Pen, in screen pixels. */
 private const val STYLUS_ERASE_PX = 12.0
@@ -447,7 +460,11 @@ private const val MIN_LABEL_PX = 9f
 private const val MAX_LABEL_PX = 42f
 
 /** Designators drawn upright in screen space; level-of-detail: skipped when too small to read. */
-private fun DrawScope.drawLabels(scene: BoardScene, t: ViewTransform, side: Side, paint: Paint, colors: BoardColors) {
+private fun DrawScope.drawLabels(
+    scene: BoardScene, t: ViewTransform, side: Side, paint: Paint, colors: BoardColors,
+    /** When not empty, every other designator is faded. */
+    focus: Set<String> = emptySet(),
+) {
     val w = size.width.toDouble(); val h = size.height.toDouble()
     val canvas = drawContext.canvas.nativeCanvas
     for (c in scene.board.components) {
@@ -457,7 +474,12 @@ private fun DrawScope.drawLabels(scene: BoardScene, t: ViewTransform, side: Side
         val size = minOf(r.height * 0.6, r.width / (len * 0.62), MAX_LABEL_PX.toDouble()).toFloat()
         if (size < MIN_LABEL_PX) continue
         paint.textSize = size
-        paint.color = if (c.side == side) colors.label.toArgb() else colors.label.copy(alpha = 0.35f).toArgb()
+        val alpha = when {
+            focus.isNotEmpty() && c.refDes !in focus -> 0.22f
+            c.side == side -> 1f
+            else -> 0.35f
+        }
+        paint.color = colors.label.copy(alpha = alpha).toArgb()
         canvas.drawText(c.refDes, r.centerX.toFloat(), (r.centerY + size * 0.35).toFloat(), paint)
     }
 }
