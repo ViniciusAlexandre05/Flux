@@ -38,6 +38,31 @@ class SearchTest {
     }
 
     @Test
+    fun identicalParts() {
+        fun part(ref: String, value: String?, fp: String?, pn: String? = null, desc: String? = null) =
+            Component(refDes = ref, value = value, footprint = fp, partNumber = pn, description = desc,
+                side = Side.TOP, position = Point(0, 0), bounds = Rect(0, 0, 1, 1))
+        val b = Board(
+            name = "t", source = SourceFormat.IPC2581,
+            components = listOf(
+                part("R10", "10k", "0402"), part("R2", "10K", "0402"), part("R3", "10k", "0603"),
+                part("C1", "100nF", "0402", pn = "GRM155"), part("C2", "0.1uF", "0402", pn = "grm155"),
+                part("C3", "100nF", "0402", pn = "OTHER"),
+                part("U1", null, "SOIC8", desc = "Timer"), part("U2", null, "SOIC8", desc = "timer"),
+                part("X1", null, null), part("X2", null, null),
+            ),
+        )
+        // Same value + footprint (case-insensitive), different footprint excluded.
+        assertEquals(listOf("R2", "R10"), b.identicalTo(b.component("R10")!!).map { it.refDes })
+        // Part number wins over the value text.
+        assertEquals(listOf("C1", "C2"), b.identicalTo(b.component("C1")!!).map { it.refDes })
+        // No value: description + footprint.
+        assertEquals(listOf("U1", "U2"), b.identicalTo(b.component("U2")!!).map { it.refDes })
+        // Unknown parts only match themselves.
+        assertEquals(listOf("X1"), b.identicalTo(b.component("X1")!!).map { it.refDes })
+    }
+
+    @Test
     fun byDescription() {
         assertEquals(listOf("U1"), board.search("timer").matches.map { it.refDes })
         assertEquals(0, board.search("   ").matches.size)

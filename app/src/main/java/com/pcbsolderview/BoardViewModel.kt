@@ -16,6 +16,7 @@ import com.pcbsolderview.data.StrokeEntity
 import com.pcbsolderview.model.Board
 import com.pcbsolderview.model.Component
 import com.pcbsolderview.model.Side
+import com.pcbsolderview.model.identicalTo
 import com.pcbsolderview.model.search
 import com.pcbsolderview.parser.BoardImporter
 import com.pcbsolderview.parser.BoardParseException
@@ -88,8 +89,10 @@ data class UiState(
     val selectedNet: String? = null,
     val query: String = "",
     val results: List<Component> = emptyList(),
-    /** Components highlighted on the board (search results by value). */
+    /** Components highlighted on the board (identical parts, or search results by value). */
     val highlighted: List<Component> = emptyList(),
+    /** What [highlighted] shows, e.g. "8 × 10kΩ · CR1005-0402"; null when nothing is highlighted. */
+    val highlightLabel: String? = null,
     /** Incremented to ask the view to zoom to [selected]. */
     val focusRequest: Int = 0,
     val visibleSide: Side = Side.TOP,
@@ -289,13 +292,29 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
         val focus = c ?: s.results.firstOrNull()
         // Highlight every component sharing the picked one's value, for batch soldering.
         val sameValue = focus?.value?.let { v -> s.scene?.board?.components?.filter { it.value == v } }.orEmpty()
+        val hl = if (sameValue.size > 1) sameValue else emptyList()
         s.copy(
             selected = focus, selectedNet = null,
-            highlighted = if (sameValue.size > 1) sameValue else emptyList(), focusRequest = s.focusRequest + 1,
+            highlighted = hl, highlightLabel = if (hl.isEmpty()) null else "${hl.size} × ${focus?.value}",
+            focusRequest = s.focusRequest + 1,
         )
     }
 
-    fun clearSearch() = _state.update { it.copy(query = "", results = emptyList(), highlighted = emptyList()) }
+    fun clearSearch() = _state.update { it.copy(query = "", results = emptyList(), highlighted = emptyList(), highlightLabel = null) }
+
+    /** Highlights every part identical to [c]; calling it again for the same group turns it off. */
+    fun toggleIdentical(c: Component) = _state.update { s ->
+        val board = s.scene?.board ?: return@update s
+        val group = board.identicalTo(c)
+        if (s.highlighted.map { it.refDes }.toSet() == group.map { it.refDes }.toSet()) {
+            s.copy(highlighted = emptyList(), highlightLabel = null)
+        } else {
+            val what = listOfNotNull(c.value ?: c.description, c.footprint).joinToString(" · ").ifEmpty { c.refDes }
+            s.copy(highlighted = group, highlightLabel = "${group.size} × $what")
+        }
+    }
+
+    fun clearHighlight() = _state.update { it.copy(highlighted = emptyList(), highlightLabel = null) }
 
     // ------------------------------------------------------------------ view & display
 

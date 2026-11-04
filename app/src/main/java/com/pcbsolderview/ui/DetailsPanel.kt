@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import com.pcbsolderview.Status
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import com.pcbsolderview.render.ComponentMark
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -55,6 +58,11 @@ fun DetailsPanel(
     mark: ComponentMark? = null,
     onStatus: (Status?) -> Unit = {},
     onNet: (String) -> Unit = {},
+    /** How many parts on the board are identical to this one (including it). */
+    identicalCount: Int = 1,
+    /** True while those identical parts are highlighted. */
+    identicalHighlighted: Boolean = false,
+    onHighlightIdentical: () -> Unit = {},
 ) {
     Column(modifier.padding(16.dp).verticalScroll(rememberScrollState()).testTag("details")) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -84,6 +92,22 @@ fun DetailsPanel(
                     .background(if (top) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.errorContainer, MaterialTheme.shapes.small)
                     .padding(horizontal = 8.dp, vertical = 3.dp),
             )
+        }
+        Spacer(Modifier.height(10.dp))
+        val others = identicalCount - 1
+        val label = when {
+            others <= 0 -> "No identical parts on this board"
+            identicalHighlighted -> "Hide the $identicalCount identical parts"
+            else -> "Highlight all $identicalCount identical parts"
+        }
+        if (identicalHighlighted) {
+            Button(onClick = onHighlightIdentical, modifier = Modifier.fillMaxWidth().height(52.dp).testTag("identical")) {
+                Icon(Icons.Filled.Visibility, contentDescription = null); Spacer(Modifier.width(8.dp)); Text(label)
+            }
+        } else {
+            OutlinedButton(onClick = onHighlightIdentical, enabled = others > 0, modifier = Modifier.fillMaxWidth().height(52.dp).testTag("identical")) {
+                Icon(Icons.Filled.Visibility, contentDescription = null); Spacer(Modifier.width(8.dp)); Text(label)
+            }
         }
         Spacer(Modifier.height(12.dp))
         Text("Status", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

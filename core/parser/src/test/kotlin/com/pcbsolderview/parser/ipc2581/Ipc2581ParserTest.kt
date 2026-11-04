@@ -6,6 +6,7 @@ import com.pcbsolderview.model.PadShape
 import com.pcbsolderview.model.Point
 import com.pcbsolderview.model.Side
 import com.pcbsolderview.model.SourceFormat
+import com.pcbsolderview.model.identicalTo
 import com.pcbsolderview.parser.BoardImporter
 import com.pcbsolderview.parser.BoardParseException
 import com.pcbsolderview.parser.FileKind
@@ -69,6 +70,21 @@ class Ipc2581RealBoardTest {
         assertEquals("0.1uF", board.components.first { it.description!!.startsWith("CAP CER 0.1UF") }.value)
         assertEquals("820pF", board.components.first { it.description!!.startsWith("CAP CER 820PF") }.value)
         assertEquals("L7812CV", board.components.first { it.description == "Integrated Circuit" && it.footprint!!.startsWith("TO254") }.value)
+    }
+
+    @Test
+    fun identicalPartsMatchBomQuantities() {
+        // Every BOM line's quantity equals the number of parts found identical to its first designator.
+        val items = Regex("""<BomItem [^>]*quantity="(\d+)"[^>]*>\s*<RefDes name="([^"]+)"""").findAll(text).toList()
+        assertTrue(items.isNotEmpty())
+        val mismatches = items.mapNotNull { m ->
+            val qty = m.groupValues[1].toInt()
+            val ref = m.groupValues[2]
+            val found = board.identicalTo(board.component(ref)!!).size
+            if (found == qty) null else "$ref: BOM $qty, found $found"
+        }
+        assertEquals(emptyList<String>(), mismatches)
+        assertEquals(8, board.identicalTo(board.component("R301")!!).size)
     }
 
     @Test

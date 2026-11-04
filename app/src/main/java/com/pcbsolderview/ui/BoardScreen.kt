@@ -71,6 +71,7 @@ import androidx.compose.ui.text.style.TextAlign
 import com.pcbsolderview.R
 import com.pcbsolderview.Status
 import com.pcbsolderview.model.SourceFormat
+import com.pcbsolderview.model.identicalTo
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntOffset
@@ -359,6 +360,24 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                             modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).heightIn(max = layersMaxHeight),
                         )
                     }
+                    state.highlightLabel?.let { label ->
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                            shape = MaterialTheme.shapes.extraLarge,
+                            shadowElevation = 4.dp,
+                            modifier = Modifier.align(Alignment.BottomStart).padding(12.dp).testTag("highlight.chip"),
+                        ) {
+                            Row(Modifier.padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(Modifier.size(12.dp).background(boardColors.highlight, androidx.compose.foundation.shape.CircleShape))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Highlighting $label", style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.widthIn(max = 360.dp))
+                                IconButton(onClick = vm::clearHighlight, modifier = Modifier.size(48.dp)) {
+                                    Icon(Icons.Filled.Close, contentDescription = "Clear highlight")
+                                }
+                            }
+                        }
+                    }
                     if (state.visibleSide == Side.BOTTOM) {
                         Text(
                             "BOTTOM VIEW (mirrored)",
@@ -372,6 +391,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
             val side = @Composable { mod: Modifier ->
                 val sel = state.selected
                 val net = state.selectedNet
+                val identical = remember(scene, sel) { sel?.let { scene.board.identicalTo(it) }.orEmpty() }
                 when {
                     sel != null -> Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = mod) {
                         DetailsPanel(
@@ -379,6 +399,10 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                             mark = state.marks[sel.refDes],
                             onStatus = { s -> vm.setMark(sel.refDes, s?.argb) },
                             onNet = vm::selectNet,
+                            identicalCount = identical.size,
+                            identicalHighlighted = identical.size > 1 &&
+                                state.highlighted.map { it.refDes }.toSet() == identical.map { it.refDes }.toSet(),
+                            onHighlightIdentical = { vm.toggleIdentical(sel) },
                         )
                     }
                     net != null -> Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = mod) {

@@ -27,6 +27,23 @@ val ComponentOrder: Comparator<Component> = compareBy(NaturalOrder) { it.refDes 
 /** Normalises a component value for matching: "100 nF" == "100nf", "4K7" == "4k7". */
 fun normalizeValue(v: String): String = v.lowercase().filterNot { it.isWhitespace() }
 
+/**
+ * True when [a] and [b] are the same part: same part number when both have one; otherwise same
+ * value (or description, if neither has a value) and same footprint. Unknown parts never match.
+ */
+fun sameKind(a: Component, b: Component): Boolean {
+    val pa = a.partNumber?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
+    val pb = b.partNumber?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
+    if (pa != null && pb != null) return pa == pb
+    val va = (a.value ?: a.description)?.let { normalizeValue(it) } ?: return false
+    val vb = (b.value ?: b.description)?.let { normalizeValue(it) } ?: return false
+    return va == vb && a.footprint?.lowercase() == b.footprint?.lowercase()
+}
+
+/** Every component identical to [c] (including [c]), in natural designator order. */
+fun Board.identicalTo(c: Component): List<Component> =
+    components.filter { it.refDes == c.refDes || sameKind(it, c) }.sortedWith(ComponentOrder)
+
 class SearchResult(
     /** Exact designator match, if any — the view should zoom to it. */
     val exact: Component?,
