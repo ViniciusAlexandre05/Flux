@@ -68,6 +68,22 @@ object SchDocParser {
         var systemFont = 1
         val children = HashMap<Int, MutableList<Int>>()
 
+        /** Sheet parameters (Title, Revision, DrawnBy…): parameters owned by no component. */
+        val sheetParams: Map<String, String> = records.filter { it.type == 41 && it["OWNERINDEX"] == null }
+            .mapNotNull { r -> r["NAME"]?.let { it.uppercase() to (r["TEXT"] ?: "") } }.toMap()
+
+        /**
+         * Label text with Altium special strings resolved: "=Title" shows the sheet's Title parameter;
+         * unset ("*") or unknown ones show nothing, like an unfilled title block.
+         */
+        fun sheetText(t: String): String? {
+            if (t.isBlank()) return null
+            if (!t.startsWith("=")) return t
+            val key = t.substring(1).trim().uppercase()
+            val v = if (key == "DOCUMENTNAME") "$name.SchDoc" else sheetParams[key]
+            return v?.takeIf { it.isNotBlank() && it != "*" }
+        }
+
         init {
             records.forEachIndexed { i, r ->
                 val owner = r["OWNERINDEX"]?.trim()?.toIntOrNull() ?: return@forEachIndexed
@@ -122,7 +138,7 @@ object SchDocParser {
                     25 -> r["TEXT"]?.takeIf { it.isNotBlank() }?.let { t -> labels += SchNetLabel(t, loc(r), text(r, t)) }
                     17 -> ports += powerPort(r)
                     18 -> port(r, labels, graphics)
-                    4 -> r["TEXT"]?.let { t -> if (t.isNotBlank()) texts += text(r, t) }
+                    4 -> r["TEXT"]?.let { t -> sheetText(t)?.let { texts += text(r, it) } }
                     28 -> textFrame(r, graphics, texts)
                     41 -> if (owner == null || records.getOrNull(owner)?.type == 31) r["TEXT"]?.let { t ->
                         // Sheet parameters (Title, Date…) only show where a label refers to them.
