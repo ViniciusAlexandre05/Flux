@@ -17,9 +17,21 @@ More distinct status colours with symbols; stronger selected-part highlight; tap
 "highlight identical"; All / SMD / PTH filter and search in the highlight chip; "Select all"
 in search results.
 
-## v0.1 — Schematic sync (next)
+## v0.1 — Schematic sync (implemented on main, not released)
 
 Tracked in the [v0.1 Schematic sync milestone](https://github.com/ViniciusAlexandre05/Flux/milestone/1).
+
+**Status 2026-11-05:** S0, S5, S1, S2, S3, S4 and S6 are implemented and tested on the JVM
+(parser, layout, connectivity, colours). The UI has not been tested on the tablet yet. Still open:
+- **Tablet test** of everything below (gestures moved in S0; split view, follow selection, PDF).
+- **S2 "done when"**: compare a sheet on the tablet with Altium. The JVM preview
+  (`core/parser/build/renders/schematic-RP2040-Module.png`) already reads like Altium's PDF.
+- **S3 timing** (highlight on the other side within 100 ms) needs a measurement on the device.
+- **S5b** (native PcbDoc) not started.
+- Hierarchical designs: sheet symbols are drawn, but nets join by name across all sheets.
+- The RP2040 sheet has two symbols designated `RP2040` (the chip and the module header). Fix
+  the annotation in Altium, otherwise the board's `RP2040` (module footprint, 38 pads) and the
+  chip (57 pins) stay mixed up. 45 of 47 board nets line up with the schematic.
 
 Show the Altium schematic next to the board (split screen) and keep both in step: selecting a
 part, pin or net on one side highlights it on the other.

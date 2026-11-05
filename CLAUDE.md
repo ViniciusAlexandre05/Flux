@@ -33,10 +33,10 @@ Read `docs/ARCHITECTURE.md` before changing anything non-trivial. `ROADMAP.md` s
 
 | Module | What lives there |
 |---|---|
-| `core/model` (pure Kotlin) | `Board` model in **micrometres (Long), Y up**; `Component`, `Pad`, `Track`…; search, identical parts, mount filter |
-| `core/parser` (pure Kotlin) | `BoardImporter` (entry point, file sniffing, .zip), IPC-2581, Pick & Place, BOM (CSV/XLSX) |
-| `core/render` (Android lib) | `ViewTransform` (the only Y flip), `BoardScene` (cached paths), `BoardCanvas` (drawing + all gestures), hit-testing, grid, realistic view, thumbnails |
-| `app` | `BoardViewModel` (all UI state), screens in `ui/`, Room DB + DataStore in `data/` |
+| `core/model` (pure Kotlin) | `Board` model in **micrometres (Long), Y up**; `Component`, `Pad`, `Track`…; search, identical parts, mount filter; `Schematic` model, `SchematicLayout`, `SchematicConnectivity` |
+| `core/parser` (pure Kotlin) | `BoardImporter` (entry point, file sniffing, .zip), IPC-2581, Pick & Place, BOM (CSV/XLSX), `altium/` (compound file, records, SchDoc) |
+| `core/render` (Android lib) | `ViewTransform` (the only Y flip), `ViewGestures` (all gestures), `BoardScene`/`BoardCanvas`, `SchematicScene`/`SchematicCanvas`/`SchematicColors`, hit-testing (`GridIndex`), grid, realistic view, thumbnails |
+| `app` | `BoardViewModel` (all UI state), screens in `ui/` (`BoardPane`, `SchematicPane`, `SplitPanes`, `PdfPane`), Room DB + DataStore in `data/` |
 
 ## Rules that are easy to break
 
@@ -60,7 +60,7 @@ Read `docs/ARCHITECTURE.md` before changing anything non-trivial. `ROADMAP.md` s
 
 ## Known pitfalls
 
-- Gestures (`ViewGestures.kt`, used by `BoardCanvas`): measure movement **before** `consume()` (use
+- Gestures (`ViewGestures.kt`, shared by the board, schematic and PDF views): measure movement **before** `consume()` (use
   `positionChangeIgnoreConsumed()`); `positionChange()` returns zero for consumed changes and
   once turned every S Pen stroke into a tap.
 - S Pen side button: Compose hides it (`PointerEvent.motionEvent` is internal). `MainActivity`
@@ -75,6 +75,8 @@ Read `docs/ARCHITECTURE.md` before changing anything non-trivial. `ROADMAP.md` s
 - Parser output: `Ipc2581RealBoardTest.renderPreview` writes
   `core/parser/build/renders/IEPE_CONDITIONER_V1.png` (CAD) and `…-realistic.png`; read them as images.
   The preview renderer (`BoardPng`, test code) mirrors the app's drawing rules; keep it in step.
+- Schematic output: `SchematicLayoutTest.renderPreviews` writes `core/parser/build/renders/schematic-*.png`
+  (`SchematicPng` draws `SchematicLayout`, the same geometry the app draws; keep them in step).
 - Part data report: `core/parser/build/reports/components-IEPE_CONDITIONER_V1.csv`.
 - Vector icons: convert to SVG and screenshot with headless Edge
   (`"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --headless=new --screenshot=… file.html`).
@@ -93,16 +95,20 @@ Read `docs/ARCHITECTURE.md` before changing anything non-trivial. `ROADMAP.md` s
 
 ## Status (2026-11-05)
 
-Released: v0.0, v0.0.1, v0.0.2 (latest, versionCode 3). Unreleased on main: native
-`.PcbDoc`/`.SchDoc` detection with explanatory messages; S0 refactors (see `CHANGELOG.md`).
+Released: v0.0, v0.0.1, v0.0.2 (latest, versionCode 3). Unreleased on main: **v0.1 schematic
+sync implemented** (S0, S5, S1, S2, S3, S4, S6; see `CHANGELOG.md` and `ROADMAP.md`), tested on the
+JVM only. Next: the user's tablet test, then fixes, then release v0.1. S5b (native PcbDoc
+reader, #7) is not started; `CompoundFile` already reads the container.
 
-Next: **v0.1 schematic sync** (GitHub milestone 1, issues #1–#7, plan page
-https://claude.ai/artifact/5KpaU4wYxbzsnnCwmJwA1U). Order: **S0 → S5 → S1 → S2 → S3 → S4 → S6**;
-S5b (native PcbDoc reader, #7) any time after S5. S0 is done in code (2026-11-05) but the
-gesture move still needs the user's re-test on the tablet. Next is S5 (see `ROADMAP.md`).
-
-Samples for v0.1: `samples/real/RPI_Module/` has the native schematic and the board as IPC-2581
-(`RP2040-Module.cvg`). The board has only 17 parts vs 42 schematic designators (16 match; `RP`
-only on the board), so schematic parts missing from the board must be handled gracefully.
-`Rp2040RealBoardTest` prints the comparison. Designator records in the native SchDoc use
-mixed-case keys (`|RECORD=34|…|Text=C1`): match keys case-insensitively.
+Schematic facts learned from the RP2040 sample (`samples/real/RPI_Module/`):
+- Record keys are mixed case (`|RECORD=34|…|Text=C1`): `AltiumRecord` upper-cases keys.
+- `PARTCOUNT` is the number of parts + 1; pins hold absolute positions; the connection point is
+  LOCATION + PINLENGTH along `PINCONGLOMERATE and 3`; omitted booleans are false, omitted
+  ELECTRICAL is input (0).
+- Descriptions may contain line breaks in native files (normalised to spaces).
+- Two symbols share the designator `RP2040` (chip and module header): never key pins by
+  designator inside connectivity (`SchematicConnectivity` uses per-symbol ids).
+- The board has 17 parts vs 42 schematic designators (layout incomplete); the board's RP2040 is
+  the 38-pad module footprint. 45/47 board nets match.
+- Check rendering with `SchematicLayoutTest.renderPreviews` →
+  `core/parser/build/renders/schematic-RP2040-Module.png` (compare with `RPI_Module.pdf`).

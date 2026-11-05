@@ -228,9 +228,9 @@ private fun RecentCard(item: RecentItem, onOpen: () -> Unit, onRename: () -> Uni
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(b.displayName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        val source = when (b.source) { "IPC2581" -> "IPC-2581"; "PICK_AND_PLACE" -> "Pick & Place"; else -> b.source }
+                        val source = when (b.source) { "IPC2581" -> "IPC-2581"; "PICK_AND_PLACE" -> "Pick & Place"; "SCHEMATIC_ONLY" -> "Schematic"; else -> b.source }
                         val ago = DateUtils.getRelativeTimeSpanString(b.lastOpened, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)
-                        Text("$source · ${b.components} parts · $ago", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                        Text(if (b.source == "SCHEMATIC_ONLY") "$source · $ago" else "$source · ${b.components} parts · $ago", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                     }
                     Box {
                         IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More for ${b.displayName}") }

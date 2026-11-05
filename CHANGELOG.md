@@ -4,6 +4,26 @@ All notable changes to Flux. Dates are in YYYY-MM-DD.
 
 ## Unreleased
 
+### Schematic (v0.1, not released; untested on the tablet)
+- Open Altium schematics (`.SchDoc`, native or saved as ASCII) together with the board, or on
+  their own. Each .SchDoc is a sheet; parts, pins, wires, net labels, power ports, junctions,
+  graphics, text frames and title-block fields are drawn. Multi-part parts show as U1A, U1B.
+- **Board / Split / Schematic** switch in the top bar. Split view: side by side in landscape,
+  stacked in portrait, with a draggable divider (double-tap: 50 % / 70 %).
+- Schematic colours follow the theme: Altium's colours on paper in Light, inverted lightness on
+  dark paper in Dark, bright ink on black in High contrast. Sheet tabs for several sheets.
+- **One selection for both views:** tap a part or net on either side and it shows on the other.
+  "Follow selection" (Settings › Schematic, on by default) pans the other view and opens the
+  right sheet. Parts that are not on the board are faded; they can still be selected and given
+  a status. Status paint and highlight groups show on schematic symbols; long-press a symbol for
+  the status ring.
+- **Net tracing:** schematic nets are built from wires, junctions, labels and power ports and
+  matched to board nets by the pins they connect, so unnamed nets line up too. The panel of a
+  schematic-only part lists its pins with their nets.
+- A PDF (Altium Smart PDF) chosen without a .SchDoc is shown view-only in the schematic pane.
+- New demo: "Board + schematic". Recents reopen with their schematic in split view.
+- Internal: pure-Kotlin compound-file (OLE) reader, also the base for reading .PcbDoc (S5b).
+
 - Altium native files are recognised: choosing a `.PcbDoc` explains that it can't be opened
   yet, that it is not the recommended format, and how to export IPC-2581 instead; a `.SchDoc`
   says the schematic view is planned for 0.1. When one is picked together with a supported board

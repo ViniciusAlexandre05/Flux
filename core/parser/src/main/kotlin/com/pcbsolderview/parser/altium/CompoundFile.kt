@@ -135,7 +135,7 @@ class CompoundFile(private val bytes: ByteArray) {
         var s = first
         var pos = 0
         var guard = 0
-        while (pos < size && s >= 0 && s < miniFat.size + 1 && guard++ <= miniFat.size) {
+        while (pos < size && s >= 0 && guard++ <= miniFat.size) {
             val off = s * miniSectorSize
             if (off >= miniStream.size) break
             val n = minOf(miniSectorSize, size - pos, miniStream.size - off)
