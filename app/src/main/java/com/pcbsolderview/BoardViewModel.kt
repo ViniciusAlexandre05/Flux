@@ -353,6 +353,15 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
         )
     }
 
+    /** "Select all" in the search results: highlights every result so a status can be set on all of them. */
+    fun selectAllResults() = _state.update { s ->
+        if (s.results.isEmpty()) s
+        else withHighlight(
+            s.copy(selected = null, selectedNet = null, results = emptyList()),
+            s.results, "${s.results.size} result" + (if (s.results.size == 1) "" else "s") + " for \"${s.query.trim()}\"",
+        )
+    }
+
     fun clearSearch() = _state.update { withHighlight(it.copy(query = "", results = emptyList()), emptyList(), null) }
 
     /** Starts a highlight group; the chip's filter and search start fresh. */

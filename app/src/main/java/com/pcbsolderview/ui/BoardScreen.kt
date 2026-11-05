@@ -34,6 +34,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ViewInAr
 import com.pcbsolderview.render.ViewMode
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalIconButton
@@ -399,7 +401,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                         )
                     }
                     if (state.results.isNotEmpty()) {
-                        SearchResults(state.results, vm::pickResult, Modifier.align(Alignment.TopCenter).padding(8.dp))
+                        SearchResults(state.results, vm::pickResult, vm::selectAllResults, Modifier.align(Alignment.TopCenter).padding(8.dp))
                     }
                     if (state.showLayersPanel) {
                         LayersPanel(
@@ -629,10 +631,25 @@ private fun SearchField(state: UiState, vm: BoardViewModel, modifier: Modifier) 
 }
 
 @Composable
-private fun SearchResults(results: List<Component>, onPick: (Component) -> Unit, modifier: Modifier = Modifier) {
+private fun SearchResults(results: List<Component>, onPick: (Component) -> Unit, onSelectAll: () -> Unit, modifier: Modifier = Modifier) {
     val focus = LocalFocusManager.current
     Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 6.dp, shape = MaterialTheme.shapes.medium, modifier = modifier.widthIn(max = 420.dp).heightIn(max = 360.dp)) {
         LazyColumn(Modifier.testTag("search.results")) {
+            // First option: highlight every result at once.
+            item(key = "select-all") {
+                Row(
+                    Modifier.fillMaxWidth().clickable { onSelectAll(); focus.clearFocus() }.padding(horizontal = 16.dp, vertical = 12.dp).testTag("search.selectAll"),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Icon(Icons.Filled.SelectAll, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.width(72.dp))
+                    Text(
+                        "Select all ${results.size} " + if (results.size == 1) "result" else "results",
+                        color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f),
+                    )
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
             items(results, key = { it.refDes }) { c ->
                 Row(
                     Modifier.fillMaxWidth().clickable { onPick(c); focus.clearFocus() }.padding(horizontal = 16.dp, vertical = 12.dp),
