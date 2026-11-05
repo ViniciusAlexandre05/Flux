@@ -2,6 +2,14 @@
 
 All notable changes to Flux. Dates are in YYYY-MM-DD.
 
+## Unreleased
+
+- Altium native files are recognised: choosing a `.PcbDoc` explains that it can't be opened
+  yet, that it is not the recommended format, and how to export IPC-2581 instead; a `.SchDoc`
+  says the schematic view is planned for 0.1. When one is picked together with a supported board
+  file (multi-select or a .zip), the board opens and a notice says which file was skipped.
+- Longer on-screen messages stay up longer (up to 9 s).
+
 ## 0.0.2 — 2026-11-05
 
 ### Status colours

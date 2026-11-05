@@ -254,10 +254,16 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
         loadJob?.cancel()
         _state.update { it.copy(loading = message, progress = null, error = null) }
         loadJob = viewModelScope.launch {
+            // Skipped-file notices (e.g. a .PcbDoc next to the IPC-2581); not repeated when reopening a recent.
+            val notices = mutableListOf<String>()
             val result = withContext(Dispatchers.Default) {
                 runCatching {
                     val inputs = files()
-                    val board = importer.import(inputs) { p -> _state.update { it.copy(progress = p) } }
+                    val board = importer.import(
+                        inputs,
+                        onProgress = { p -> _state.update { it.copy(progress = p) } },
+                        onNotice = { n -> notices += n },
+                    )
                     _state.update { it.copy(loading = "Preparing view…", progress = null) }
                     val scene = BoardScene(board)
                     remember(origin, keyOf(board), scene, inputs)
@@ -272,6 +278,7 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
                         scene = scene,
                         boardTitle = (origin as? Origin.Recent)?.title?.takeIf { it.isNotBlank() },
                         display = DisplayOptions(hiddenLayers = scene.defaultHiddenLayers),
+                        message = notices.takeIf { origin !is Origin.Recent && it.isNotEmpty() }?.joinToString("\n"),
                     )
                     watchAnnotations(scene.board)
                 },

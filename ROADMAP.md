@@ -31,10 +31,12 @@ nets by the pins they connect (so unnamed nets line up too).
 **S0 — preparation (from the 2026-11-05 code review), before S1.** The code is clean (no
 compiler warnings, lint clean, tests green) but four places assume there is only a board:
 
-1. **Import result.** `BoardImporter.import()` returns a `Board` and silently ignores unknown
-   files. Return an import result that can also carry a schematic (`Board` + `Schematic?`), and
-   add `FileKind`s for `.SchDoc` (ASCII and binary) so schematic files are recognised.
-   `BoardStore` already keeps every opened file, so recents will reopen schematics for free.
+1. **Import result.** `BoardImporter.import()` returns a `Board`. Native `.PcbDoc`/`.SchDoc`
+   are already recognised (`FileKind.ALTIUM_PCBDOC`/`ALTIUM_SCHDOC`, OLE magic + extension or
+   record text) and reported through `onNotice` / a specific `UnsupportedFormatException`.
+   Return an import result that can also carry a schematic (`Board` + `Schematic?`); add a
+   `FileKind` for ASCII `.SchDoc` if ever needed. `BoardStore` already keeps every opened file,
+   so recents will reopen schematics for free.
 2. **Reusable gestures.** Pan, pinch, guarded rotation with snapping, long-press, S Pen drawing
    and taps live inside `BoardCanvas`'s `pointerInput`. Move them into a shared gesture modifier
    that both `BoardCanvas` and the future `SchematicCanvas` use. Behaviour must stay identical
@@ -52,25 +54,31 @@ compiler warnings, lint clean, tests green) but four places assume there is only
 | [S3](https://github.com/ViniciusAlexandre05/Flux/issues/3) | Split screen + shared selection (Board / Split / Schematic, draggable divider, follow selection) | 2 days | Tapping any part on either side highlights it on the other within 100 ms |
 | [S4](https://github.com/ViniciusAlexandre05/Flux/issues/4) | Net tracing across views (wires, junctions, labels, power ports) | 1–2 days | Every board net in the samples has exactly one matching schematic net |
 | [S5](https://github.com/ViniciusAlexandre05/Flux/issues/5) | Native SchDoc reader (binary container; also unlocks `.PcbDoc` later) | 1–2 days | A native file and its ASCII copy produce the same model |
+| [S5b](https://github.com/ViniciusAlexandre05/Flux/issues/7) | Native PcbDoc reader (same container; Altium's binary primitive streams) | 2–3 days | The RP2040 board opened as `.PcbDoc` and as its IPC-2581 export gives the same parts, pads and positions within 1 µm |
 | [S6](https://github.com/ViniciusAlexandre05/Flux/issues/6) | Projects and polish (open board + schematic together, store with recents, PDF fallback) | 1–2 days | A recent board reopens with its schematic, annotations and status intact |
 
-Total: about 9–13 days of work.
+Total: about 11–16 days of work (S5b can move after S6 if time is short).
 
 **Samples (local only, never pushed):** `samples/real/RPI_Module/` holds an Altium project for an
 RP2040 board: `RP2040-Module.SchDoc` and `RP2040-Module.PcbDoc` (both **native binary**, OLE
-compound files), a 2-page Altium PDF, and project/output files. The schematic contains 43
+compound files), **`RP2040-Module.cvg` (IPC-2581 export of the board, added 2026-11-05)**, a
+2-page Altium PDF, and project/output files. The schematic contains 43
 components, 195 pins, 159 wires, 96 net labels (46 names), 38 power ports (1V1, 3V3, GND, VSYS,
 VUSB) and 21 junctions; the RP2040 symbol is multi-part (`PartCount=2`); some designators are
 names ("RP2040", "FLASH", "USB-C", "LED") and one is unannotated (`*`).
 
 **Order change:** because the samples are native binary, do **S5 (container reader) right after
 S0**, then S1 parses the records (same record format as the ASCII export, so no ASCII files are
-needed).
+needed). Full order: **S0 → S5 → S1 → S2 → S3 → S4 → S6**; S5b (PcbDoc) any time after S5.
 
-**Still needed from the user:** an IPC-2581 export of the RP2040-Module board (and ideally its
-Pick & Place CSV) in `samples/real/RPI_Module/`, so one design has both board and schematic for
-S3/S4. Until then the board side can only come from implementing the `.PcbDoc` reader (later
-item below).
+**Board vs schematic (RP2040, `Rp2040RealBoardTest`):** the `.cvg` imports cleanly with 17
+parts (every part has pads); the schematic has 42 designators. 16 board parts match by
+designator. Only on the board: `RP`. Only in the schematic: 26 (`*`, C13, C16, C17, D1, L1,
+LED, Q1, R1–R4, R7, R10, R11, R14–R18, TP1–TP3, TP5, U1, USB-C). So the layout holds only part of
+the schematic (unfinished layout, or exported from an older/partial PcbDoc; Altium's report says
+"Project [Free Documents]", i.e. the PcbDoc was exported outside the project). S3/S4 must
+handle schematic parts that are not on the board (show them greyed, no crash). Open question
+for the user: is the layout really incomplete, and what is `RP`?
 
 **Risks:** SchDoc has no public specification (KiCad's Altium importer is a structural reference
 only; it is GPL, so it is studied, not copied); hierarchical sheets; fonts differ from Altium's;
@@ -80,4 +88,3 @@ parts in the schematic that are not placed on the board.
 
 - Soldering checklist grouped by value, keep screen on while open
 - Signed release APK
-- Opening `.PcbDoc` directly (shares the container reader from S5)

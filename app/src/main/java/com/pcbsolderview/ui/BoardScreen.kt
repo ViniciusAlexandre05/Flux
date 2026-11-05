@@ -441,7 +441,8 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                         )
                     }
                     state.message?.let { msg ->
-                        LaunchedEffect(msg) { kotlinx.coroutines.delay(2800); vm.dismissMessage() }
+                        // Long notices (skipped files) stay up long enough to read.
+                        LaunchedEffect(msg) { kotlinx.coroutines.delay((msg.length * 60L).coerceIn(2800L, 9000L)); vm.dismissMessage() }
                         Text(
                             msg, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.inverseOnSurface,
                             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp)

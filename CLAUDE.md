@@ -46,7 +46,8 @@ Read `docs/ARCHITECTURE.md` before changing anything non-trivial. `ROADMAP.md` s
   (kXML in tests, `Xml.newPullParser()` in the app).
 - Missing data is `null` in the model and shows as "—" in the UI. Never crash on a missing field.
 - `samples/real/` holds the user's real designs: `double-sided/IEPE_CONDITIONER_V1.cvg` (IPC-2581 board)
-  and `RPI_Module/` (native `.SchDoc` + `.PcbDoc`, Altium PDF, project files). It is **gitignored and
+  and `RPI_Module/` (native `.SchDoc` + `.PcbDoc`, `RP2040-Module.cvg` IPC-2581 export of the same
+  board, Altium PDF, project files). It is **gitignored and
   must never be committed or pushed**. Tests that need it skip when it is missing. Synthetic
   fixtures in `samples/synthetic/` are committed and double as in-app demos.
 - Room schema changes need a version bump **and** a `Migration` in `AnnotationDb.kt` that keeps
@@ -92,8 +93,15 @@ Read `docs/ARCHITECTURE.md` before changing anything non-trivial. `ROADMAP.md` s
 
 ## Status (2026-11-05)
 
-Released: v0.0, v0.0.1, v0.0.2 (latest). Next: **v0.1 schematic sync** (GitHub milestone 1,
-issues #1–#6, plan page https://claude.ai/artifact/5KpaU4wYxbzsnnCwmJwA1U). Real schematic sample
-available: `samples/real/RPI_Module/RP2040-Module.SchDoc` (native binary). Order: S0, then S5
-(compound-file reader), then S1. Still waiting for an IPC-2581 export of the RP2040 board for S3/S4.
-See `ROADMAP.md`.
+Released: v0.0, v0.0.1, v0.0.2 (latest, versionCode 3). Unreleased on main: native
+`.PcbDoc`/`.SchDoc` detection with explanatory messages (see `CHANGELOG.md`).
+
+Next: **v0.1 schematic sync** (GitHub milestone 1, issues #1–#7, plan page
+https://claude.ai/artifact/5KpaU4wYxbzsnnCwmJwA1U). Order: **S0 → S5 → S1 → S2 → S3 → S4 → S6**;
+S5b (native PcbDoc reader, #7) any time after S5. Start with S0 (see `ROADMAP.md`).
+
+Samples for v0.1: `samples/real/RPI_Module/` has the native schematic and the board as IPC-2581
+(`RP2040-Module.cvg`). The board has only 17 parts vs 42 schematic designators (16 match; `RP`
+only on the board), so schematic parts missing from the board must be handled gracefully.
+`Rp2040RealBoardTest` prints the comparison. Designator records in the native SchDoc use
+mixed-case keys (`|RECORD=34|…|Text=C1`): match keys case-insensitively.

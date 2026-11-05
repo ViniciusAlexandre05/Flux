@@ -38,11 +38,19 @@ Pure Kotlin, no Android. **All lengths are micrometres (`Long`), Y axis up** (Al
 
 ## core/parser
 
-Pure Kotlin. Entry point: **`BoardImporter(xml: XmlParserFactory).import(files, onProgress)`**.
+Pure Kotlin. Entry point: **`BoardImporter(xml: XmlParserFactory).import(files, onNotice, onProgress)`**
+(`onProgress` last, so a trailing lambda is progress).
 
-- `classify()`: `PK` header → XLSX (BOM) if it contains `xl/`, else ZIP; text starting with `<`
+- `classify()`: OLE compound-file magic (`D0 CF 11 E0…`) → `ALTIUM_PCBDOC`/`ALTIUM_SCHDOC` by
+  extension, else by record text (`|RECORD=Board`, `Protel for Windows - Schematic`, `|RECORD=31|`),
+  else UNKNOWN; `PK` header → XLSX (BOM) if it contains `xl/`, else ZIP; text starting with `<`
   and containing `IPC-2581`/`<Content` → IPC2581; otherwise tries a Pick & Place header, then a
   BOM header. Files it doesn't recognise are ignored (no error).
+- Native Altium files are recognised but not read yet (S5/S5b). With no geometry file the import
+  throws `UnsupportedFormatException` with the texts in `NativeFileMessages` (`ParseErrors.kt`);
+  next to a geometry file they are skipped and reported via `onNotice`. `BoardViewModel.load()`
+  shows notices as the on-screen message (not when reopening a recent). The app picker is
+  `OpenMultipleDocuments`, so several files (or a .zip) can be chosen at once.
 - `ipc2581/Ipc2581Parser.kt`: single streaming pass (XmlPullParser) that records raw elements,
   then `build()` resolves them. Altium dialect handled:
   - Pads come from `Step/PadStack/LayerPad` (absolute `Location`, `Xform` rotation, primitive
