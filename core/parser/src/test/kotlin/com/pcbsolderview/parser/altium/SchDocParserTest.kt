@@ -112,6 +112,20 @@ class SchDocParserTest {
     }
 
     @Test
+    fun pdfIsAViewOnlyFallbackWhenThereIsNoSchDoc() {
+        val pdf = InputFile("Project.pdf", "%PDF-1.7 fake".toByteArray())
+        val importer = BoardImporter(testXml)
+        assertEquals(FileKind.PDF, importer.classify(pdf))
+        val withBoard = importer.import(listOf(Samples.input("synthetic/ipc-mini/mini.xml"), pdf))
+        assertEquals("Project.pdf", withBoard.schematicPdf?.name)
+        // A real schematic wins over the PDF.
+        assertNull(importer.import(listOf(Samples.input("synthetic/ipc-mini/mini.xml"), pdf, Samples.input(path))).schematicPdf)
+        val alone = importer.import(listOf(pdf))
+        assertEquals(SourceFormat.SCHEMATIC_ONLY, alone.board.source)
+        assertEquals("Project", alone.board.name)
+    }
+
+    @Test
     fun schematicAloneOpensWithAnEmptyBoard() {
         val result = BoardImporter(testXml).import(listOf(Samples.input(path)))
         assertEquals(SourceFormat.SCHEMATIC_ONLY, result.board.source)

@@ -175,14 +175,16 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                     val boardPane = @Composable { m: Modifier ->
                         BoardPane(view, state, vm, appearance, onClearRequest = { confirmClear = true }, panelMaxHeight = layersMaxHeight, modifier = m)
                     }
+                    val pdf = state.schematicPdf
+                    val schematicPane: (@Composable (Modifier) -> Unit)? = when {
+                        schView != null -> { m -> SchematicPane(schView, state, vm, appearance, m) }
+                        pdf != null -> { m -> PdfPane(pdf, appearance.rotationGesture, m) }
+                        else -> null
+                    }
                     when {
-                        schView == null || state.viewLayout == ViewLayout.BOARD -> boardPane(Modifier.fillMaxSize())
-                        state.viewLayout == ViewLayout.SCHEMATIC -> SchematicPane(schView, state, vm, appearance, Modifier.fillMaxSize())
-                        else -> SplitPanes(
-                            vertical = !landscape,
-                            first = boardPane,
-                            second = { m -> SchematicPane(schView, state, vm, appearance, m) },
-                        )
+                        schematicPane == null || state.viewLayout == ViewLayout.BOARD -> boardPane(Modifier.fillMaxSize())
+                        state.viewLayout == ViewLayout.SCHEMATIC -> schematicPane(Modifier.fillMaxSize())
+                        else -> SplitPanes(vertical = !landscape, first = boardPane, second = schematicPane)
                     }
                     // Screen-wide overlays, above the pane(s).
                     if (state.results.isNotEmpty()) {
@@ -390,7 +392,7 @@ private fun TopBar(title: String, subtitle: String, state: UiState, vm: BoardVie
                     }
                     if (inline) SearchField(state, vm, Modifier.weight(1f))
                     InspectModeToggle(state.tool, vm::setTool, showLabels = !compactToggle)
-                    if (state.schematic != null) LayoutToggle(state.viewLayout, state.hasBoard, vm::setViewLayout)
+                    if (state.hasSchematicView) LayoutToggle(state.viewLayout, state.hasBoard, vm::setViewLayout)
                     BarDivider()
                     BarIcon(Icons.Filled.Handyman, "Tools", vm::toggleToolsPanel, checked = state.showToolsPanel, tag = "tools.button")
                     BarIcon(Icons.Filled.FitScreen, "Fit to screen", onFit)

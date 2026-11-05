@@ -121,6 +121,7 @@ fun StartScreen(
             if (recents.isEmpty()) {
                 item(key = "demo.simple") { DemoCard("Simple board", "Pick & Place + BOM · 10 parts") { openDemo("simple") } }
                 item(key = "demo.double") { DemoCard("Double-sided board", "Pick & Place + BOM · parts on both sides") { openDemo("double-sided") } }
+                item(key = "demo.schematic") { DemoCard("Board + schematic", "IPC-2581 + .SchDoc · split view") { openDemo("ipc-mini") } }
             }
         }
     }
@@ -138,6 +139,7 @@ private fun DemoButton(openDemo: (String) -> Unit) {
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(text = { Text("Simple board") }, onClick = { open = false; openDemo("simple") })
             DropdownMenuItem(text = { Text("Double-sided board") }, onClick = { open = false; openDemo("double-sided") })
+            DropdownMenuItem(text = { Text("Board + schematic") }, onClick = { open = false; openDemo("ipc-mini") })
         }
     }
 }

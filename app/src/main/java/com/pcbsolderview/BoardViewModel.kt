@@ -112,6 +112,8 @@ data class UiState(
     /** Schematic opened with the board; null when none was chosen. */
     val schematic: Schematic? = null,
     val schematicScene: SchematicScene? = null,
+    /** PDF shown view-only when no .SchDoc was opened (Altium Smart PDF). */
+    val schematicPdf: ByteArray? = null,
     val connectivity: SchematicConnectivity? = null,
     /** Board net → the schematic net that connects the same pins. */
     val boardToSch: Map<String, SchNet> = emptyMap(),
@@ -172,6 +174,9 @@ data class UiState(
 ) {
     /** Designator selected in either view. */
     val selectedRef: String? get() = selected?.refDes ?: selectedSymbol
+
+    /** There is something to show in the schematic pane (sheets or a PDF). */
+    val hasSchematicView: Boolean get() = schematic != null || schematicPdf != null
 
     /** The board has parts (false when only a schematic was opened). */
     val hasBoard: Boolean get() = scene?.board?.let { it.components.isNotEmpty() || it.outline.isNotEmpty() } == true
@@ -301,11 +306,11 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
                         Loaded(s, SchematicScene(s), c, c.matchBoard(imported.board))
                     }
                     remember(origin, keyOf(imported.board), scene, inputs)
-                    scene to sch
+                    Triple(scene, sch, imported.schematicPdf?.bytes)
                 }
             }
             result.fold(
-                onSuccess = { (scene, sch) ->
+                onSuccess = { (scene, sch, pdf) ->
                     undo.clear()
                     val hasBoard = scene.board.components.isNotEmpty() || scene.board.outline.isNotEmpty()
                     _state.value = UiState(
@@ -315,8 +320,9 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
                         schematicScene = sch?.scene,
                         connectivity = sch?.connectivity,
                         boardToSch = sch?.boardToSch.orEmpty(),
+                        schematicPdf = pdf,
                         viewLayout = when {
-                            sch == null -> ViewLayout.BOARD
+                            sch == null && pdf == null -> ViewLayout.BOARD
                             !hasBoard -> ViewLayout.SCHEMATIC
                             else -> ViewLayout.SPLIT
                         },
@@ -404,7 +410,7 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
     // ------------------------------------------------------------------ schematic
 
     fun setViewLayout(l: ViewLayout) = _state.update { s ->
-        if (s.schematic == null || (l != ViewLayout.SCHEMATIC && !s.hasBoard)) s else s.copy(viewLayout = l)
+        if (!s.hasSchematicView || (l != ViewLayout.SCHEMATIC && !s.hasBoard)) s else s.copy(viewLayout = l)
     }
 
     fun setSheet(i: Int) = _state.update { s -> s.copy(sheetIndex = i.coerceIn(0, (s.schematic?.sheets?.size ?: 1) - 1)) }

@@ -27,6 +27,8 @@ class InputFile(val name: String, val bytes: ByteArray)
 data class ImportResult(
     val board: Board,
     val schematic: Schematic? = null,
+    /** Altium Smart PDF (or any PDF) chosen without a .SchDoc: shown view-only, no selection sync. */
+    val schematicPdf: InputFile? = null,
 )
 
 /** What a file is, decided from its content (see [BoardImporter.classify]). */
@@ -36,6 +38,8 @@ enum class FileKind {
     ALTIUM_PCBDOC,
     /** Altium schematic sheet (.SchDoc), native compound file or saved as ASCII. */
     ALTIUM_SCHDOC,
+    /** PDF (e.g. Altium Smart PDF of the schematic): view-only fallback. */
+    PDF,
     UNKNOWN,
 }
 
@@ -59,7 +63,8 @@ class BoardImporter(private val xml: XmlParserFactory) {
 
         val geometryFile = kinds.entries.firstOrNull { it.value == FileKind.IPC2581 }?.key
             ?: kinds.entries.firstOrNull { it.value == FileKind.PICK_AND_PLACE }?.key
-        if (geometryFile == null && schFiles.isEmpty()) {
+        val pdf = kinds.entries.firstOrNull { it.value == FileKind.PDF }?.key?.takeIf { schFiles.isEmpty() }
+        if (geometryFile == null && schFiles.isEmpty() && pdf == null) {
             throw UnsupportedFormatException(if (hasPcbDoc) NativeFileMessages.PCBDOC_ONLY else UnsupportedFormatException.DEFAULT)
         }
         if (hasPcbDoc) onNotice(
@@ -75,11 +80,11 @@ class BoardImporter(private val xml: XmlParserFactory) {
                 onNotice(NativeFileMessages.schDocSkipped(f.name, e.message)); null
             }
         }
-        if (geometryFile == null && sheets.isEmpty()) throw UnsupportedFormatException(NativeFileMessages.SCHDOC_UNREADABLE)
+        if (geometryFile == null && sheets.isEmpty() && pdf == null) throw UnsupportedFormatException(NativeFileMessages.SCHDOC_UNREADABLE)
         val schematic = sheets.takeIf { it.isNotEmpty() }?.let { Schematic(schematicName(it.map { s -> s.name }), it) }
 
         val board = when {
-            geometryFile == null -> Board(name = schematic!!.name, source = SourceFormat.SCHEMATIC_ONLY)
+            geometryFile == null -> Board(name = schematic?.name ?: baseName(pdf!!.name), source = SourceFormat.SCHEMATIC_ONLY)
             kinds.getValue(geometryFile) == FileKind.IPC2581 -> Ipc2581Parser(xml).parse(
                 ByteArrayInputStream(geometryFile.bytes), geometryFile.name, geometryFile.bytes.size.toLong(), onProgress,
             )
@@ -87,7 +92,7 @@ class BoardImporter(private val xml: XmlParserFactory) {
         }
 
         val boms = kinds.filterValues { it == FileKind.BOM }.keys.map { readBom(it) }
-        return ImportResult(board = boms.fold(board) { b, bom -> b.withBom(bom) }, schematic = schematic)
+        return ImportResult(board = boms.fold(board) { b, bom -> b.withBom(bom) }, schematic = schematic, schematicPdf = pdf)
     }
 
     /** One sheet: its name; several: their common prefix ("Power", "Power_IO" → "Power"), else the first. */
@@ -100,6 +105,7 @@ class BoardImporter(private val xml: XmlParserFactory) {
     fun classify(f: InputFile): FileKind {
         val b = f.bytes
         if (isCompoundFile(b)) return altiumNativeKind(f)
+        if (b.size >= 5 && String(b, 0, 5, Charsets.ISO_8859_1) == "%PDF-") return FileKind.PDF
         if (b.size >= 4 && b[0] == 'P'.code.toByte() && b[1] == 'K'.code.toByte()) {
             return if (zipHas(b) { it.startsWith("xl/") }) FileKind.BOM else FileKind.ZIP
         }
