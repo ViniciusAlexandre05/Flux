@@ -45,7 +45,8 @@ Read `docs/ARCHITECTURE.md` before changing anything non-trivial. `ROADMAP.md` s
 - Parsers stay pure Kotlin (no Android imports); XML goes through `XmlParserFactory`
   (kXML in tests, `Xml.newPullParser()` in the app).
 - Missing data is `null` in the model and shows as "—" in the UI. Never crash on a missing field.
-- `samples/real/` holds the user's real board (`IEPE_CONDITIONER_V1.cvg`). It is **gitignored and
+- `samples/real/` holds the user's real designs: `double-sided/IEPE_CONDITIONER_V1.cvg` (IPC-2581 board)
+  and `RPI_Module/` (native `.SchDoc` + `.PcbDoc`, Altium PDF, project files). It is **gitignored and
   must never be committed or pushed**. Tests that need it skip when it is missing. Synthetic
   fixtures in `samples/synthetic/` are committed and double as in-app demos.
 - Room schema changes need a version bump **and** a `Migration` in `AnnotationDb.kt` that keeps
@@ -92,6 +93,7 @@ Read `docs/ARCHITECTURE.md` before changing anything non-trivial. `ROADMAP.md` s
 ## Status (2026-11-05)
 
 Released: v0.0, v0.0.1, v0.0.2 (latest). Next: **v0.1 schematic sync** (GitHub milestone 1,
-issues #1–#6, plan page https://claude.ai/artifact/5KpaU4wYxbzsnnCwmJwA1U). Blocked on the
-user providing `.SchDoc` files (original + saved as ASCII) in `samples/real/double-sided/`.
-Do the preparation step S0 in `ROADMAP.md` first.
+issues #1–#6, plan page https://claude.ai/artifact/5KpaU4wYxbzsnnCwmJwA1U). Real schematic sample
+available: `samples/real/RPI_Module/RP2040-Module.SchDoc` (native binary). Order: S0, then S5
+(compound-file reader), then S1. Still waiting for an IPC-2581 export of the RP2040 board for S3/S4.
+See `ROADMAP.md`.

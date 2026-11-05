@@ -56,9 +56,21 @@ compiler warnings, lint clean, tests green) but four places assume there is only
 
 Total: about 9–13 days of work.
 
-**Blocked on:** the `IEPE_CONDITIONER` schematic sheets, as original `.SchDoc` files and saved
-as ASCII, placed in `samples/real/double-sided/` (kept local, never pushed). A Smart PDF of the
-schematic helps compare the drawing.
+**Samples (local only, never pushed):** `samples/real/RPI_Module/` holds an Altium project for an
+RP2040 board: `RP2040-Module.SchDoc` and `RP2040-Module.PcbDoc` (both **native binary**, OLE
+compound files), a 2-page Altium PDF, and project/output files. The schematic contains 43
+components, 195 pins, 159 wires, 96 net labels (46 names), 38 power ports (1V1, 3V3, GND, VSYS,
+VUSB) and 21 junctions; the RP2040 symbol is multi-part (`PartCount=2`); some designators are
+names ("RP2040", "FLASH", "USB-C", "LED") and one is unannotated (`*`).
+
+**Order change:** because the samples are native binary, do **S5 (container reader) right after
+S0**, then S1 parses the records (same record format as the ASCII export, so no ASCII files are
+needed).
+
+**Still needed from the user:** an IPC-2581 export of the RP2040-Module board (and ideally its
+Pick & Place CSV) in `samples/real/RPI_Module/`, so one design has both board and schematic for
+S3/S4. Until then the board side can only come from implementing the `.PcbDoc` reader (later
+item below).
 
 **Risks:** SchDoc has no public specification (KiCad's Altium importer is a structural reference
 only; it is GPL, so it is studied, not copied); hierarchical sheets; fonts differ from Altium's;
