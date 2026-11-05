@@ -2,6 +2,8 @@ package com.pcbsolderview.parser
 
 import com.pcbsolderview.model.Board
 import com.pcbsolderview.model.Schematic
+import com.pcbsolderview.model.SourceFormat
+import com.pcbsolderview.parser.altium.SchDocParser
 import com.pcbsolderview.parser.bom.Bom
 import com.pcbsolderview.parser.bom.BomParser
 import com.pcbsolderview.parser.bom.XlsxReader
@@ -18,8 +20,9 @@ import java.util.zip.ZipInputStream
 class InputFile(val name: String, val bytes: ByteArray)
 
 /**
- * What an import produced: always a [board], plus a [schematic] when one of the files is a
- * schematic that can be read (none yet: native .SchDoc is recognised, read from S5/S1 on).
+ * What an import produced: always a [board], plus a [schematic] when .SchDoc sheets were among
+ * the files. A schematic alone gives an empty board
+ * ([SourceFormat.SCHEMATIC_ONLY]).
  */
 data class ImportResult(
     val board: Board,
@@ -31,14 +34,14 @@ enum class FileKind {
     IPC2581, PICK_AND_PLACE, BOM, ZIP,
     /** Altium native board (.PcbDoc, binary compound file): recognised, not readable yet. */
     ALTIUM_PCBDOC,
-    /** Altium native schematic (.SchDoc, binary compound file): recognised, not readable yet. */
+    /** Altium schematic sheet (.SchDoc), native compound file or saved as ASCII. */
     ALTIUM_SCHDOC,
     UNKNOWN,
 }
 
 /**
  * Entry point used by the app: give it every file the user picked (or the contents of a .zip)
- * and it produces one [ImportResult] (a [Board], later with its schematic). Pick & Place / IPC-2581 give geometry; a BOM, if present,
+ * and it produces one [ImportResult] (a [Board] and the schematic sheets, if any). Pick & Place / IPC-2581 give geometry; a BOM, if present,
  * fills in descriptions, part numbers and manufacturers by designator.
  */
 class BoardImporter(private val xml: XmlParserFactory) {
@@ -52,29 +55,46 @@ class BoardImporter(private val xml: XmlParserFactory) {
         val flat = files.flatMap { if (classify(it) == FileKind.ZIP) unzip(it) else listOf(it) }
         val kinds = flat.associateWith { classify(it) }
         val hasPcbDoc = FileKind.ALTIUM_PCBDOC in kinds.values
-        val hasSchDoc = FileKind.ALTIUM_SCHDOC in kinds.values
+        val schFiles = kinds.filterValues { it == FileKind.ALTIUM_SCHDOC }.keys.toList()
 
         val geometryFile = kinds.entries.firstOrNull { it.value == FileKind.IPC2581 }?.key
             ?: kinds.entries.firstOrNull { it.value == FileKind.PICK_AND_PLACE }?.key
-            ?: throw UnsupportedFormatException(
-                when {
-                    hasPcbDoc -> NativeFileMessages.PCBDOC_ONLY
-                    hasSchDoc -> NativeFileMessages.SCHDOC_ONLY
-                    else -> UnsupportedFormatException.DEFAULT
-                },
-            )
-        if (hasPcbDoc) onNotice(NativeFileMessages.pcbDocSkipped(geometryFile.name))
-        if (hasSchDoc) onNotice(NativeFileMessages.SCHDOC_SKIPPED)
+        if (geometryFile == null && schFiles.isEmpty()) {
+            throw UnsupportedFormatException(if (hasPcbDoc) NativeFileMessages.PCBDOC_ONLY else UnsupportedFormatException.DEFAULT)
+        }
+        if (hasPcbDoc) onNotice(
+            if (geometryFile != null) NativeFileMessages.pcbDocSkipped(geometryFile.name) else NativeFileMessages.PCBDOC_WITH_SCHEMATIC,
+        )
 
-        val board = when (kinds.getValue(geometryFile)) {
-            FileKind.IPC2581 -> Ipc2581Parser(xml).parse(
+        // Schematic sheets: a damaged sheet next to a board is skipped with a notice.
+        val sheets = schFiles.mapNotNull { f ->
+            try {
+                SchDocParser.parse(f.bytes, f.name)
+            } catch (e: BoardParseException) {
+                if (geometryFile == null && schFiles.size == 1) throw e
+                onNotice(NativeFileMessages.schDocSkipped(f.name, e.message)); null
+            }
+        }
+        if (geometryFile == null && sheets.isEmpty()) throw UnsupportedFormatException(NativeFileMessages.SCHDOC_UNREADABLE)
+        val schematic = sheets.takeIf { it.isNotEmpty() }?.let { Schematic(schematicName(it.map { s -> s.name }), it) }
+
+        val board = when {
+            geometryFile == null -> Board(name = schematic!!.name, source = SourceFormat.SCHEMATIC_ONLY)
+            kinds.getValue(geometryFile) == FileKind.IPC2581 -> Ipc2581Parser(xml).parse(
                 ByteArrayInputStream(geometryFile.bytes), geometryFile.name, geometryFile.bytes.size.toLong(), onProgress,
             )
             else -> PickPlaceParser.parse(decodeText(geometryFile.bytes), baseName(geometryFile.name))
         }
 
         val boms = kinds.filterValues { it == FileKind.BOM }.keys.map { readBom(it) }
-        return ImportResult(board = boms.fold(board) { b, bom -> b.withBom(bom) })
+        return ImportResult(board = boms.fold(board) { b, bom -> b.withBom(bom) }, schematic = schematic)
+    }
+
+    /** One sheet: its name; several: their common prefix ("Power", "Power_IO" → "Power"), else the first. */
+    private fun schematicName(names: List<String>): String {
+        if (names.size == 1) return names[0]
+        val prefix = names.reduce { a, b -> a.commonPrefixWith(b, ignoreCase = true) }.trimEnd(' ', '_', '-', '.')
+        return prefix.ifBlank { names[0] }
     }
 
     fun classify(f: InputFile): FileKind {
@@ -85,6 +105,7 @@ class BoardImporter(private val xml: XmlParserFactory) {
         }
         val head = decodeText(b.copyOf(minOf(b.size, 64 * 1024)))
         val trimmed = head.trimStart()
+        if (SchDocParser.looksLikeAsciiSchDoc(trimmed)) return FileKind.ALTIUM_SCHDOC
         if (trimmed.startsWith("<")) {
             return if (trimmed.contains("IPC-2581", ignoreCase = true) || trimmed.contains("<Content", ignoreCase = true)) FileKind.IPC2581 else FileKind.UNKNOWN
         }

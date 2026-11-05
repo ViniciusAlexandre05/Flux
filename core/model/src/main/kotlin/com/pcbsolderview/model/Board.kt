@@ -47,7 +47,12 @@ data class Board(
     fun padsOf(component: Component): List<Pad> = component.padIds.mapNotNull { pads.getOrNull(it) }
 }
 
-enum class SourceFormat { PICK_AND_PLACE, IPC2581, PCBDOC }
+enum class SourceFormat {
+    PICK_AND_PLACE, IPC2581, PCBDOC,
+
+    /** No board file was opened, only a schematic: the board is empty. */
+    SCHEMATIC_ONLY,
+}
 
 enum class Units(val micronsPerUnit: Double) {
     MICROMETER(1.0),

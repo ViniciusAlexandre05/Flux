@@ -39,9 +39,9 @@ class NativeAltiumFilesTest {
     }
 
     @Test
-    fun schDocAloneExplainsSchematicIsPlanned() {
-        val e = assertThrows<UnsupportedFormatException> { importer.import(listOf(ole("Sheet1.SchDoc"))) }
-        assertEquals(NativeFileMessages.SCHDOC_ONLY, e.message)
+    fun damagedSchDocAloneIsAnError() {
+        val e = assertThrows<BoardParseException> { importer.import(listOf(ole("Sheet1.SchDoc"))) }
+        assertTrue(e.message!!.contains("compound file"), e.message)
     }
 
     @Test
@@ -52,7 +52,7 @@ class NativeAltiumFilesTest {
             onNotice = { notices += it },
         ).board
         assertEquals(10, board.components.size)
-        assertEquals(listOf(NativeFileMessages.pcbDocSkipped("Pick Place for Simple.csv"), NativeFileMessages.SCHDOC_SKIPPED), notices)
+        assertEquals(listOf(NativeFileMessages.pcbDocSkipped("Pick Place for Simple.csv"), NativeFileMessages.schDocSkipped("Sheet1.SchDoc", "Damaged compound file (sector size).")), notices)
     }
 
     @Test

@@ -147,6 +147,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                 SourceFormat.IPC2581 -> "IPC-2581"
                 SourceFormat.PICK_AND_PLACE -> "Pick & Place"
                 SourceFormat.PCBDOC -> "PcbDoc"
+                SourceFormat.SCHEMATIC_ONLY -> "schematic only"
             } + if (state.marks.isNotEmpty()) " · ${state.marks.count { it.value.argb == Status.OK.argb }}/${scene.board.components.size} OK" else "",
             state = state,
             vm = vm,
