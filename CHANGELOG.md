@@ -2,6 +2,27 @@
 
 All notable changes to Flux. Dates are in YYYY-MM-DD.
 
+## 0.0.2 — 2026-11-05
+
+### Status colours
+- New, more distinct palette: OK green, Problem red, Check **amber** (was yellow), Info blue.
+  A test keeps every pair at least ΔE 35 apart (CIELAB), also when painted over the board,
+  the green mask and the light/dark backgrounds. OK vs Check over the board: ΔE 43 → 84.
+- Status paint is nearly opaque (85%) with a dark edge, so the board no longer tints it.
+- Each painted part shows a symbol badge: ✓ OK, ! Problem, ? Check, i Info.
+- Existing marks are converted to the new colours on update.
+
+### Selection and highlighting
+- The selected part stands out: glow, thick outline, accent-coloured pads and a short pulse.
+  It is no longer tinted, so its status colour stays visible.
+- **Highlight identical:** tap highlights only the identical parts without a status yet;
+  press and hold highlights all of them, and a status then applies to every one
+  (overwriting existing statuses).
+- **Highlight chip:** clear-status dot; tap the label for an **All / SMD / PTH** switch (with
+  counts) and a search that narrows the highlight within the group. Batch status applies to
+  what is shown.
+- **Search › Select all:** the first search result highlights every match as one group.
+
 ## 0.0.1 — 2026-11-04
 
 ### Part details

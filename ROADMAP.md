@@ -11,6 +11,12 @@ Richer part details (part number, height, mounting, library) checked against the
 selectable in Settings; batch status on highlighted parts; box selection; vias in the
 realistic view. See [CHANGELOG.md](CHANGELOG.md).
 
+## v0.0.2 — released
+
+More distinct status colours with symbols; stronger selected-part highlight; tap/hold on
+"highlight identical"; All / SMD / PTH filter and search in the highlight chip; "Select all"
+in search results.
+
 ## v0.1 — Schematic sync (next)
 
 Tracked in the [v0.1 Schematic sync milestone](https://github.com/ViniciusAlexandre05/Flux/milestone/1).
