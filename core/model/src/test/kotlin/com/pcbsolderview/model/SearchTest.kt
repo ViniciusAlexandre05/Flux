@@ -63,6 +63,28 @@ class SearchTest {
     }
 
     @Test
+    fun mountFilterAndCustomQuery() {
+        fun pad(id: Int, ref: String, name: String, drill: Long? = null) =
+            Pad(id, name, Point(0, 0), PadShape.RECT, 1, 1, drill = drill, componentRef = ref)
+        fun part(ref: String, value: String, fp: String, padIds: List<Int>) =
+            Component(refDes = ref, value = value, footprint = fp, side = Side.TOP, position = Point(0, 0), bounds = Rect(0, 0, 1, 1), padIds = padIds)
+        val pads = listOf(
+            pad(0, "C1", "1"), pad(1, "C1", "2"),                 // SMD
+            pad(2, "J1", "1", 800), pad(3, "J1", "2", 800),       // through-hole
+            pad(4, "U1", "1"), pad(5, "U1", "TAB", 1200),         // mixed
+        )
+        val parts = listOf(part("C1", "100nF", "0402", listOf(0, 1)), part("J1", "Header", "HDR1X2", listOf(2, 3)), part("U1", "LM1117", "SOT-223", listOf(4, 5)), part("TP1", "Test", "TP", emptyList()))
+        val b = Board(name = "t", source = SourceFormat.IPC2581, pads = pads, components = parts)
+        assertEquals(Mount.SMD, b.mountOf(parts[0])); assertEquals(Mount.MIXED, b.mountOf(parts[2])); assertNull(b.mountOf(parts[3]))
+        assertEquals(listOf("C1"), b.filterByMount(parts, MountFilter.SMD).map { it.refDes })
+        assertEquals(listOf("J1", "U1"), b.filterByMount(parts, MountFilter.PTH).map { it.refDes })
+        assertEquals(4, b.filterByMount(parts, MountFilter.ALL).size)
+        assertEquals(listOf("C1"), parts.filter { it.matchesQuery("100n 0402") }.map { it.refDes })
+        assertEquals(listOf("U1"), parts.filter { it.matchesQuery("lm1117") }.map { it.refDes })
+        assertEquals(4, parts.count { it.matchesQuery("  ") })
+    }
+
+    @Test
     fun byDescription() {
         assertEquals(listOf("U1"), board.search("timer").matches.map { it.refDes })
         assertEquals(0, board.search("   ").matches.size)

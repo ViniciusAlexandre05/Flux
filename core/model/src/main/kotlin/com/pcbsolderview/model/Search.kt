@@ -44,6 +44,38 @@ fun sameKind(a: Component, b: Component): Boolean {
 fun Board.identicalTo(c: Component): List<Component> =
     components.filter { it.refDes == c.refDes || sameKind(it, c) }.sortedWith(ComponentOrder)
 
+/** How a part is mounted, from its pads. */
+enum class Mount { SMD, THROUGH_HOLE, MIXED }
+
+/** Null when the part has no pads (e.g. a Pick & Place board without geometry). */
+fun Board.mountOf(c: Component): Mount? {
+    val pads = padsOf(c)
+    if (pads.isEmpty()) return null
+    val th = pads.any { it.isThroughHole }; val smd = pads.any { !it.isThroughHole }
+    return when { th && smd -> Mount.MIXED; th -> Mount.THROUGH_HOLE; else -> Mount.SMD }
+}
+
+/** The All / SMD / PTH switch on the highlight chip. A part with any through-hole pin counts as PTH. */
+enum class MountFilter(val label: String) { ALL("All"), SMD("SMD"), PTH("PTH") }
+
+fun Board.filterByMount(parts: List<Component>, filter: MountFilter): List<Component> = when (filter) {
+    MountFilter.ALL -> parts
+    MountFilter.SMD -> parts.filter { mountOf(it) == Mount.SMD }
+    MountFilter.PTH -> parts.filter { mountOf(it).let { m -> m == Mount.THROUGH_HOLE || m == Mount.MIXED } }
+}
+
+/**
+ * "Custom" search inside a group: true when every word of [query] appears in the designator,
+ * value, description, footprint, part number or manufacturer (case and spaces ignored).
+ * "R1" matches R1 and R10; "100n 0402" matches 100 nF capacitors in 0402.
+ */
+fun Component.matchesQuery(query: String): Boolean {
+    val words = query.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }.map { normalizeValue(it) }
+    if (words.isEmpty()) return true
+    val hay = listOfNotNull(refDes, value, description, footprint, partNumber, manufacturer).joinToString(" ") { normalizeValue(it) }
+    return words.all { it in hay }
+}
+
 class SearchResult(
     /** Exact designator match, if any — the view should zoom to it. */
     val exact: Component?,

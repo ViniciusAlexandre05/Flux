@@ -76,6 +76,8 @@ import com.pcbsolderview.R
 import com.pcbsolderview.Status
 import com.pcbsolderview.model.SourceFormat
 import com.pcbsolderview.model.identicalTo
+import com.pcbsolderview.model.filterByMount
+import com.pcbsolderview.model.matchesQuery
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntOffset
@@ -415,32 +417,26 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                         )
                     }
                     state.highlightLabel?.let { label ->
-                        Surface(
-                            color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                            shape = MaterialTheme.shapes.extraLarge,
-                            shadowElevation = 4.dp,
-                            modifier = Modifier.align(Alignment.BottomStart).padding(12.dp).testTag("highlight.chip"),
-                        ) {
-                            Row(Modifier.padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Box(Modifier.size(12.dp).background(LocalBoardColors.current.highlight, androidx.compose.foundation.shape.CircleShape))
-                                Spacer(Modifier.width(8.dp))
-                                Text("Highlighting $label", style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.widthIn(max = 300.dp))
-                                Spacer(Modifier.width(10.dp))
-                                // Set a status on every highlighted part at once.
-                                Status.entries.forEach { s ->
-                                    Box(
-                                        Modifier.padding(horizontal = 3.dp).size(30.dp)
-                                            .background(Color(s.argb), androidx.compose.foundation.shape.CircleShape)
-                                            .clickable { vm.applyToHighlighted(s.argb) }
-                                            .testTag("highlight.status.${s.name}"),
-                                    )
-                                }
-                                IconButton(onClick = vm::clearHighlight, modifier = Modifier.size(48.dp)) {
-                                    Icon(Icons.Filled.Close, contentDescription = "Clear highlight")
-                                }
+                        val counts = remember(state.highlightBase, state.highlightQuery, scene) {
+                            com.pcbsolderview.model.MountFilter.entries.associateWith { f ->
+                                scene.board.filterByMount(state.highlightBase, f).count { it.matchesQuery(state.highlightQuery) }
                             }
                         }
+                        HighlightChip(
+                            label = label,
+                            shown = state.highlighted.size,
+                            total = state.highlightBase.size,
+                            override = state.highlightOverride,
+                            filter = state.highlightFilter,
+                            counts = counts,
+                            query = state.highlightQuery,
+                            highlightColor = LocalBoardColors.current.highlight,
+                            onFilter = vm::setHighlightFilter,
+                            onQuery = vm::setHighlightQuery,
+                            onStatus = { argb -> vm.applyToHighlighted(argb) },
+                            onClose = vm::clearHighlight,
+                            modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+                        )
                     }
                     state.message?.let { msg ->
                         LaunchedEffect(msg) { kotlinx.coroutines.delay(2800); vm.dismissMessage() }
@@ -473,9 +469,9 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                             onStatus = { s -> vm.setMark(sel.refDes, s?.argb) },
                             onNet = vm::selectNet,
                             identicalCount = identical.size,
-                            identicalHighlighted = identical.size > 1 &&
-                                state.highlighted.map { it.refDes }.toSet() == identical.map { it.refDes }.toSet(),
-                            onHighlightIdentical = { vm.toggleIdentical(sel) },
+                            identicalTodo = identical.count { state.marks[it.refDes] == null },
+                            identicalHighlighted = identical.size > 1 && state.highlightKey == vm.identicalKey(identical),
+                            onHighlightIdentical = { all -> vm.toggleIdentical(sel, all) },
                             shows = appearance::shows,
                         )
                     }

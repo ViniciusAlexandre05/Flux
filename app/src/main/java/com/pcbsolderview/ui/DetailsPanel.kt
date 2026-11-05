@@ -3,6 +3,8 @@ package com.pcbsolderview.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,8 +12,6 @@ import androidx.compose.ui.graphics.Color
 import com.pcbsolderview.Status
 import com.pcbsolderview.data.DetailField
 import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedButton
 import com.pcbsolderview.render.ComponentMark
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -61,9 +61,12 @@ fun DetailsPanel(
     onNet: (String) -> Unit = {},
     /** How many parts on the board are identical to this one (including it). */
     identicalCount: Int = 1,
+    /** How many of those have no status yet (the ones a tap highlights). */
+    identicalTodo: Int = identicalCount,
     /** True while those identical parts are highlighted. */
     identicalHighlighted: Boolean = false,
-    onHighlightIdentical: () -> Unit = {},
+    /** Tap: false (parts without a status). Press and hold: true (all of them). */
+    onHighlightIdentical: (all: Boolean) -> Unit = {},
     /** Which rows to show (Settings › Part details). */
     shows: (DetailField) -> Boolean = { true },
 ) {
@@ -98,21 +101,7 @@ fun DetailsPanel(
         }
         Spacer(Modifier.height(10.dp))
         if (shows(DetailField.IDENTICAL)) {
-        val others = identicalCount - 1
-        val label = when {
-            others <= 0 -> "No identical parts on this board"
-            identicalHighlighted -> "Hide the $identicalCount identical parts"
-            else -> "Highlight all $identicalCount identical parts"
-        }
-        if (identicalHighlighted) {
-            Button(onClick = onHighlightIdentical, modifier = Modifier.fillMaxWidth().height(52.dp).testTag("identical")) {
-                Icon(Icons.Filled.Visibility, contentDescription = null); Spacer(Modifier.width(8.dp)); Text(label)
-            }
-        } else {
-            OutlinedButton(onClick = onHighlightIdentical, enabled = others > 0, modifier = Modifier.fillMaxWidth().height(52.dp).testTag("identical")) {
-                Icon(Icons.Filled.Visibility, contentDescription = null); Spacer(Modifier.width(8.dp)); Text(label)
-            }
-        }
+        IdenticalButton(identicalCount, identicalTodo, identicalHighlighted, onHighlightIdentical)
         Spacer(Modifier.height(12.dp))
         }
         if (shows(DetailField.STATUS)) {
@@ -170,6 +159,50 @@ fun DetailsPanel(
                 }
             }
         }
+        }
+    }
+}
+
+/**
+ * Highlight identical parts. Tap: the ones without a status yet. Press and hold: all of them, so a
+ * status can be set on every one (existing statuses are overwritten).
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun IdenticalButton(total: Int, todo: Int, highlighted: Boolean, onHighlight: (all: Boolean) -> Unit) {
+    val enabled = total > 1
+    val title = when {
+        !enabled -> "No identical parts on this board"
+        highlighted -> "Hide the highlight"
+        todo == 0 -> "All $total already have a status"
+        else -> "Highlight $todo without status"
+    }
+    val subtitle = if (enabled && !highlighted) "Hold to highlight all $total and set a status on every one" else null
+    val bg = if (highlighted) MaterialTheme.colorScheme.primary else Color.Transparent
+    val fg = when {
+        !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+        highlighted -> MaterialTheme.colorScheme.onPrimary
+        else -> MaterialTheme.colorScheme.primary
+    }
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 56.dp)
+            .background(bg, RoundedCornerShape(28.dp))
+            .border(1.dp, if (highlighted) Color.Transparent else MaterialTheme.colorScheme.outline, RoundedCornerShape(28.dp))
+            .combinedClickable(
+                enabled = enabled,
+                onClick = { onHighlight(false) },
+                onLongClick = { onHighlight(true) },
+                onLongClickLabel = "Highlight all $total",
+            )
+            .padding(horizontal = 18.dp, vertical = 8.dp)
+            .testTag("identical"),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.Visibility, contentDescription = null, tint = fg)
+        Spacer(Modifier.width(10.dp))
+        Column {
+            Text(title, color = fg, style = MaterialTheme.typography.labelLarge)
+            if (subtitle != null) Text(subtitle, color = fg.copy(alpha = 0.75f), style = MaterialTheme.typography.labelSmall)
         }
     }
 }

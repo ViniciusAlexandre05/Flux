@@ -20,7 +20,10 @@ import com.pcbsolderview.data.StrokeEntity
 import com.pcbsolderview.model.Board
 import com.pcbsolderview.model.Component
 import com.pcbsolderview.model.Side
+import com.pcbsolderview.model.MountFilter
+import com.pcbsolderview.model.filterByMount
 import com.pcbsolderview.model.identicalTo
+import com.pcbsolderview.model.matchesQuery
 import com.pcbsolderview.model.search
 import com.pcbsolderview.parser.BoardImporter
 import com.pcbsolderview.parser.BoardParseException
@@ -109,6 +112,16 @@ data class UiState(
     val highlighted: List<Component> = emptyList(),
     /** What [highlighted] shows, e.g. "8 × 10kΩ · CR1005-0402"; null when nothing is highlighted. */
     val highlightLabel: String? = null,
+    /** The whole highlighted group before the chip's filter and search narrow it. */
+    val highlightBase: List<Component> = emptyList(),
+    /** All / SMD / PTH switch on the highlight chip. */
+    val highlightFilter: MountFilter = MountFilter.ALL,
+    /** Search typed in the highlight chip, applied only inside [highlightBase]. */
+    val highlightQuery: String = "",
+    /** True when the group was made with a long press ("all"): batch status overwrites existing statuses. */
+    val highlightOverride: Boolean = false,
+    /** What made the group, e.g. "identical:R205" for the identical parts of R205; null otherwise. */
+    val highlightKey: String? = null,
     /** Incremented to ask the view to zoom to [selected]. */
     val focusRequest: Int = 0,
     val visibleSide: Side = Side.TOP,
@@ -334,35 +347,65 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
         // Highlight every component sharing the picked one's value, for batch soldering.
         val sameValue = focus?.value?.let { v -> s.scene?.board?.components?.filter { it.value == v } }.orEmpty()
         val hl = if (sameValue.size > 1) sameValue else emptyList()
-        s.copy(
-            selected = focus, selectedNet = null,
-            highlighted = hl, highlightLabel = if (hl.isEmpty()) null else "${hl.size} × ${focus?.value}",
-            focusRequest = s.focusRequest + 1,
+        withHighlight(
+            s.copy(selected = focus, selectedNet = null, focusRequest = s.focusRequest + 1),
+            hl, if (hl.isEmpty()) null else "${hl.size} × ${focus?.value}",
         )
     }
 
-    fun clearSearch() = _state.update { it.copy(query = "", results = emptyList(), highlighted = emptyList(), highlightLabel = null) }
+    fun clearSearch() = _state.update { withHighlight(it.copy(query = "", results = emptyList()), emptyList(), null) }
 
-    /** Highlights every part identical to [c]; calling it again for the same group turns it off. */
-    fun toggleIdentical(c: Component) = _state.update { s ->
+    /** Starts a highlight group; the chip's filter and search start fresh. */
+    private fun withHighlight(s: UiState, base: List<Component>, label: String?, override: Boolean = false, key: String? = null): UiState =
+        s.copy(
+            highlightBase = base, highlightLabel = label, highlightOverride = override, highlightKey = key,
+            highlightFilter = MountFilter.ALL, highlightQuery = "", highlighted = base,
+        )
+
+    /** Recomputes the visible highlight from the group, the All/SMD/PTH switch and the search. */
+    private fun refilter(s: UiState): UiState {
+        val board = s.scene?.board ?: return s
+        val shown = board.filterByMount(s.highlightBase, s.highlightFilter).filter { it.matchesQuery(s.highlightQuery) }
+        return s.copy(highlighted = shown)
+    }
+
+    fun setHighlightFilter(f: MountFilter) = _state.update { refilter(it.copy(highlightFilter = f)) }
+
+    fun setHighlightQuery(q: String) = _state.update { refilter(it.copy(highlightQuery = q)) }
+
+    /**
+     * Identical parts of [c]. A tap ([all] = false) highlights only those without a status yet,
+     * the ones still to do. A long press ([all] = true) highlights every one, and a status set
+     * then applies to all of them, overwriting existing statuses. Repeating the same gesture
+     * turns the highlight off.
+     */
+    fun toggleIdentical(c: Component, all: Boolean = false) = _state.update { s ->
         val board = s.scene?.board ?: return@update s
-        val group = board.identicalTo(c)
-        if (s.highlighted.map { it.refDes }.toSet() == group.map { it.refDes }.toSet()) {
-            s.copy(highlighted = emptyList(), highlightLabel = null)
-        } else {
-            val what = listOfNotNull(c.value ?: c.description, c.footprint).joinToString(" · ").ifEmpty { c.refDes }
-            s.copy(highlighted = group, highlightLabel = "${group.size} × $what")
+        val identical = board.identicalTo(c)
+        val group = if (all) identical else identical.filter { s.marks[it.refDes] == null }
+        val same = s.highlightKey == identicalKey(identical) && s.highlightOverride == all
+        when {
+            same -> withHighlight(s, emptyList(), null)
+            group.isEmpty() -> s.copy(message = "All ${identical.size} already have a status · hold to highlight all")
+            else -> {
+                val what = listOfNotNull(c.value ?: c.description, c.footprint).joinToString(" · ").ifEmpty { c.refDes }
+                val label = if (all) "all ${group.size} × $what" else "${group.size} to do × $what"
+                withHighlight(s, group, label, override = all, key = identicalKey(identical))
+            }
         }
     }
 
-    fun clearHighlight() = _state.update { it.copy(highlighted = emptyList(), highlightLabel = null) }
+    fun clearHighlight() = _state.update { withHighlight(it, emptyList(), null) }
+
+    /** Key of the "identical parts" group of a part (the group is the same for every member). */
+    fun identicalKey(identical: List<Component>): String? = identical.firstOrNull()?.let { "identical:${it.refDes}" }
 
     /** Box selection: highlights these parts so a status can be set on all of them at once. */
     fun selectMany(parts: List<Component>) = _state.update {
         if (parts.isEmpty()) it.copy(message = "No parts inside the box")
-        else it.copy(
-            highlighted = parts, selected = null, selectedNet = null,
-            highlightLabel = "${parts.size} part" + (if (parts.size == 1) "" else "s") + " selected",
+        else withHighlight(
+            it.copy(selected = null, selectedNet = null),
+            parts, "${parts.size} part" + (if (parts.size == 1) "" else "s") + " selected",
         )
     }
 
@@ -511,7 +554,9 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
         val s = _state.value
         val refs = s.highlighted.map { it.refDes }
         if (refs.isEmpty()) return
-        val (change, keep) = BatchStatus.split(refs, s.marks.mapValues { it.value.argb }, argb, origin)
+        // A long-press ("all") group overwrites every status; otherwise existing statuses are kept.
+        val (change, keep) = if (s.highlightOverride) refs to emptyList()
+        else BatchStatus.split(refs, s.marks.mapValues { it.value.argb }, argb, origin)
         setMarks(change, argb)
         val what = if (argb == null) "Status cleared" else (Status.of(argb)?.label ?: "Status") + " set"
         val msg = "$what on ${change.size} part" + (if (change.size == 1) "" else "s") +
