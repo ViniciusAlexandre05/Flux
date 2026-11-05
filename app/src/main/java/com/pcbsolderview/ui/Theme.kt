@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import com.pcbsolderview.data.Appearance
 import com.pcbsolderview.data.ThemeMode
 import com.pcbsolderview.render.BoardColors
+import com.pcbsolderview.render.SchematicColors
 
 /** "Workbench" dark palette (default theme). */
 object Palette {
@@ -138,6 +139,21 @@ fun boardColorsFor(a: Appearance): BoardColors {
     )
 }
 
+/**
+ * Schematic colours for the theme: Light keeps Altium's colours and paper; Dark inverts the
+ * lightness on dark paper; High contrast uses bright ink on black.
+ */
+fun schematicColorsFor(a: Appearance): SchematicColors {
+    val accent = a.accent
+    return when (a.mode) {
+        ThemeMode.LIGHT -> SchematicColors(background = 0xFFE2E6EC.toInt(), paper = null, ink = SchematicColors.Ink.ORIGINAL, selected = 0xFFE08A00.toInt(), highlight = 0xFFD5009F.toInt(), net = 0xFF0097A7.toInt())
+        ThemeMode.DARK -> SchematicColors(background = 0xFF0B0F14.toInt(), paper = 0xFF161C24.toInt(), ink = SchematicColors.Ink.INVERTED, selected = accent, highlight = 0xFFFF2BD6.toInt(), net = 0xFF4DD8E6.toInt())
+        ThemeMode.HIGH_CONTRAST -> SchematicColors(background = 0xFF000000.toInt(), paper = 0xFF050505.toInt(), ink = SchematicColors.Ink.HIGH_CONTRAST, selected = accent, highlight = 0xFFFF2BD6.toInt(), net = 0xFF00E5FF.toInt(), missingAlpha = 0.55f)
+    }
+}
+
+val LocalSchematicColors = staticCompositionLocalOf { schematicColorsFor(Appearance()) }
+
 /** Board colours of the current theme. */
 val LocalBoardColors = staticCompositionLocalOf { boardColorsFor(Appearance()) }
 
@@ -145,7 +161,8 @@ val LocalBoardColors = staticCompositionLocalOf { boardColorsFor(Appearance()) }
 fun PcbTheme(appearance: Appearance = Appearance(), content: @Composable () -> Unit) {
     val scheme = remember(appearance) { schemeFor(appearance) }
     val board = remember(appearance) { boardColorsFor(appearance) }
-    CompositionLocalProvider(LocalBoardColors provides board) {
+    val schematic = remember(appearance) { schematicColorsFor(appearance) }
+    CompositionLocalProvider(LocalBoardColors provides board, LocalSchematicColors provides schematic) {
         MaterialTheme(colorScheme = scheme, shapes = shapes, typography = typography, content = content)
     }
 }

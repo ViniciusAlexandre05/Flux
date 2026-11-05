@@ -169,6 +169,11 @@ fun SettingsContent(a: Appearance, onChange: (Appearance) -> Unit, modifier: Mod
             onChange(a.copy(penOnlyDrawing = it))
         }
         Spacer(Modifier.height(8.dp)); HorizontalDivider()
+        SectionTitle("Schematic")
+        ToggleRow("Follow selection", a.followSelection, "In split view, selecting a part or net on one side pans the other side to it.") {
+            onChange(a.copy(followSelection = it))
+        }
+        Spacer(Modifier.height(8.dp)); HorizontalDivider()
         SectionTitle("Part details")
         Text(
             "Choose what the panel shows when you select a part.",

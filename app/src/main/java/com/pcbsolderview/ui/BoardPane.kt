@@ -48,9 +48,17 @@ import kotlin.math.roundToInt
  * is kept across scenes (the canvas does not report its size again when only the board changes).
  */
 @Stable
-class BoardViewState internal constructor(val scene: BoardScene, viewportState: MutableState<Pair<Int, Int>>) {
+class BoardViewState internal constructor(val scene: BoardScene, private val viewportState: MutableState<Pair<Int, Int>>) {
     var transform by mutableStateOf<ViewTransform?>(null)
-    var viewport by viewportState
+
+    /** Pane size; when it changes (split divider, layout switch) the view keeps its centre point. */
+    var viewport: Pair<Int, Int>
+        get() = viewportState.value
+        set(v) {
+            val (w0, h0) = viewportState.value
+            if (w0 > 0 && h0 > 0 && v != viewportState.value) transform = transform?.panBy((v.first - w0) / 2.0, (v.second - h0) / 2.0)
+            viewportState.value = v
+        }
 
     /** Fits the board to the pane; keeps the rotation of [from] when given. */
     fun fit(from: ViewTransform? = transform) {

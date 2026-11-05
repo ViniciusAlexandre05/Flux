@@ -26,6 +26,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DeveloperBoard
+import androidx.compose.material.icons.filled.Schema
+import androidx.compose.material.icons.filled.VerticalSplit
 import androidx.compose.material.icons.filled.FitScreen
 import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.Handyman
@@ -79,6 +82,7 @@ import androidx.compose.ui.unit.dp
 import com.pcbsolderview.BoardViewModel
 import com.pcbsolderview.Tool
 import com.pcbsolderview.UiState
+import com.pcbsolderview.ViewLayout
 import com.pcbsolderview.model.Component
 import com.pcbsolderview.model.Side
 import com.pcbsolderview.render.BoardScene
@@ -129,6 +133,7 @@ fun BoardScreen(state: UiState, vm: BoardViewModel, openFiles: () -> Unit) {
 @Composable
 private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) {
     val view = rememberBoardViewState(scene)
+    val schView = state.schematicScene?.let { rememberSchematicViewState(it) }
     var confirmClear by remember { mutableStateOf(false) }
     val appearance by vm.appearance.collectAsState()
 
@@ -138,7 +143,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
     BackHandler(enabled = state.showToolsPanel) { vm.toggleToolsPanel() }
     BackHandler(enabled = state.showLayersPanel) { vm.toggleLayersPanel() }
     BackHandler(enabled = state.showSettingsPanel) { vm.toggleSettingsPanel() }
-    BackHandler(enabled = state.selected != null || state.selectedNet != null) { vm.clearSelection() }
+    BackHandler(enabled = state.selectedRef != null || state.selectedNet != null || state.schNet != null) { vm.clearSelection() }
 
     Column(Modifier.fillMaxSize()) {
         TopBar(
@@ -151,7 +156,10 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
             } + if (state.marks.isNotEmpty()) " · ${state.marks.count { it.value.argb == Status.OK.argb }}/${scene.board.components.size} OK" else "",
             state = state,
             vm = vm,
-            onFit = { view.fit() },
+            onFit = {
+                if (state.viewLayout != ViewLayout.SCHEMATIC) view.fit()
+                if (state.viewLayout != ViewLayout.BOARD) schView?.fit(state.sheetIndex)
+            },
             onFlip = {
                 view.mirror()
                 vm.flipSide()
@@ -164,12 +172,18 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
             val layersMaxHeight = maxHeight - 16.dp
             val boardArea = @Composable { mod: Modifier ->
                 Box(mod) {
-                    BoardPane(
-                        view, state, vm, appearance,
-                        onClearRequest = { confirmClear = true },
-                        panelMaxHeight = layersMaxHeight,
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                    val boardPane = @Composable { m: Modifier ->
+                        BoardPane(view, state, vm, appearance, onClearRequest = { confirmClear = true }, panelMaxHeight = layersMaxHeight, modifier = m)
+                    }
+                    when {
+                        schView == null || state.viewLayout == ViewLayout.BOARD -> boardPane(Modifier.fillMaxSize())
+                        state.viewLayout == ViewLayout.SCHEMATIC -> SchematicPane(schView, state, vm, appearance, Modifier.fillMaxSize())
+                        else -> SplitPanes(
+                            vertical = !landscape,
+                            first = boardPane,
+                            second = { m -> SchematicPane(schView, state, vm, appearance, m) },
+                        )
+                    }
                     // Screen-wide overlays, above the pane(s).
                     if (state.results.isNotEmpty()) {
                         SearchResults(state.results, vm::pickResult, vm::selectAllResults, Modifier.align(Alignment.TopCenter).padding(8.dp))
@@ -217,6 +231,8 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
             val side = @Composable { mod: Modifier ->
                 val sel = state.selected
                 val net = state.selectedNet
+                val symbol = state.selectedSymbol
+                val schNet = state.schNet
                 val identical = remember(scene, sel) { sel?.let { scene.board.identicalTo(it) }.orEmpty() }
                 when {
                     sel != null -> Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = mod) {
@@ -233,11 +249,20 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                         )
                     }
                     net != null -> Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = mod) {
-                        NetPanel(scene.board, net, onClose = vm::clearSelection, onComponent = { ref -> scene.board.component(ref)?.let(vm::select) })
+                        NetPanel(scene.board, net, onClose = vm::clearSelection, onComponent = vm::selectRef)
+                    }
+                    symbol != null && state.schematic != null -> Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = mod) {
+                        SymbolPanel(
+                            state.schematic, state.connectivity, symbol, state.marks[symbol],
+                            onStatus = { s -> vm.setMark(symbol, s?.argb) }, onNet = vm::selectSchNet, onClose = vm::clearSelection,
+                        )
+                    }
+                    schNet != null -> Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = mod) {
+                        SchNetPanel(schNet, vm.boardNetsOf(schNet), onComponent = vm::selectRef, onClose = vm::clearSelection)
                     }
                 }
             }
-            val panelOpen = state.selected != null || state.selectedNet != null
+            val panelOpen = state.selectedRef != null || state.selectedNet != null || state.schNet != null
             if (landscape) {
                 Row(Modifier.fillMaxSize()) {
                     boardArea(Modifier.weight(1f).fillMaxHeight())
@@ -305,6 +330,37 @@ private fun InspectModeToggle(tool: Tool, onTool: (Tool) -> Unit, showLabels: Bo
     }
 }
 
+/** Board / Split / Schematic, shown when a schematic is open. Board and Split need a board. */
+@Composable
+private fun LayoutToggle(layout: ViewLayout, hasBoard: Boolean, onLayout: (ViewLayout) -> Unit) {
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerHighest, shape = MaterialTheme.shapes.extraLarge) {
+        Row(Modifier.padding(4.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            listOf(
+                Triple(ViewLayout.BOARD, Icons.Filled.DeveloperBoard, "Board"),
+                Triple(ViewLayout.SPLIT, Icons.Filled.VerticalSplit, "Board and schematic"),
+                Triple(ViewLayout.SCHEMATIC, Icons.Filled.Schema, "Schematic"),
+            ).forEach { (l, icon, label) ->
+                val on = layout == l
+                val enabled = hasBoard || l == ViewLayout.SCHEMATIC
+                Box(
+                    Modifier.size(width = 52.dp, height = 44.dp)
+                        .background(if (on) MaterialTheme.colorScheme.primary else Color.Transparent, MaterialTheme.shapes.extraLarge)
+                        .clickable(enabled = enabled) { onLayout(l) }
+                        .testTag("layout.${l.name.lowercase()}"),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val fg = when {
+                        on -> MaterialTheme.colorScheme.onPrimary
+                        enabled -> MaterialTheme.colorScheme.onSurfaceVariant
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+                    }
+                    Icon(icon, contentDescription = label, tint = fg, modifier = Modifier.size(24.dp))
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun BarDivider() {
     Box(Modifier.width(1.dp).height(32.dp).background(MaterialTheme.colorScheme.outlineVariant))
@@ -334,23 +390,27 @@ private fun TopBar(title: String, subtitle: String, state: UiState, vm: BoardVie
                     }
                     if (inline) SearchField(state, vm, Modifier.weight(1f))
                     InspectModeToggle(state.tool, vm::setTool, showLabels = !compactToggle)
+                    if (state.schematic != null) LayoutToggle(state.viewLayout, state.hasBoard, vm::setViewLayout)
                     BarDivider()
                     BarIcon(Icons.Filled.Handyman, "Tools", vm::toggleToolsPanel, checked = state.showToolsPanel, tag = "tools.button")
                     BarIcon(Icons.Filled.FitScreen, "Fit to screen", onFit)
-            val realistic = state.display.viewMode == ViewMode.REALISTIC
-            BarIcon(
-                Icons.Filled.ViewInAr,
-                if (realistic) "Realistic view — tap for CAD layers" else "CAD layers — tap for realistic view",
-                { vm.setDisplay(state.display.copy(viewMode = if (realistic) ViewMode.CAD else ViewMode.REALISTIC)) },
-                checked = realistic, tag = "viewmode.button",
-            )
-                    BarIcon(
-                        Icons.Filled.Flip,
-                        if (state.visibleSide == Side.TOP) "Showing top — tap for bottom view" else "Showing bottom — tap for top view",
-                        onFlip, checked = state.visibleSide == Side.BOTTOM, tag = "flip",
-                    )
-                    BarIcon(Icons.Filled.Layers, "Layers & view", vm::toggleLayersPanel, checked = state.showLayersPanel)
-            BarIcon(Icons.Filled.Settings, "Settings", vm::toggleSettingsPanel, checked = state.showSettingsPanel, tag = "settings.button")
+                    // Board-only controls are hidden while only the schematic is shown.
+                    if (state.viewLayout != ViewLayout.SCHEMATIC) {
+                        val realistic = state.display.viewMode == ViewMode.REALISTIC
+                        BarIcon(
+                            Icons.Filled.ViewInAr,
+                            if (realistic) "Realistic view — tap for CAD layers" else "CAD layers — tap for realistic view",
+                            { vm.setDisplay(state.display.copy(viewMode = if (realistic) ViewMode.CAD else ViewMode.REALISTIC)) },
+                            checked = realistic, tag = "viewmode.button",
+                        )
+                        BarIcon(
+                            Icons.Filled.Flip,
+                            if (state.visibleSide == Side.TOP) "Showing top — tap for bottom view" else "Showing bottom — tap for top view",
+                            onFlip, checked = state.visibleSide == Side.BOTTOM, tag = "flip",
+                        )
+                        BarIcon(Icons.Filled.Layers, "Layers & view", vm::toggleLayersPanel, checked = state.showLayersPanel)
+                    }
+                    BarIcon(Icons.Filled.Settings, "Settings", vm::toggleSettingsPanel, checked = state.showSettingsPanel, tag = "settings.button")
                 }
                 if (!inline) SearchField(state, vm, Modifier.fillMaxWidth())
             }

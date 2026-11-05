@@ -56,6 +56,8 @@ data class Appearance(
     val gridStepUm: Long = 1_000,
     /** Part detail rows the user turned off. */
     val hiddenDetails: Set<DetailField> = setOf(DetailField.LIBRARY),
+    /** Selecting on the board pans the schematic to the part (and the other way round). */
+    val followSelection: Boolean = true,
 ) {
     fun shows(f: DetailField) = f !in hiddenDetails
 
@@ -95,6 +97,7 @@ class AppearancePrefs(private val context: Context) {
     private val kGridUnit = stringPreferencesKey("grid_unit")
     private val kGridStep = longPreferencesKey("grid_step_um")
     private val kHiddenDetails = stringPreferencesKey("hidden_details")
+    private val kFollow = booleanPreferencesKey("follow_selection")
 
     companion object {
         private const val SYNC = "appearance_sync"
@@ -119,6 +122,7 @@ class AppearancePrefs(private val context: Context) {
                 gridUnit = p.getString("grid_unit", null)?.let { runCatching { GridUnit.valueOf(it) }.getOrNull() } ?: d.gridUnit,
                 gridStepUm = p.getLong("grid_step_um", d.gridStepUm),
                 hiddenDetails = Appearance.decodeFields(p.getString("hidden_details", null)) ?: d.hiddenDetails,
+                followSelection = p.getBoolean("follow_selection", d.followSelection),
             )
         }
 
@@ -129,6 +133,7 @@ class AppearancePrefs(private val context: Context) {
                 .putBoolean("show_fps", a.showFps).putString("grid", a.grid.name)
                 .putBoolean("grid_auto", a.gridAuto).putString("grid_unit", a.gridUnit.name).putLong("grid_step_um", a.gridStepUm)
                 .putString("hidden_details", Appearance.encodeFields(a.hiddenDetails))
+                .putBoolean("follow_selection", a.followSelection)
                 .apply()
         }
     }
@@ -147,6 +152,7 @@ class AppearancePrefs(private val context: Context) {
             gridUnit = p[kGridUnit]?.let { runCatching { GridUnit.valueOf(it) }.getOrNull() } ?: d.gridUnit,
             gridStepUm = p[kGridStep] ?: d.gridStepUm,
             hiddenDetails = Appearance.decodeFields(p[kHiddenDetails]) ?: d.hiddenDetails,
+            followSelection = p[kFollow] ?: d.followSelection,
         )
     }
 
@@ -164,6 +170,7 @@ class AppearancePrefs(private val context: Context) {
             p[kGridUnit] = a.gridUnit.name
             p[kGridStep] = a.gridStepUm
             p[kHiddenDetails] = Appearance.encodeFields(a.hiddenDetails)
+            p[kFollow] = a.followSelection
         }
     }
 }

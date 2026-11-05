@@ -21,7 +21,11 @@ import com.pcbsolderview.model.Board
 import com.pcbsolderview.model.Component
 import com.pcbsolderview.model.Side
 import com.pcbsolderview.model.MountFilter
+import com.pcbsolderview.model.NaturalOrder
+import com.pcbsolderview.model.SchNet
+import com.pcbsolderview.model.SchSymbol
 import com.pcbsolderview.model.Schematic
+import com.pcbsolderview.model.SchematicConnectivity
 import com.pcbsolderview.model.filterByMount
 import com.pcbsolderview.model.identicalTo
 import com.pcbsolderview.model.matchesQuery
@@ -35,6 +39,7 @@ import com.pcbsolderview.render.ComponentMark
 import com.pcbsolderview.render.CopperIndex
 import com.pcbsolderview.render.DisplayOptions
 import com.pcbsolderview.render.InkStroke
+import com.pcbsolderview.render.SchematicScene
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -104,8 +109,22 @@ data class RecentItem(
 data class UiState(
     val recents: List<RecentItem> = emptyList(),
     val scene: BoardScene? = null,
-    /** Schematic opened with the board (v0.1); null when none was chosen or it can't be read yet. */
+    /** Schematic opened with the board; null when none was chosen. */
     val schematic: Schematic? = null,
+    val schematicScene: SchematicScene? = null,
+    val connectivity: SchematicConnectivity? = null,
+    /** Board net → the schematic net that connects the same pins. */
+    val boardToSch: Map<String, SchNet> = emptyMap(),
+    /** Board, schematic or both side by side. */
+    val viewLayout: ViewLayout = ViewLayout.BOARD,
+    /** Schematic sheet shown. */
+    val sheetIndex: Int = 0,
+    /** Designator of a schematic part that is not on the board, when one is selected. */
+    val selectedSymbol: String? = null,
+    /** Schematic net in focus (picked on the schematic, or the match of [selectedNet]). */
+    val schNet: SchNet? = null,
+    /** Incremented to ask the schematic to show the selection (other sheet, pan). */
+    val schFocusRequest: Int = 0,
     /** Name to show for the open board (user-chosen), instead of the name from the file. */
     val boardTitle: String? = null,
     val loading: String? = null,
@@ -150,7 +169,15 @@ data class UiState(
     val canUndo: Boolean = false,
     /** Short confirmation shown at the bottom of the board, e.g. "OK on 6 parts". */
     val message: String? = null,
-)
+) {
+    /** Designator selected in either view. */
+    val selectedRef: String? get() = selected?.refDes ?: selectedSymbol
+
+    /** The board has parts (false when only a schematic was opened). */
+    val hasBoard: Boolean get() = scene?.board?.let { it.components.isNotEmpty() || it.outline.isNotEmpty() } == true
+}
+
+enum class ViewLayout { BOARD, SPLIT, SCHEMATIC }
 
 class BoardViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -269,17 +296,30 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
                     )
                     _state.update { it.copy(loading = "Preparing view…", progress = null) }
                     val scene = BoardScene(imported.board)
+                    val sch = imported.schematic?.let { s ->
+                        val c = SchematicConnectivity(s)
+                        Loaded(s, SchematicScene(s), c, c.matchBoard(imported.board))
+                    }
                     remember(origin, keyOf(imported.board), scene, inputs)
-                    scene to imported.schematic
+                    scene to sch
                 }
             }
             result.fold(
-                onSuccess = { (scene, schematic) ->
+                onSuccess = { (scene, sch) ->
                     undo.clear()
+                    val hasBoard = scene.board.components.isNotEmpty() || scene.board.outline.isNotEmpty()
                     _state.value = UiState(
                         recents = _state.value.recents,
                         scene = scene,
-                        schematic = schematic,
+                        schematic = sch?.schematic,
+                        schematicScene = sch?.scene,
+                        connectivity = sch?.connectivity,
+                        boardToSch = sch?.boardToSch.orEmpty(),
+                        viewLayout = when {
+                            sch == null -> ViewLayout.BOARD
+                            !hasBoard -> ViewLayout.SCHEMATIC
+                            else -> ViewLayout.SPLIT
+                        },
                         boardTitle = (origin as? Origin.Recent)?.title?.takeIf { it.isNotBlank() },
                         display = DisplayOptions(hiddenLayers = scene.defaultHiddenLayers),
                         message = notices.takeIf { origin !is Origin.Recent && it.isNotEmpty() }?.joinToString("\n"),
@@ -294,6 +334,8 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
             )
         }
     }
+
+    private class Loaded(val schematic: Schematic, val scene: SchematicScene, val connectivity: SchematicConnectivity, val boardToSch: Map<String, SchNet>)
 
     /** Adds/updates the recent-boards entry. Demos are not listed. */
     private suspend fun remember(origin: Origin, key: String, scene: BoardScene, inputs: List<InputFile>) {
@@ -346,11 +388,78 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
 
     // ------------------------------------------------------------------ selection & search
 
-    fun select(c: Component?) = _state.update { it.copy(selected = c, selectedNet = if (c != null) null else it.selectedNet) }
+    fun select(c: Component?) = _state.update {
+        withSchematicFollow(it.copy(selected = c, selectedSymbol = null, selectedNet = if (c != null) null else it.selectedNet, schNet = if (c != null) null else it.schNet))
+    }
 
-    fun selectNet(net: String?) = _state.update { it.copy(selectedNet = net) }
+    /** Board net picked (track, pad row…); the schematic shows the net that joins the same pins. */
+    fun selectNet(net: String?) = _state.update { withSchematicFollow(it.copy(selectedNet = net, schNet = net?.let { n -> it.boardToSch[n] })) }
 
-    fun clearSelection() = _state.update { it.copy(selected = null, selectedNet = null) }
+    fun clearSelection() = _state.update { it.copy(selected = null, selectedNet = null, selectedSymbol = null, schNet = null) }
+
+    /** With "follow selection" on, asks the schematic to show what was just selected on the board. */
+    private fun withSchematicFollow(s: UiState): UiState =
+        if (s.schematic != null && appearance.value.followSelection) s.copy(schFocusRequest = s.schFocusRequest + 1) else s
+
+    // ------------------------------------------------------------------ schematic
+
+    fun setViewLayout(l: ViewLayout) = _state.update { s ->
+        if (s.schematic == null || (l != ViewLayout.SCHEMATIC && !s.hasBoard)) s else s.copy(viewLayout = l)
+    }
+
+    fun setSheet(i: Int) = _state.update { s -> s.copy(sheetIndex = i.coerceIn(0, (s.schematic?.sheets?.size ?: 1) - 1)) }
+
+    /** Schematic net picked in a panel (pin list); the board shows its matching net, if any. */
+    fun selectSchNet(n: SchNet?) = _state.update {
+        withSchematicFollow(it.copy(schNet = n, selectedNet = n?.let { net -> boardNetsOf(net).firstOrNull() }, selected = null, selectedSymbol = null))
+    }
+
+    /** Part picked by designator (net pin list): the board part when there is one, else the schematic part. */
+    fun selectRef(ref: String) {
+        val c = _state.value.scene?.board?.component(ref)
+        if (c != null) select(c)
+        else _state.update { withSchematicFollow(it.copy(selected = null, selectedSymbol = ref, selectedNet = null, schNet = null)) }
+    }
+
+    /** Board net(s) that match a schematic net. */
+    fun boardNetsOf(n: SchNet): List<String> = _state.value.boardToSch.filterValues { it.id == n.id }.keys.sortedWith(NaturalOrder)
+
+    /** Schematic part under a sheet point, for the long-press status ring. */
+    fun symbolAt(sheet: Int, x: Double, y: Double, toleranceUm: Double): SchSymbol? =
+        _state.value.schematicScene?.sheets?.getOrNull(sheet)?.symbolAt(x, y, toleranceUm)
+
+    /** Tap on a schematic sheet (µm). Parts and nets select in both views; paint works on symbols too. */
+    fun onSchematicTap(sheet: Int, x: Double, y: Double, toleranceUm: Double) {
+        val s = _state.value
+        val sch = s.schematicScene?.sheets?.getOrNull(sheet) ?: return
+        val board = s.scene?.board
+        val follow = appearance.value.followSelection
+        when (if (s.tool.isInspect || s.tool == Tool.PAINT) s.tool else s.lastInspect) {
+            Tool.NETS -> {
+                val net = s.connectivity?.netAt(sheet, x, y, toleranceUm)
+                val next = if (net != null && net.id == s.schNet?.id) null else net
+                val boardNet = next?.let { boardNetsOf(it).firstOrNull() }
+                _state.update { it.copy(schNet = next, selectedNet = boardNet, selected = null, selectedSymbol = null) }
+            }
+            Tool.PAINT -> {
+                val sym = sch.symbolAt(x, y, toleranceUm) ?: return
+                val current = s.marks[sym.refDes]
+                setMarks(listOf(sym.refDes), s.paintStatus?.argb?.takeIf { it != current?.argb })
+            }
+            else -> {
+                val sym = sch.symbolAt(x, y, toleranceUm)
+                if (sym == null || sym.refDes == s.selectedRef) { _state.update { it.copy(selected = null, selectedSymbol = null) }; return }
+                val c = board?.component(sym.refDes)
+                _state.update {
+                    it.copy(
+                        selected = c, selectedSymbol = if (c == null) sym.refDes else null, selectedNet = null, schNet = null,
+                        // Show the part on the board too (only when it is there).
+                        focusRequest = if (c != null && follow && it.viewLayout == ViewLayout.SPLIT) it.focusRequest + 1 else it.focusRequest,
+                    )
+                }
+            }
+        }
+    }
 
     fun search(query: String) {
         val scene = _state.value.scene ?: return
@@ -365,7 +474,7 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
         val sameValue = focus?.value?.let { v -> s.scene?.board?.components?.filter { it.value == v } }.orEmpty()
         val hl = if (sameValue.size > 1) sameValue else emptyList()
         withHighlight(
-            s.copy(selected = focus, selectedNet = null, focusRequest = s.focusRequest + 1),
+            withSchematicFollow(s.copy(selected = focus, selectedSymbol = null, selectedNet = null, schNet = null, focusRequest = s.focusRequest + 1)),
             hl, if (hl.isEmpty()) null else "${hl.size} × ${focus?.value}",
         )
     }
@@ -374,7 +483,7 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
     fun selectAllResults() = _state.update { s ->
         if (s.results.isEmpty()) s
         else withHighlight(
-            s.copy(selected = null, selectedNet = null, results = emptyList()),
+            s.copy(selected = null, selectedSymbol = null, selectedNet = null, schNet = null, results = emptyList()),
             s.results, "${s.results.size} result" + (if (s.results.size == 1) "" else "s") + " for \"${s.query.trim()}\"",
         )
     }
@@ -476,7 +585,9 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
             lastInspect = if (t.isInspect) t else s.lastInspect,
             // Switching inspect mode clears the other mode's selection.
             selected = if (t == Tool.NETS) null else s.selected,
+            selectedSymbol = if (t == Tool.NETS) null else s.selectedSymbol,
             selectedNet = if (t == Tool.COMPONENTS) null else s.selectedNet,
+            schNet = if (t == Tool.COMPONENTS) null else s.schNet,
         )
     }
 
@@ -533,12 +644,12 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
             Tool.COMPONENTS -> {
                 val c = scene.picker.pickComponent(x, y, toleranceUm, s.visibleSide, s.display::isVisible)
                 val next = if (c != null && c.refDes == s.selected?.refDes) null else c
-                _state.update { it.copy(selected = next, selectedNet = null) }
+                _state.update { withSchematicFollow(it.copy(selected = next, selectedSymbol = null, selectedNet = null, schNet = null)) }
             }
             Tool.NETS -> {
                 val net = scene.picker.pickNet(x, y, toleranceUm, s.visibleSide, s.display::isVisible)?.net
                 val next = if (net != null && net == s.selectedNet) null else net
-                _state.update { it.copy(selectedNet = next, selected = null) }
+                _state.update { withSchematicFollow(it.copy(selectedNet = next, schNet = next?.let { n -> it.boardToSch[n] }, selected = null, selectedSymbol = null)) }
             }
             Tool.PAINT -> {
                 val c = scene.picker.pickComponent(x, y, toleranceUm, s.visibleSide, s.display::isVisible) ?: return
