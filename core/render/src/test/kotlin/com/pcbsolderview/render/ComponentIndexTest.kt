@@ -48,7 +48,7 @@ class ComponentIndexTest {
         val idx = ComponentIndex(comps)
         repeat(2_000) {
             val x = rnd.nextDouble(-1_000.0, 210_000.0); val y = rnd.nextDouble(-1_000.0, 160_000.0)
-            val expected = comps.filter { ComponentIndex.distanceToBox(it.bounds, x, y) <= 500.0 }.map { it.refDes }.toSet()
+            val expected = comps.filter { GridIndex.distanceToBox(it.bounds, x, y) <= 500.0 }.map { it.refDes }.toSet()
             assertEquals(expected, idx.candidates(x, y, 500.0).map { it.refDes }.toSet())
         }
     }

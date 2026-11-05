@@ -50,7 +50,7 @@ class NativeAltiumFilesTest {
         val board = importer.import(
             listOf(ole("Board.PcbDoc"), ole("Sheet1.SchDoc"), Samples.input("synthetic/simple/Pick Place for Simple.csv")),
             onNotice = { notices += it },
-        )
+        ).board
         assertEquals(10, board.components.size)
         assertEquals(listOf(NativeFileMessages.pcbDocSkipped("Pick Place for Simple.csv"), NativeFileMessages.SCHDOC_SKIPPED), notices)
     }

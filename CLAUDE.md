@@ -60,7 +60,7 @@ Read `docs/ARCHITECTURE.md` before changing anything non-trivial. `ROADMAP.md` s
 
 ## Known pitfalls
 
-- Gestures (`BoardCanvas`): measure movement **before** `consume()` (use
+- Gestures (`ViewGestures.kt`, used by `BoardCanvas`): measure movement **before** `consume()` (use
   `positionChangeIgnoreConsumed()`); `positionChange()` returns zero for consumed changes and
   once turned every S Pen stroke into a tap.
 - S Pen side button: Compose hides it (`PointerEvent.motionEvent` is internal). `MainActivity`
@@ -94,11 +94,12 @@ Read `docs/ARCHITECTURE.md` before changing anything non-trivial. `ROADMAP.md` s
 ## Status (2026-11-05)
 
 Released: v0.0, v0.0.1, v0.0.2 (latest, versionCode 3). Unreleased on main: native
-`.PcbDoc`/`.SchDoc` detection with explanatory messages (see `CHANGELOG.md`).
+`.PcbDoc`/`.SchDoc` detection with explanatory messages; S0 refactors (see `CHANGELOG.md`).
 
 Next: **v0.1 schematic sync** (GitHub milestone 1, issues #1–#7, plan page
 https://claude.ai/artifact/5KpaU4wYxbzsnnCwmJwA1U). Order: **S0 → S5 → S1 → S2 → S3 → S4 → S6**;
-S5b (native PcbDoc reader, #7) any time after S5. Start with S0 (see `ROADMAP.md`).
+S5b (native PcbDoc reader, #7) any time after S5. S0 is done in code (2026-11-05) but the
+gesture move still needs the user's re-test on the tablet. Next is S5 (see `ROADMAP.md`).
 
 Samples for v0.1: `samples/real/RPI_Module/` has the native schematic and the board as IPC-2581
 (`RP2040-Module.cvg`). The board has only 17 parts vs 42 schematic designators (16 match; `RP`

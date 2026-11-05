@@ -21,6 +21,7 @@ import com.pcbsolderview.model.Board
 import com.pcbsolderview.model.Component
 import com.pcbsolderview.model.Side
 import com.pcbsolderview.model.MountFilter
+import com.pcbsolderview.model.Schematic
 import com.pcbsolderview.model.filterByMount
 import com.pcbsolderview.model.identicalTo
 import com.pcbsolderview.model.matchesQuery
@@ -103,6 +104,8 @@ data class RecentItem(
 data class UiState(
     val recents: List<RecentItem> = emptyList(),
     val scene: BoardScene? = null,
+    /** Schematic opened with the board (v0.1); null when none was chosen or it can't be read yet. */
+    val schematic: Schematic? = null,
     /** Name to show for the open board (user-chosen), instead of the name from the file. */
     val boardTitle: String? = null,
     val loading: String? = null,
@@ -259,23 +262,24 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
             val result = withContext(Dispatchers.Default) {
                 runCatching {
                     val inputs = files()
-                    val board = importer.import(
+                    val imported = importer.import(
                         inputs,
                         onProgress = { p -> _state.update { it.copy(progress = p) } },
                         onNotice = { n -> notices += n },
                     )
                     _state.update { it.copy(loading = "Preparing view…", progress = null) }
-                    val scene = BoardScene(board)
-                    remember(origin, keyOf(board), scene, inputs)
-                    scene
+                    val scene = BoardScene(imported.board)
+                    remember(origin, keyOf(imported.board), scene, inputs)
+                    scene to imported.schematic
                 }
             }
             result.fold(
-                onSuccess = { scene ->
+                onSuccess = { (scene, schematic) ->
                     undo.clear()
                     _state.value = UiState(
                         recents = _state.value.recents,
                         scene = scene,
+                        schematic = schematic,
                         boardTitle = (origin as? Origin.Recent)?.title?.takeIf { it.isNotBlank() },
                         display = DisplayOptions(hiddenLayers = scene.defaultHiddenLayers),
                         message = notices.takeIf { origin !is Origin.Recent && it.isNotEmpty() }?.joinToString("\n"),

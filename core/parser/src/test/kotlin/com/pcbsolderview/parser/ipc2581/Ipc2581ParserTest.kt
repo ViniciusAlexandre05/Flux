@@ -36,7 +36,7 @@ class Ipc2581RealBoardTest {
     }
     private val text by lazy { Samples.text(path) }
     private val board: Board by lazy {
-        BoardImporter(testXml).import(listOf(Samples.input(path)))
+        BoardImporter(testXml).import(listOf(Samples.input(path))).board
     }
 
     private fun count(regex: String) = Regex(regex).findAll(text).count()
@@ -231,7 +231,7 @@ class Ipc2581RealBoardTest {
 }
 
 class Ipc2581SyntheticTest {
-    private val board by lazy { BoardImporter(testXml).import(listOf(Samples.input("synthetic/ipc-mini/mini.xml"))) }
+    private val board by lazy { BoardImporter(testXml).import(listOf(Samples.input("synthetic/ipc-mini/mini.xml"))).board }
 
     @Test
     fun outlineWithCurveAndCutout() {

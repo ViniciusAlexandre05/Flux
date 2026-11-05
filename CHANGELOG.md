@@ -10,6 +10,17 @@ All notable changes to Flux. Dates are in YYYY-MM-DD.
   file (multi-select or a .zip), the board opens and a notice says which file was skipped.
 - Longer on-screen messages stay up longer (up to 9 s).
 
+### Internal (v0.1 preparation, S0) — no visible change intended
+- The importer returns an `ImportResult` (board + optional schematic); a placeholder
+  `Schematic` model and `UiState.schematic` are in place for S1.
+- Board gestures (pan, pinch, guarded rotation with snapping, long-press, S Pen drawing/erasing,
+  taps, hover) moved unchanged out of `BoardCanvas` into a shared `Modifier.viewGestures`, for
+  the future schematic view. Needs a re-test on the tablet.
+- The board area is a self-contained `BoardPane` with its own view state (`BoardViewState`),
+  ready for a schematic pane beside it.
+- Hit-testing runs on a generic `GridIndex` (any item with a bounding box); `ComponentIndex`
+  is built on it.
+
 ## 0.0.2 — 2026-11-05
 
 ### Status colours

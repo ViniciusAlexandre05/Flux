@@ -25,7 +25,7 @@ class Rp2040RealBoardTest {
     fun requireRealSample() = assumeTrue(File(Samples.dir, path).exists(), "Real sample $path not present; skipping")
 
     private val text by lazy { Samples.text(path) }
-    private val board: Board by lazy { BoardImporter(testXml).import(listOf(Samples.input(path))) }
+    private val board: Board by lazy { BoardImporter(testXml).import(listOf(Samples.input(path))).board }
 
     @Test
     fun importsAsIpc2581() {

@@ -78,7 +78,7 @@ class CopperIndex(private val board: Board) {
                 val owner = p.componentRef?.let { board.component(it) }
                 if (owner != null) owner.side == side else p.isThroughHole || p.side == side
             }
-            .map { it to if (pointInRing(x, y, padOutlines[it.id])) 0.0 else ComponentIndex.distanceToBox(it.bounds, x, y) }
+            .map { it to if (pointInRing(x, y, padOutlines[it.id])) 0.0 else GridIndex.distanceToBox(it.bounds, x, y) }
             .filter { it.second <= tolerance }
             .minWithOrNull(compareBy({ if (it.first.side == side || it.first.isThroughHole) 0 else 1 }, { it.second }))
             ?.first

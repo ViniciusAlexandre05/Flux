@@ -11,10 +11,11 @@ files (SAF picker / "Open with" / share / recent copy)
        └─ BoardImporter.import(List<InputFile>)        core/parser
             ├─ classify each file (sniffing, not extensions); .zip is expanded
             ├─ geometry: IPC-2581 → Ipc2581Parser, else Pick & Place → PickPlaceParser
-            └─ every BOM file → Board.withBom(bom)     (fills missing fields by designator)
-       └─ BoardScene(board)                             core/render: cached Paths, indexes
+            ├─ every BOM file → Board.withBom(bom)     (fills missing fields by designator)
+            └─ ImportResult(board, schematic?)         (schematic: null until S1/S5)
+       └─ BoardScene(result.board)                      core/render: cached Paths, indexes
        └─ remember(): recent-boards entry + private copy of the files (BoardStore)
-  └─ UiState (StateFlow) → BoardScreen → BoardCanvas + panels
+  └─ UiState (StateFlow; scene + schematic) → BoardScreen → BoardPane (BoardCanvas) + panels
 user actions → BoardViewModel functions → UiState / Room (annotations) / DataStore (settings)
 ```
 
@@ -35,11 +36,14 @@ Pure Kotlin, no Android. **All lengths are micrometres (`Long`), Y axis up** (Al
   value, contains), `sameKind()` / `Board.identicalTo()` (same part number, else same
   value + footprint), `Mount` / `MountFilter` / `Board.mountOf()` / `filterByMount()`,
   `Component.matchesQuery()` (all words contained, spaces/case ignored).
+- `Schematic.kt`: `Schematic` (name, sheets) and `SchematicSheet`: placeholder from S0 so the
+  import result and `UiState` can carry a schematic; S1 fills in symbols, pins, wires and nets.
 
 ## core/parser
 
 Pure Kotlin. Entry point: **`BoardImporter(xml: XmlParserFactory).import(files, onNotice, onProgress)`**
-(`onProgress` last, so a trailing lambda is progress).
+(`onProgress` last, so a trailing lambda is progress). It returns an **`ImportResult`**: the
+`board` and, once a schematic reader exists, the `schematic` (null for now).
 
 - `classify()`: OLE compound-file magic (`D0 CF 11 E0…`) → `ALTIUM_PCBDOC`/`ALTIUM_SCHDOC` by
   extension, else by record text (`|RECORD=Board`, `Protel for Windows - Schematic`, `|RECORD=31|`),
@@ -95,14 +99,19 @@ Android library (Compose). Everything below works in board µm until `ViewTransf
   holes, silk, body shadows, bodies) → outline → net focus (fade + net) → component outlines →
   status paint → highlight focus (fade, status of highlighted, pads, outline) → selection
   (glow, pads, outline, pulse) → ink strokes → live stroke → labels → status badges → FPS.
-  **Gestures** (one `awaitEachGesture`): stylus → draw/erase only, never pans; finger
-  long-press → `onLongPress` (caller returns true to take over: ring menu or box selection);
-  finger drag with Pen tool → draw; otherwise pan + pinch + guarded two-finger rotation with
-  snapping; tap → `onTap(boardX, boardY, toleranceUm, fromStylus)`. A second `pointerInput`
-  observes stylus hover. Callbacks are read through a `LatestHolder` so the gesture coroutine
-  never restarts.
-- Hit-testing: `ComponentIndex` (grid over component boxes; visible side only, smallest box
-  wins), `CopperIndex` (pads exact outline, tracks as thick segments, vias, pours),
+- **Gestures** (`ViewGestures.kt`, shared by every pannable view: board now, schematic in
+  v0.1): `Modifier.viewGestures(state)` runs one `awaitEachGesture`: stylus → draw/erase only,
+  never pans; finger long-press → `onLongPress` (caller returns true to take over: ring menu or
+  box selection); finger drag with Pen tool → draw; otherwise pan + pinch + guarded two-finger
+  rotation with snapping (haptic tick on snap); tap → `onTap(x, y, tolerance, fromStylus)`. A
+  second `pointerInput` observes stylus hover. The view writes its latest callbacks into a
+  `ViewGestureState` (`rememberViewGestureState()`) each recomposition, so the gesture coroutine
+  never restarts; the stroke being drawn is `ViewGestureState.livePoints`. `BoardCanvas` only
+  fills that state in.
+- Hit-testing: `GridIndex<T>` (uniform grid over anything with a bounding box; `candidates`,
+  `hitTest` with containing-first, smallest-box, `accept` and `priority` rules) for schematic
+  items too; `ComponentIndex` (a `GridIndex` with the board side rule: visible side only,
+  smallest box wins), `CopperIndex` (pads exact outline, tracks as thick segments, vias, pours),
   `BoardPicker.pickComponent()` / `pickNet()` combine them with exact-hit-first priority.
 - Other: `Annotations.kt` (`InkStroke`, `ComponentMark`, `DisplayOptions`, `ViewMode`,
   `GridStyle`, `CanvasTool`), `BodyStyle` (realistic colours by part type, copper tone, silk
@@ -127,10 +136,14 @@ Android library (Compose). Everything below works in board µm until `ViewTransf
     `setAppearance` (persisted settings).
 - `ui/BoardScreen.kt`: `BoardScreen` → `StartScreen` (no board) or `BoardContent`:
   `TopBar` (back, title, search, Parts/Nets toggle, Tools, Fit, 3D view, Flip, Layers,
-  Settings) and the board area (`BoardCanvas` plus overlays: `ToolPalette`/`ToolOptions`,
-  `RadialStatusMenu`, `MarqueeOverlay`, S Pen hover label, search results, `LayersPanel`,
-  `SettingsPanel`, `HighlightChip`, message, bottom-view label) with the side panel
-  (`DetailsPanel` or `NetPanel`): right in landscape, bottom in portrait.
+  Settings), the board area and the side panel (`DetailsPanel` or `NetPanel`): right in
+  landscape, bottom in portrait. The board area is a `BoardPane` plus the screen-wide overlays
+  (search results, `SettingsPanel`, `HighlightChip`, message), which will span a split screen.
+- `ui/BoardPane.kt`: `BoardViewState` (`rememberBoardViewState(scene)`: transform, viewport,
+  `fit()`, `mirror()`; hoisted so the top bar's Fit/Flip act on it) and `BoardPane`
+  (`BoardCanvas` plus its own overlays: `RadialStatusMenu`, `MarqueeOverlay`, S Pen hover label,
+  `ToolPalette`/`ToolOptions`, `LayersPanel`, bottom-view label). A `SchematicPane` will sit
+  beside it, sharing `UiState` selection.
 - Other UI files: `Theme.kt` (`PcbTheme`, palettes, `boardColorsFor`, `LocalBoardColors`),
   `StartScreen.kt`, `DetailsPanel.kt`, `Panels.kt` (Layers, Settings, Net panel, ActiveToolChip),
   `ToolPalette.kt` (+ `PaletteDock`), `HighlightChip.kt`, `RadialMenu.kt`, `Marquee.kt`,
@@ -173,7 +186,8 @@ Android library (Compose). Everything below works in board µm until `ViewTransf
 - **New setting:** field in `Appearance`, DataStore key, mirror in `snapshot`/`mirror`, UI in
   `SettingsContent`, read it in `BoardScreen` (merged into `DisplayOptions` for the canvas).
 - **New detail row:** `DetailField` enum + a row in `DetailsPanel` behind `shows(...)`.
-- **Schematic view (v0.1):** see `ROADMAP.md`, step S0, for the refactors that make room for a
-  second view: an import result that carries a schematic, reusable gestures, a self-contained
-  board pane for the split screen, and a generic hit-test index. Selection is already keyed by
-  designator (`Component.refDes`), which is how schematic symbols will link to board parts.
+- **Schematic view (v0.1):** the S0 groundwork is in place: the reader fills
+  `ImportResult.schematic` (shown in `UiState.schematic`); a `SchematicCanvas` uses
+  `Modifier.viewGestures` + `rememberViewGestureState()` and a `GridIndex` over symbols, pins and
+  wires; a `SchematicPane` goes beside `BoardPane`. Selection is already keyed by designator
+  (`Component.refDes`), which is how schematic symbols will link to board parts.

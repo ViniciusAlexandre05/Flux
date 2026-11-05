@@ -3,22 +3,13 @@ package com.pcbsolderview.render
 import android.graphics.Paint
 import android.graphics.Typeface
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.calculateCentroid
-import androidx.compose.foundation.gestures.calculatePan
-import androidx.compose.foundation.gestures.calculateRotation
-import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Matrix
@@ -35,13 +26,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.input.pointer.PointerEvent
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.PointerType
-import androidx.compose.ui.input.pointer.positionChangeIgnoreConsumed
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.onSizeChanged
 import com.pcbsolderview.model.Component
 import com.pcbsolderview.model.Side
@@ -49,7 +33,6 @@ import com.pcbsolderview.render.BoardScene.Companion.addCenterline
 import com.pcbsolderview.render.BoardScene.Companion.addRect
 import com.pcbsolderview.render.BoardScene.Companion.addRing
 import com.pcbsolderview.model.outline
-import kotlin.math.abs
 
 data class BoardColors(
     val background: Color = Color(0xFF0B0F14),
@@ -69,6 +52,7 @@ data class BoardColors(
  *
  * Gestures: one finger pans (or draws with [CanvasTool.PEN]); two fingers pan + pinch-zoom and,
  * after a deliberate twist of [ROTATION_THRESHOLD_DEG], rotate. Taps report board coordinates.
+ * The gestures themselves live in [viewGestures], shared with the schematic view.
  */
 @Composable
 fun BoardCanvas(
@@ -97,8 +81,6 @@ fun BoardCanvas(
     onLongPress: ((Offset) -> Boolean)? = null,
     onLongPressDrag: (Offset) -> Unit = {},
     onLongPressRelease: (Offset) -> Unit = {},
-    /** S Pen side button pressed (true) / released (false), while touching or hovering. */
-    onStylusButton: (Boolean) -> Unit = {},
     /** First time an S Pen touches or hovers. */
     onStylusSeen: () -> Unit = {},
     /** S Pen erasing at a board point with a tolerance (µm). */
@@ -153,199 +135,30 @@ fun BoardCanvas(
         if (scene.hasOutline) scene.outline.also { it.fillType = PathFillType.EvenOdd }
         else Path().apply { addRect(scene.extent) }
     }
-    val livePoints = remember { mutableStateListOf<Pair<Double, Double>>() }
-
-    // Latest values for the gesture coroutine (pointerInput key stays stable).
-    val latest = remember { LatestHolder() }
-    latest.transform = transform
-    latest.onTransform = onTransform
-    latest.onTap = onTap
-    latest.tool = tool
-    latest.rotation = options.rotationGesture
-    latest.penWidthPx = penWidthPx
-    latest.onStroke = onStroke
-    val haptic = LocalHapticFeedback.current
-    latest.onSnap = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
-    latest.longPressEnabled = onLongPress != null
-    latest.onLongPress = { p -> (onLongPress?.invoke(p) == true).also { if (it) haptic.performHapticFeedback(HapticFeedbackType.LongPress) } }
-    latest.onLongPressDrag = onLongPressDrag
-    latest.onLongPressRelease = onLongPressRelease
-    latest.penOnly = options.penOnlyDrawing
-    latest.onStylusButton = onStylusButton
-    latest.onErase = { p, tol -> onErase(p.first, p.second, tol) }
-    latest.onHover = onHover
-    val stylusSeen = remember { booleanArrayOf(false) }
-    latest.onStylusSeen = { if (!stylusSeen[0]) { stylusSeen[0] = true; onStylusSeen() } }
+    // Latest values for the gesture coroutine (its pointerInput key stays stable).
+    val gestures = rememberViewGestureState()
+    gestures.transform = transform
+    gestures.onTransform = onTransform
+    gestures.onTap = onTap
+    gestures.tool = tool
+    gestures.rotation = options.rotationGesture
+    gestures.penOnly = options.penOnlyDrawing
+    gestures.penWidthPx = penWidthPx
+    gestures.onStroke = onStroke
+    gestures.onErase = onErase
+    gestures.onLongPress = onLongPress
+    gestures.onLongPressDrag = onLongPressDrag
+    gestures.onLongPressRelease = onLongPressRelease
+    gestures.onHover = onHover
+    gestures.onStylusSeen = onStylusSeen
+    val livePoints = gestures.livePoints
 
     Canvas(
         modifier
             // Canvas does not clip by default; without this a zoomed board paints over the top bar.
             .clipToBounds()
             .onSizeChanged { onViewport(it.width, it.height) }
-            .pointerInput(Unit) {
-                val slop = viewConfiguration.touchSlop
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-
-                    // ---- S Pen: writes (or erases with the side button), never pans or zooms.
-                    if (down.type == PointerType.Stylus || down.type == PointerType.Eraser) {
-                        latest.onStylusSeen()
-                        fun board(p: Offset) = latest.transform?.toBoard(p.x.toDouble(), p.y.toDouble())
-                        // Pen or eraser is decided once, at touch-down, so an eraser can never remove
-                        // the stroke that is being drawn.
-                        val erasing = down.type == PointerType.Eraser || latest.tool == CanvasTool.ERASER || currentEvent.stylusButton()
-                        var penMoved = false
-                        var penTravel = 0f
-                        livePoints.clear()
-                        board(down.position)?.let { if (erasing) latest.onErase(it, STYLUS_ERASE_PX / latest.transform!!.scale) else livePoints += it }
-                        while (true) {
-                            val e = awaitPointerEvent()
-                            val ch = e.changes.firstOrNull { it.id == down.id } ?: break
-                            // Measure BEFORE consuming: positionChange() reports zero for consumed changes,
-                            // which made every stroke look like a tap and threw the ink away.
-                            penTravel += ch.positionChangeIgnoreConsumed().getDistance()
-                            e.changes.forEach { it.consume() } // palm/fingers touching meanwhile are ignored
-                            if (!ch.pressed) break
-                            if (penTravel > slop / 2) penMoved = true
-                            val p = board(ch.position) ?: continue
-                            if (erasing) latest.onErase(p, STYLUS_ERASE_PX / latest.transform!!.scale) else livePoints += p
-                        }
-                        val t = latest.transform
-                        if (t != null) {
-                            if (!erasing && penMoved && livePoints.size >= 2) {
-                                latest.onStroke(livePoints.toList(), (latest.penWidthPx / t.scale).toFloat())
-                            } else if (!penMoved && !erasing) {
-                                // A quick tap with the pen selects, like a finger.
-                                val (bx, by) = t.toBoard(down.position.x.toDouble(), down.position.y.toDouble())
-                                latest.onTap(bx, by, TOUCH_SLOP_PX / t.scale, true)
-                            }
-                        }
-                        livePoints.clear()
-                        return@awaitEachGesture
-                    }
-
-                    // ---- Fingers. With penOnly, fingers never draw.
-                    var drawing = latest.tool == CanvasTool.PEN && !latest.penOnly
-                    if (drawing) { livePoints.clear(); latest.transform?.let { livePoints += it.toBoard(down.position.x.toDouble(), down.position.y.toDouble()) } }
-                    var moved = false
-
-                    // Long press (finger held still): hand the gesture to the caller, e.g. a radial menu.
-                    if (!drawing && latest.longPressEnabled) {
-                        var still = 0f
-                        val outcome = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
-                            var r = 0
-                            while (r == 0) {
-                                val e = awaitPointerEvent()
-                                val pressed = e.changes.count { it.pressed }
-                                still += e.calculatePan().getDistance()
-                                r = when {
-                                    pressed == 0 -> LP_RELEASED
-                                    pressed >= 2 || still > slop -> LP_MOVED
-                                    else -> 0
-                                }
-                            }
-                            r
-                        }
-                        when (outcome) {
-                            null -> if (latest.onLongPress(down.position)) {
-                                while (true) {
-                                    val e = awaitPointerEvent()
-                                    val ch = e.changes.firstOrNull { it.id == down.id } ?: e.changes.first()
-                                    ch.consume()
-                                    if (!ch.pressed) { latest.onLongPressRelease(ch.position); break }
-                                    latest.onLongPressDrag(ch.position)
-                                }
-                                return@awaitEachGesture
-                            }
-                            LP_RELEASED -> {
-                                latest.transform?.let { t ->
-                                    val (bx, by) = t.toBoard(down.position.x.toDouble(), down.position.y.toDouble())
-                                    latest.onTap(bx, by, TOUCH_SLOP_PX / t.scale, false)
-                                }
-                                return@awaitEachGesture
-                            }
-                            else -> moved = true
-                        }
-                    }
-                    var multi = false
-                    var travel = 0f
-                    var twist = 0f
-                    var rotating = false
-                    var rawAngle = 0.0 // finger angle before snapping
-                    var wasSnapped = false
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        val pressed = event.changes.count { it.pressed }
-                        if (pressed == 0) break
-                        if (pressed >= 2) {
-                            multi = true
-                            if (drawing) { drawing = false; livePoints.clear() } // second finger: navigate instead
-                        }
-                        val t = latest.transform ?: continue
-                        if (drawing) {
-                            val ch = event.changes.firstOrNull { it.id == down.id } ?: event.changes.first()
-                            travel += ch.positionChange().getDistance()
-                            if (travel > slop / 2) moved = true
-                            livePoints += t.toBoard(ch.position.x.toDouble(), ch.position.y.toDouble())
-                            ch.consume()
-                            continue
-                        }
-                        val pan = event.calculatePan()
-                        val zoom = event.calculateZoom()
-                        val rot = event.calculateRotation()
-                        val centroid = event.calculateCentroid(useCurrent = true)
-                        if (!moved) {
-                            travel += pan.getDistance()
-                            if (travel > slop || abs(1 - zoom) > 0.02f || multi) moved = true
-                        }
-                        if (!moved) continue
-                        twist += rot
-                        if (!rotating && multi && latest.rotation && abs(twist) > ROTATION_THRESHOLD_DEG) {
-                            rotating = true
-                            rawAngle = t.rotationDeg
-                            wasSnapped = true // starting angle counts as "locked", no tick on start
-                        }
-                        var next = t.panBy(pan.x.toDouble(), pan.y.toDouble())
-                        if (centroid != Offset.Unspecified) {
-                            next = next.zoomBy(zoom.toDouble(), centroid.x.toDouble(), centroid.y.toDouble())
-                            if (rotating) {
-                                // Follow the fingers, but lock near 0/90/180/270°.
-                                rawAngle += rot
-                                val target = ViewTransform.snapAngle(rawAngle)
-                                val delta = ViewTransform.angleDelta(next.rotationDeg, target)
-                                if (delta != 0.0) next = next.rotateBy(delta, centroid.x.toDouble(), centroid.y.toDouble())
-                                val snapped = target % 90.0 == 0.0
-                                if (snapped && !wasSnapped) latest.onSnap()
-                                wasSnapped = snapped
-                            }
-                        }
-                        latest.onTransform(next)
-                        event.changes.forEach { it.consume() }
-                    }
-                    val t = latest.transform
-                    if (drawing && moved && livePoints.size >= 2 && t != null) {
-                        latest.onStroke(livePoints.toList(), (latest.penWidthPx / t.scale).toFloat())
-                    } else if (!moved && !multi && t != null) {
-                        val (bx, by) = t.toBoard(down.position.x.toDouble(), down.position.y.toDouble())
-                        latest.onTap(bx, by, TOUCH_SLOP_PX / t.scale, false)
-                    }
-                    livePoints.clear()
-                }
-            }
-            // S Pen hover observer (does not consume). The side button comes from StylusInput.
-            .pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val e = awaitPointerEvent(PointerEventPass.Initial)
-                        val ch = e.changes.firstOrNull { it.type == PointerType.Stylus || it.type == PointerType.Eraser } ?: continue
-                        latest.onStylusSeen()
-                        when {
-                            e.type == PointerEventType.Exit || ch.pressed -> latest.onHover(null)
-                            e.type == PointerEventType.Enter || e.type == PointerEventType.Move -> latest.onHover(ch.position)
-                        }
-                    }
-                }
-            },
+            .viewGestures(gestures),
     ) {
         val start = System.nanoTime()
         drawRect(colors.background)
@@ -476,26 +289,6 @@ fun BoardCanvas(
     }
 }
 
-private class LatestHolder {
-    var transform: ViewTransform? = null
-    var onTransform: (ViewTransform) -> Unit = {}
-    var onTap: (Double, Double, Double, Boolean) -> Unit = { _, _, _, _ -> }
-    var penOnly: Boolean = false
-    var onStylusButton: (Boolean) -> Unit = {}
-    var onStylusSeen: () -> Unit = {}
-    var onErase: (Pair<Double, Double>, Double) -> Unit = { _, _ -> }
-    var onHover: (Offset?) -> Unit = {}
-    var tool: CanvasTool = CanvasTool.NAVIGATE
-    var rotation: Boolean = true
-    var penWidthPx: Float = 4f
-    var onStroke: (List<Pair<Double, Double>>, Float) -> Unit = { _, _ -> }
-    var onSnap: () -> Unit = {}
-    var longPressEnabled: Boolean = false
-    var onLongPress: (Offset) -> Boolean = { false }
-    var onLongPressDrag: (Offset) -> Unit = {}
-    var onLongPressRelease: (Offset) -> Unit = {}
-}
-
 private const val SHADOW_DX_PX = 2.5
 private const val SHADOW_DY_PX = 3.5
 
@@ -546,19 +339,6 @@ private fun DrawScope.drawGrid(t: ViewTransform, style: GridStyle, stepUm: Long,
 /** How strongly the rest of the board fades when a net or identical parts are in focus. */
 private const val FOCUS_FADE = 0.72f
 
-/** Eraser reach of the S Pen, in screen pixels. */
-private const val STYLUS_ERASE_PX = 12.0
-
-/**
- * S Pen side button. Android reports it as BUTTON_STYLUS_PRIMARY/SECONDARY, which Compose exposes
- * as the secondary/tertiary buttons.
- */
-@Suppress("UnusedReceiverParameter")
-private fun PointerEvent.stylusButton(): Boolean = StylusInput.buttonPressed
-
-private const val LP_RELEASED = 1
-private const val LP_MOVED = 2
-
 /** Frame-rate meter: frames drawn in the last second and average draw time. */
 private class FrameStats {
     private val times = ArrayDeque<Long>()
@@ -571,8 +351,6 @@ private class FrameStats {
     }
 }
 
-const val TOUCH_SLOP_PX = 24.0
-const val ROTATION_THRESHOLD_DEG = 12f
 private const val MIN_LABEL_PX = 9f
 private const val MAX_LABEL_PX = 42f
 

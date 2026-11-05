@@ -1,6 +1,7 @@
 package com.pcbsolderview.parser
 
 import com.pcbsolderview.model.Board
+import com.pcbsolderview.model.Schematic
 import com.pcbsolderview.parser.bom.Bom
 import com.pcbsolderview.parser.bom.BomParser
 import com.pcbsolderview.parser.bom.XlsxReader
@@ -16,6 +17,15 @@ import java.util.zip.ZipInputStream
 
 class InputFile(val name: String, val bytes: ByteArray)
 
+/**
+ * What an import produced: always a [board], plus a [schematic] when one of the files is a
+ * schematic that can be read (none yet: native .SchDoc is recognised, read from S5/S1 on).
+ */
+data class ImportResult(
+    val board: Board,
+    val schematic: Schematic? = null,
+)
+
 /** What a file is, decided from its content (see [BoardImporter.classify]). */
 enum class FileKind {
     IPC2581, PICK_AND_PLACE, BOM, ZIP,
@@ -28,7 +38,7 @@ enum class FileKind {
 
 /**
  * Entry point used by the app: give it every file the user picked (or the contents of a .zip)
- * and it produces one [Board]. Pick & Place / IPC-2581 give geometry; a BOM, if present,
+ * and it produces one [ImportResult] (a [Board], later with its schematic). Pick & Place / IPC-2581 give geometry; a BOM, if present,
  * fills in descriptions, part numbers and manufacturers by designator.
  */
 class BoardImporter(private val xml: XmlParserFactory) {
@@ -38,7 +48,7 @@ class BoardImporter(private val xml: XmlParserFactory) {
      *   chosen together with an IPC-2581 export); the import still succeeds.
      * @param onProgress 0..1 while parsing the geometry file (last, so a trailing lambda is progress).
      */
-    fun import(files: List<InputFile>, onNotice: (String) -> Unit = {}, onProgress: (Float) -> Unit = {}): Board {
+    fun import(files: List<InputFile>, onNotice: (String) -> Unit = {}, onProgress: (Float) -> Unit = {}): ImportResult {
         val flat = files.flatMap { if (classify(it) == FileKind.ZIP) unzip(it) else listOf(it) }
         val kinds = flat.associateWith { classify(it) }
         val hasPcbDoc = FileKind.ALTIUM_PCBDOC in kinds.values
@@ -64,7 +74,7 @@ class BoardImporter(private val xml: XmlParserFactory) {
         }
 
         val boms = kinds.filterValues { it == FileKind.BOM }.keys.map { readBom(it) }
-        return boms.fold(board) { b, bom -> b.withBom(bom) }
+        return ImportResult(board = boms.fold(board) { b, bom -> b.withBom(bom) })
     }
 
     fun classify(f: InputFile): FileKind {

@@ -28,8 +28,11 @@ part, pin or net on one side highlights it on the other.
 fallback. Parts link by designator (`U201A`/`U201B` → `U201`), pins by designator + pin number,
 nets by the pins they connect (so unnamed nets line up too).
 
-**S0 — preparation (from the 2026-11-05 code review), before S1.** The code is clean (no
-compiler warnings, lint clean, tests green) but four places assume there is only a board:
+**S0 — preparation (from the 2026-11-05 code review), before S1. Done 2026-11-05** (awaiting
+the tablet re-test of gestures): `ImportResult(board, schematic?)` + placeholder `Schematic`
+model, `UiState.schematic`; `Modifier.viewGestures` / `ViewGestureState` (`ViewGestures.kt`);
+`BoardViewState` + `BoardPane` (`ui/BoardPane.kt`); `GridIndex<T>` under `ComponentIndex`.
+The original plan, kept for reference: four places assumed there is only a board:
 
 1. **Import result.** `BoardImporter.import()` returns a `Board`. Native `.PcbDoc`/`.SchDoc`
    are already recognised (`FileKind.ALTIUM_PCBDOC`/`ALTIUM_SCHDOC`, OLE magic + extension or

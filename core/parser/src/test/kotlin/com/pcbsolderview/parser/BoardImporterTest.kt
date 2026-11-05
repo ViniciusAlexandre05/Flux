@@ -25,7 +25,7 @@ class BoardImporterTest {
         val board = importer.import(listOf(
             Samples.input("synthetic/simple/Simple BOM.csv"),
             Samples.input("synthetic/simple/Pick Place for Simple.csv"),
-        ))
+        )).board
         assertEquals(SourceFormat.PICK_AND_PLACE, board.source)
         assertEquals("Pick Place for Simple", board.name)
         assertEquals(10, board.components.size)
@@ -42,7 +42,7 @@ class BoardImporterTest {
         val board = importer.import(listOf(
             Samples.input("synthetic/double-sided/Pick Place for DoubleSided.txt"),
             Samples.input("synthetic/double-sided/DoubleSided BOM.csv"),
-        ))
+        )).board
         assertEquals("ARM Cortex-M0 MCU, 16KB Flash", board.component("U2")!!.description)
         assertEquals("SRN4018-4R7M", board.component("L1")!!.partNumber)
     }
@@ -56,9 +56,16 @@ class BoardImporterTest {
                 z.write(Samples.file(p).readBytes())
             }
         }
-        val board = importer.import(listOf(InputFile("simple.zip", out.toByteArray())))
+        val board = importer.import(listOf(InputFile("simple.zip", out.toByteArray()))).board
         assertEquals(10, board.components.size)
         assertEquals("Murata", board.component("C1")!!.manufacturer)
+    }
+
+    @Test
+    fun boardOnlyImportHasNoSchematic() {
+        val result = importer.import(listOf(Samples.input("synthetic/simple/Pick Place for Simple.csv")))
+        assertEquals(10, result.board.components.size)
+        assertEquals(null, result.schematic)
     }
 
     @Test
