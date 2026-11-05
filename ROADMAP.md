@@ -28,6 +28,23 @@ part, pin or net on one side highlights it on the other.
 fallback. Parts link by designator (`U201A`/`U201B` → `U201`), pins by designator + pin number,
 nets by the pins they connect (so unnamed nets line up too).
 
+**S0 — preparation (from the 2026-11-05 code review), before S1.** The code is clean (no
+compiler warnings, lint clean, tests green) but four places assume there is only a board:
+
+1. **Import result.** `BoardImporter.import()` returns a `Board` and silently ignores unknown
+   files. Return an import result that can also carry a schematic (`Board` + `Schematic?`), and
+   add `FileKind`s for `.SchDoc` (ASCII and binary) so schematic files are recognised.
+   `BoardStore` already keeps every opened file, so recents will reopen schematics for free.
+2. **Reusable gestures.** Pan, pinch, guarded rotation with snapping, long-press, S Pen drawing
+   and taps live inside `BoardCanvas`'s `pointerInput`. Move them into a shared gesture modifier
+   that both `BoardCanvas` and the future `SchematicCanvas` use. Behaviour must stay identical
+   (see the pitfalls in `CLAUDE.md`); the user re-tests on the tablet afterwards.
+3. **Board pane.** `BoardContent` (`ui/BoardScreen.kt`) mixes the board area, its overlays and
+   the side panel. Extract a `BoardPane` (canvas + overlays) so the split screen can place a
+   `SchematicPane` beside it, sharing `UiState` selection.
+4. **Generic hit index.** `ComponentIndex` is tied to `Component`. Generalise it to a grid index
+   over any items with a bounding box, for schematic symbols, pins and wires.
+
 | Phase | Work | Estimate | Done when |
 |---|---|---|---|
 | [S1](https://github.com/ViniciusAlexandre05/Flux/issues/1) | Schematic model + ASCII SchDoc reader | 2–3 days | Parts and pins in the sample sheets match the board's parts and pads one for one (test) |

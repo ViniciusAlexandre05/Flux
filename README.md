@@ -16,6 +16,8 @@ beyond the files you open.
 - **Status painting** (OK / Problem / Check / Info), drawings with the **S Pen**, highlight of
   identical parts, box selection, and batch status, all saved per board.
 
+For developers and coding agents: [CLAUDE.md](CLAUDE.md) (environment, commands, rules) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (how the code fits together).
+
 See [CHANGELOG.md](CHANGELOG.md) for the full list and [ROADMAP.md](ROADMAP.md) for what's next
 (schematic view synchronised with the board).
 

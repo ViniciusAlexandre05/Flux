@@ -94,22 +94,6 @@ fun ActiveToolChip(tool: Tool, argb: Int?, onOpen: () -> Unit, onDone: () -> Uni
 }
 
 @Composable
-private fun StatusRow(label: String, color: Color?, selected: Boolean, onClick: () -> Unit) {
-    val bg = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-    Row(
-        Modifier.fillMaxWidth().height(48.dp).background(bg, RoundedCornerShape(10.dp)).clickable(onClick = onClick).padding(horizontal = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Box(
-            Modifier.size(28.dp).background(color ?: Color.Transparent, RoundedCornerShape(6.dp))
-                .border(2.dp, if (color == null) MaterialTheme.colorScheme.outline else Color.Transparent, RoundedCornerShape(6.dp)),
-        )
-        Text(label, style = MaterialTheme.typography.titleMedium)
-    }
-}
-
-@Composable
 fun Swatch(argb: Int, selected: Boolean, onClick: () -> Unit) {
     Box(
         Modifier.size(40.dp).background(Color(argb), CircleShape)
