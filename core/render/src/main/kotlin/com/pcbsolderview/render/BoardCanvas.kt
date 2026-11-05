@@ -9,7 +9,10 @@ import androidx.compose.foundation.gestures.calculateCentroid
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateRotation
 import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -116,6 +119,17 @@ fun BoardCanvas(
             .mapValues { (_, cs) -> Path().apply { cs.forEach { addRect(it.bounds) } } }
     }
     val selectedPath = remember(scene, selected) { scene.pathFor(listOfNotNull(selected)) }
+    val selectedPadsPath = remember(scene, selected) {
+        Path().apply { selected?.let { c -> scene.board.padsOf(c).forEach { addRing(it.outline()) } } }
+    }
+    // Brief pulse when a part is selected, so the eye finds it.
+    val selectionPulse = remember { Animatable(0f) }
+    LaunchedEffect(selected?.refDes) {
+        if (selected != null) { selectionPulse.snapTo(1f); selectionPulse.animateTo(0f, tween(durationMillis = 900)) }
+    }
+    val badgePaint = remember {
+        Paint(Paint.ANTI_ALIAS_FLAG).apply { typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD); textAlign = Paint.Align.CENTER }
+    }
     val netGeometry = remember(scene, selectedNet, options.hiddenLayers) { selectedNet?.let { scene.netGeometry(it, options.hiddenLayers) } }
     val markPaths = remember(scene, marks) {
         marks.values.groupBy { it.argb }.mapValues { (_, ms) ->
@@ -416,10 +430,10 @@ fun BoardCanvas(
             }
 
             if (options.showAnnotations) {
+                // Nearly opaque, with a dark edge: the board under the part barely tints the status colour.
                 for ((argb, path) in markPaths) {
-                    val c = Color(argb)
-                    drawPath(path, c.copy(alpha = 0.55f), style = Fill)
-                    drawPath(path, c, style = Stroke(width = 2f * px))
+                    drawPath(path, Color(argb).copy(alpha = MARK_ALPHA), style = Fill)
+                    drawPath(path, Color.Black.copy(alpha = 0.6f), style = Stroke(width = 1.5f * px))
                 }
             }
             if (highlighted.isNotEmpty()) {
@@ -429,14 +443,19 @@ fun BoardCanvas(
                 drawPath(highlightPath, colors.highlight.copy(alpha = 0.22f), style = Fill)
                 // Highlighted parts keep their status colour (OK green, Problem red, …).
                 if (options.showAnnotations) {
-                    for ((argb, path) in highlightedMarkPaths) drawPath(path, Color(argb).copy(alpha = 0.7f), style = Fill)
+                    for ((argb, path) in highlightedMarkPaths) drawPath(path, Color(argb).copy(alpha = MARK_ALPHA), style = Fill)
                 }
                 drawPath(highlightPadsPath, colors.highlight, style = Fill)
                 drawPath(highlightPath, colors.highlight, style = Stroke(width = 2.5f * px))
             }
             if (selected != null) {
-                drawPath(selectedPath, colors.selected.copy(alpha = 0.35f), style = Fill)
-                drawPath(selectedPath, colors.selected, style = Stroke(width = 3f * px))
+                // No fill (its status colour stays visible): a glow that pulses briefly on selection,
+                // a crisp outline, and the pads in the accent colour.
+                val p = selectionPulse.value
+                drawPath(selectedPath, colors.selected.copy(alpha = 0.30f + 0.35f * p), style = Stroke(width = (10f + 18f * p) * px, join = StrokeJoin.Round))
+                drawPath(selectedPadsPath, colors.selected, style = Fill)
+                drawPath(selectedPath, Color.Black.copy(alpha = 0.7f), style = Stroke(width = 5.5f * px, join = StrokeJoin.Round))
+                drawPath(selectedPath, colors.selected, style = Stroke(width = 3.5f * px, join = StrokeJoin.Round))
             }
             if (options.showAnnotations) {
                 for ((s, path) in strokePaths) {
@@ -449,6 +468,7 @@ fun BoardCanvas(
             }
         }
         if (options.showDesignators) drawLabels(scene, t, visibleSide, labelPaint, colors, highlightedRefs)
+        if (options.showAnnotations) drawStatusBadges(scene, t, visibleSide, marks, badgePaint)
         if (options.showFps) {
             val fps = stats.frame(start, System.nanoTime())
             drawContext.canvas.nativeCanvas.drawText(fps, 16f, size.height - 16f, fpsPaint)
@@ -555,6 +575,41 @@ const val TOUCH_SLOP_PX = 24.0
 const val ROTATION_THRESHOLD_DEG = 12f
 private const val MIN_LABEL_PX = 9f
 private const val MAX_LABEL_PX = 42f
+
+/** Opacity of status paint: high enough that the board under a part barely tints the colour. */
+const val MARK_ALPHA = 0.85f
+
+private const val MIN_BADGE_PART_PX = 14f
+
+/**
+ * A round badge with the status symbol at the top-right of each painted part on the visible side,
+ * so the status reads without relying on colour alone. Skipped when the part is too small on screen.
+ */
+private fun DrawScope.drawStatusBadges(scene: BoardScene, t: ViewTransform, side: Side, marks: Map<String, ComponentMark>, paint: Paint) {
+    if (marks.isEmpty()) return
+    val w = size.width.toDouble(); val h = size.height.toDouble()
+    val canvas = drawContext.canvas.nativeCanvas
+    for (m in marks.values) {
+        val glyph = m.glyph ?: continue
+        val c = scene.board.component(m.refDes) ?: continue
+        if (c.side != side) continue
+        val r = t.toScreen(c.bounds)
+        if (!r.intersects(w, h)) continue
+        val minSide = minOf(r.width, r.height).toFloat()
+        if (minSide < MIN_BADGE_PART_PX) continue
+        val radius = (minSide * 0.3f).coerceIn(8f, 15f)
+        val cx = (r.right - radius * 0.35f).toFloat(); val cy = (r.top + radius * 0.35f).toFloat()
+        val color = Color(m.argb)
+        paint.style = Paint.Style.FILL; paint.color = android.graphics.Color.BLACK; paint.alpha = 170
+        canvas.drawCircle(cx, cy, radius + 1.5f, paint)
+        paint.color = color.toArgb(); paint.alpha = 255
+        canvas.drawCircle(cx, cy, radius, paint)
+        // Dark symbol on light colours (green, amber), white on dark ones (red, blue).
+        paint.color = if (color.luminance() > 0.35f) android.graphics.Color.BLACK else android.graphics.Color.WHITE
+        paint.textSize = radius * 1.35f
+        canvas.drawText(glyph, cx, cy + paint.textSize * 0.36f, paint)
+    }
+}
 
 /** Designators drawn upright in screen space; level-of-detail: skipped when too small to read. */
 private fun DrawScope.drawLabels(

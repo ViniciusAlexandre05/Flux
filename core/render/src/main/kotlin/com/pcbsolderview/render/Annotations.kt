@@ -8,8 +8,11 @@ data class InkStroke(
     val points: List<Pair<Double, Double>>,
 )
 
-/** A component painted with a status colour (e.g. green = OK, red = problem). */
-data class ComponentMark(val refDes: String, val argb: Int, val note: String? = null)
+/**
+ * A component painted with a status colour (e.g. green = OK, red = problem). [glyph] is a short
+ * symbol for the status ("✓", "!") drawn on the part when it is large enough on screen.
+ */
+data class ComponentMark(val refDes: String, val argb: Int, val note: String? = null, val glyph: String? = null)
 
 /** What is drawn. Layer visibility is by layer name. */
 data class DisplayOptions(

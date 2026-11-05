@@ -65,11 +65,17 @@ enum class Tool {
 }
 
 /** Predefined component statuses for the paint tool. */
-enum class Status(val label: String, val argb: Int) {
-    OK("OK", 0xFF2ECC40.toInt()),
-    PROBLEM("Problem", 0xFFFF4136.toInt()),
-    CHECK("Check", 0xFFFFDC00.toInt()),
-    INFO("Info", 0xFF0074D9.toInt());
+/**
+ * Component statuses. Colours are spread around the hue wheel (green, red, amber, blue) and checked
+ * by a test to stay clearly apart, also when painted over the board; each also has a symbol so the
+ * status reads without relying on colour alone. [legacyArgb] is the colour used before v0.0.2;
+ * stored marks are converted by the database migration.
+ */
+enum class Status(val label: String, val argb: Int, val glyph: String, val legacyArgb: Int) {
+    OK("OK", 0xFF22C55E.toInt(), "✓", 0xFF2ECC40.toInt()),
+    PROBLEM("Problem", 0xFFEF2D3D.toInt(), "!", 0xFFFF4136.toInt()),
+    CHECK("Check", 0xFFFF9F0A.toInt(), "?", 0xFFFFDC00.toInt()),
+    INFO("Info", 0xFF3B82F6.toInt(), "i", 0xFF0074D9.toInt());
 
     companion object {
         fun of(argb: Int): Status? = entries.firstOrNull { it.argb == argb }

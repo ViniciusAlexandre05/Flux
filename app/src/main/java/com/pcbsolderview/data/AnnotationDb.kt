@@ -20,7 +20,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "marks", primaryKeys = ["boardKey", "refDes"])
 data class MarkEntity(val boardKey: String, val refDes: String, val argb: Int, val note: String? = null) {
-    fun toMark() = ComponentMark(refDes, argb, note)
+    fun toMark() = ComponentMark(refDes, argb, note, glyph = com.pcbsolderview.Status.of(argb)?.glyph)
 }
 
 @Entity(tableName = "strokes", indices = [Index("boardKey")])
@@ -137,7 +137,7 @@ interface AnnotationDao {
     suspend fun clearMarks(board: String)
 }
 
-@Database(entities = [MarkEntity::class, StrokeEntity::class, RecentBoardEntity::class], version = 3, exportSchema = false)
+@Database(entities = [MarkEntity::class, StrokeEntity::class, RecentBoardEntity::class], version = 4, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun annotations(): AnnotationDao
     abstract fun recents(): RecentDao
@@ -161,10 +161,19 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v3 -> v4: status colours changed to a more distinct palette; existing marks follow. */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                com.pcbsolderview.Status.entries.forEach { s ->
+                    db.execSQL("UPDATE `marks` SET `argb` = ${s.argb} WHERE `argb` = ${s.legacyArgb}")
+                }
+            }
+        }
+
         @Volatile private var instance: AppDatabase? = null
         fun get(context: Context): AppDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "pcbsolderview.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build().also { instance = it }
         }
     }
