@@ -55,8 +55,53 @@ function Show-Status {
     } else {
         Write-Host "PC:         not started (docs/PLAN-desktop.md)"
     }
+    if ($mode -eq "pc") { Show-AndroidNotOnPc } else { Show-PcNotOnAndroid }
     Write-Host ""
     Write-Host "Commands: .\dev android | pc | build | run | test | help"
+}
+
+# PC features Android does not have yet: the list in desktop\SYNC.md (section
+# "PC features not on Android yet"), so the two versions do not drift apart.
+function Show-PcNotOnAndroid {
+    $file = Join-Path $Root "desktop\SYNC.md"
+    if (-not (Test-Path $file)) { return }
+    $inSection = $false; $inComment = $false
+    $items = @()
+    foreach ($line in (Get-Content $file -Encoding UTF8)) {
+        if ($line -match '^## ') { $inSection = ($line -match '^## PC features not on Android yet'); continue }
+        if (-not $inSection) { continue }
+        if ($line -match '<!--') { $inComment = $true }
+        if ($inComment) { if ($line -match '-->') { $inComment = $false }; continue }
+        if ($line.Trim() -ne "") { $items += $line }
+    }
+    Write-Host ""
+    if ($items.Count -eq 0) {
+        Write-Host "PC features not on Android yet: none." -ForegroundColor Green
+    } else {
+        Write-Host "PC features not on Android yet (desktop\SYNC.md):" -ForegroundColor Yellow
+        $items | ForEach-Object { Write-Host "  $_" }
+    }
+}
+
+# Android changes the PC version has not received: commits after the baseline in desktop\SYNC.md
+# that touch the code the PC version copies (core/render, app) or the demos.
+function Show-AndroidNotOnPc {
+    $file = Join-Path $Root "desktop\SYNC.md"
+    if (-not (Test-Path $file) -or -not (Test-Path $Git)) { return }
+    $first = Get-Content $file -TotalCount 1
+    if ($first -notmatch 'Synced with Android: ([0-9a-f]{7,40})') { return }
+    $base = $Matches[1]
+    $commits = & $Git log --oneline "$base..HEAD" -- core/render/src app/src samples/synthetic
+    $dirty = & $Git status --porcelain -- core/render/src app/src
+    Write-Host ""
+    if (-not $commits -and -not $dirty) {
+        Write-Host "Android changes not on the PC yet: none." -ForegroundColor Green
+    } else {
+        Write-Host "Android changes not on the PC yet (since $base):" -ForegroundColor Yellow
+        $commits | ForEach-Object { Write-Host "  $_" }
+        if ($dirty) { Write-Host "  (plus uncommitted changes in core/render or app)" }
+        Write-Host "  Ask the agent to ""update the PC version"" to port them."
+    }
 }
 
 $mode = Get-Mode
@@ -65,6 +110,7 @@ switch ($Command.ToLower()) {
         Set-Content -Path $ModeFile -Value $_ -NoNewline
         Write-Host ("Switched to " + $(if ($_ -eq "pc") { "the PC version." } else { "the Android version." })) -ForegroundColor Green
         if ($_ -eq "pc" -and -not $HasDesktop) { Write-Host "Note: the PC version does not exist yet (docs/PLAN-desktop.md)." -ForegroundColor Yellow }
+        if ($_ -eq "android") { Show-PcNotOnAndroid } elseif ($HasDesktop) { Show-AndroidNotOnPc }
     }
     "status" { Show-Status }
     "build" {

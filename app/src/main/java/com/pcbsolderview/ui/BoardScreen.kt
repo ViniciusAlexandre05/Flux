@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Schema
 import androidx.compose.material.icons.filled.VerticalSplit
 import androidx.compose.material.icons.filled.FitScreen
 import androidx.compose.material.icons.filled.Flip
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Handyman
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Settings
@@ -160,10 +161,9 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                 if (state.viewLayout != ViewLayout.SCHEMATIC) view.fit()
                 if (state.viewLayout != ViewLayout.BOARD) schView?.fit(state.sheetIndex)
             },
-            onFlip = {
-                view.mirror()
-                vm.flipSide()
-            },
+            // Flip only changes which side is in front (parts, draw order); Mirror is separate.
+            onFlip = vm::flipSide,
+            onMirror = { toggleMirror(view, state, vm) },
         )
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val landscape = maxWidth > maxHeight
@@ -372,7 +372,7 @@ private fun BarDivider() {
 private val SEARCH_INLINE_MIN_WIDTH = 1040.dp
 
 @Composable
-private fun TopBar(title: String, subtitle: String, state: UiState, vm: BoardViewModel, onFit: () -> Unit, onFlip: () -> Unit) {
+private fun TopBar(title: String, subtitle: String, state: UiState, vm: BoardViewModel, onFit: () -> Unit, onFlip: () -> Unit, onMirror: () -> Unit) {
     Surface(color = MaterialTheme.colorScheme.surfaceContainer) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val inline = maxWidth >= SEARCH_INLINE_MIN_WIDTH
@@ -409,6 +409,12 @@ private fun TopBar(title: String, subtitle: String, state: UiState, vm: BoardVie
                             Icons.Filled.Flip,
                             if (state.visibleSide == Side.TOP) "Showing top — tap for bottom view" else "Showing bottom — tap for top view",
                             onFlip, checked = state.visibleSide == Side.BOTTOM, tag = "flip",
+                        )
+                        // Mirror is independent of the side: either side can be shown mirrored or not.
+                        BarIcon(
+                            Icons.Filled.SwapHoriz,
+                            if (state.mirrored) "Mirrored — tap for the normal view" else "Mirror the view left-right",
+                            onMirror, checked = state.mirrored, tag = "mirror",
                         )
                         BarIcon(Icons.Filled.Layers, "Layers & view", vm::toggleLayersPanel, checked = state.showLayersPanel)
                     }
@@ -479,4 +485,9 @@ private fun SearchResults(results: List<Component>, onPick: (Component) -> Unit,
             }
         }
     }
+}
+/** Mirror button: mirrors the view left-right, whichever side is shown. */
+private fun toggleMirror(view: BoardViewState, state: UiState, vm: BoardViewModel) {
+    view.mirror()
+    vm.setMirrored(!state.mirrored)
 }

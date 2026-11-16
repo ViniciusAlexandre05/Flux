@@ -46,6 +46,12 @@ Read `docs/ARCHITECTURE.md` before changing anything non-trivial. Implementation
 - **Android first.** The PC version follows only when the user asks ("update the PC version"):
   procedure in `docs/PLAN-desktop.md` section 6, baseline commit in `desktop/SYNC.md`. Never edit
   Android code for the desktop; the Android gate must not include `:desktop`.
+- **Keep the versions from drifting apart (user's rule, 2026-11-16).** Every PC change that
+  Android could also have gets an item (date, what it does, where it lives) in
+  `desktop/SYNC.md` › "PC features not on Android yet", in the same commit. When the user starts
+  Android work (switches with `dev android`, or asks for Android changes after PC work), show that
+  list first and ask which items to port; move ported items to "Ported from PC to Android".
+  `dev android` / `dev status` print the list; `dev pc` prints Android commits not yet on the PC.
 
 ## Module map
 
@@ -86,6 +92,9 @@ Read `docs/ARCHITECTURE.md` before changing anything non-trivial. Implementation
   forwards raw `MotionEvent`s to `StylusInput`. Don't add automatic mode switches the user did not ask for.
 - Line endings: `core.autocrlf=true`; checked-out files may be CRLF or mixed. Multi-line
   `perl`/`sed` patterns need `\r?\n` or they silently change nothing; verify with grep.
+- Non-ASCII in `perl -pi` replacements (`✓`, `≥`, `\x{2013}`) without `-CSD` double-encodes every
+  other non-ASCII character of the file ("—" becomes "â€”"); this happened once (fixed
+  2026-11-16). Use `perl -CSD`, or the Edit tool, and grep for `â|Ã` afterwards.
 - Windows PowerShell 5.1 mangles double quotes in native arguments: use `gh … --notes-file`.
 - `Canvas` doesn't clip by default: keep `clipToBounds()` on board views.
 

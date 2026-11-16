@@ -2,6 +2,16 @@
 
 All notable changes to Flux. Dates are in YYYY-MM-DD.
 
+## Unreleased
+
+- Status symbol badges (✓ ! ? i) on painted parts are now off by default; turn them on with
+  **Review** in Layers & view. The status colours show as before.
+- **Mirror** is now its own button next to Flip, always available: it mirrors the view left-right
+  on either side. Flip only switches between the top and bottom side (which parts are in front);
+  it no longer mirrors. A "MIRRORED" label shows while the view is mirrored (it replaces the old
+  "BOTTOM VIEW (mirrored)" label). To see the bottom as if the board were turned over, use Flip
+  and Mirror.
+
 ## 0.1 — 2026-11-16
 
 Released before the tablet test (the schematic and .PcbDoc parts were tested on the JVM only).

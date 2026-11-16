@@ -155,6 +155,8 @@ data class UiState(
     /** Incremented to ask the view to zoom to [selected]. */
     val focusRequest: Int = 0,
     val visibleSide: Side = Side.TOP,
+    /** The view is mirrored left-right (Mirror button), on either side; independent of [visibleSide]. */
+    val mirrored: Boolean = false,
     val display: DisplayOptions = DisplayOptions(),
     val showLayersPanel: Boolean = false,
     val showSettingsPanel: Boolean = false,
@@ -555,6 +557,9 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
     // ------------------------------------------------------------------ view & display
 
     fun flipSide() = _state.update { it.copy(visibleSide = it.visibleSide.opposite) }
+
+    /** Mirror the view or not (the view state applies it; a new board starts unmirrored). */
+    fun setMirrored(on: Boolean) = _state.update { it.copy(mirrored = on) }
 
     fun setDisplay(d: DisplayOptions) = _state.update { it.copy(display = d) }
 

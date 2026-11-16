@@ -1,9 +1,9 @@
 Synced with Android: 38d646d (0.1 incl. native .PcbDoc reader, 2026-11-16)
 Desktop version: 0.1.0
 
-# Desktop â Android sync record
+# Desktop ↔ Android sync record
 
-The first line is read by the build (Help â About shows it) and by `dev status`. Keep its format.
+The first line is read by the build (Help → About shows it) and by `dev status`. Keep its format.
 How to update the PC version: `docs/PLAN-desktop.md`, section 6. The baseline above is the last
 Android commit that touched `core/`, `app/` or `samples/synthetic/` and whose changes are in the
 desktop copies (`git diff <baseline>..HEAD -- core/render app` is the patch to port next time).
@@ -28,7 +28,7 @@ the Android package names kept, so `git diff --no-index` between the two copies 
 - `render/AndroidGraphics.kt` (desktop only): `Paint`, `Typeface`, `GraphicsColor`, `NativeCanvas`
   and `drawText/drawCircle/drawLine` on the Skia canvas, so `BoardCanvas`/`SchematicCanvas` text code
   stays as on Android. In those two files only the `android.graphics.*` imports were removed and
-  `android.graphics.Color.` â `GraphicsColor.`, `android.graphics.Canvas` â `NativeCanvas`.
+  `android.graphics.Color.` → `GraphicsColor.`, `android.graphics.Canvas` → `NativeCanvas`.
 - `render/ViewGestures.kt`: + `mouseGesture` (right button = long press, middle = pan, left = pan /
   draw / erase, Shift+drag = rotate, double click = `onDoubleTap`), + wheel zoom / Ctrl+wheel rotate,
   mouse hover reported through `onHover`; `stylusButton()` is always false; `StylusInput` dropped.
@@ -45,7 +45,7 @@ the Android package names kept, so `git diff --no-index` between the two copies 
   draws a light outline + tinted pads (`BoardColors.hover`); `BoardPane` computes the part under the
   mouse once (also used by the hover label) and passes it in inspect tools only.
 - Selection pulse (desktop only, 2026-11-16): `SELECTION_PULSE_MS` = 250 ms (Android 900) and a
-  thinner glow (6â11 px, Android 10â28 px) in `BoardCanvas` and `SchematicCanvas`.
+  thinner glow (6–11 px, Android 10–28 px) in `BoardCanvas` and `SchematicCanvas`.
 - Bottom view (desktop only, 2026-11-16): no "BOTTOM VIEW (mirrored)" label in `BoardPane`; a
   Mirror button (top bar, while the bottom is shown) and View › Mirror bottom view toggle
   `UiState.mirrorBottom`; `flipView` / `toggleMirror` in `BoardScreen` apply it.
@@ -64,9 +64,28 @@ the Android package names kept, so `git diff --no-index` between the two copies 
 - Android splash/window themes, "Open with"/share intents (the command line and drag and drop
   play that role), edge-to-edge insets.
 
-## Open differences
+## PC features not on Android yet
 
-- Desktop-only features (not on Android): hover highlight of the part under the mouse, board-sized parts not
-  picked on empty board, menu bar,
-  keyboard shortcuts, drag and drop, open folder.
-- The schematic has no hover highlight yet.
+<!-- `dev android` and `dev status` (Android mode) print this list. Add an item for every PC
+     change that Android could also have (date, what it does, where it lives); remove it when it
+     is ported to Android or the user decides Android should not have it. -->
+
+- 2026-11-16 Hover highlight: the part under the mouse is outlined, with its name and value
+  (`BoardCanvas` `hovered`, `BoardPane`). Android equivalent: S Pen hover.
+- 2026-11-16 Short, thin selection pulse: 250 ms and a 6–11 px glow (Android: 900 ms, 10–28 px)
+  (`SELECTION_PULSE_MS` in `BoardCanvas`, `SchematicCanvas`).
+- 2026-11-16 Opening or closing the side panel does not move the board or schematic
+  (`anchorNextResize` in `BoardViewState` / `SchematicViewState`, set in `BoardScreen`).
+- 2026-11-16 Parts as big as the board (a module footprint) are not selected by clicking empty
+  board, only through their pads (`BoardPicker.boardSized`).
+
+## PC only by nature (no Android equivalent needed)
+
+- Menu bar, keyboard shortcuts, drag and drop, open a folder, files from the command line,
+  mouse gestures (wheel zoom, Shift+drag / Ctrl+wheel rotate, double-click fit, right-click ring).
+
+## Ported from PC to Android
+
+- 2026-11-16 Mirror button. Android went further (user, 2026-11-16): Mirror is independent of the
+  side and always shown, Flip no longer mirrors, and a "MIRRORED" label shows while mirrored. The
+  PC still ties Mirror to the bottom view: port this back on the next PC update.

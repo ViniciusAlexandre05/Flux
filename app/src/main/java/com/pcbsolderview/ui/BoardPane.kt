@@ -82,7 +82,7 @@ fun rememberBoardViewState(scene: BoardScene): BoardViewState {
 
 /**
  * The board and its own overlays: status ring, box selection, S Pen hover label, tool palette,
- * layers panel and the bottom-view label. Screen-wide overlays (search results, settings,
+ * layers panel. Screen-wide overlays (search results, settings,
  * highlight chip, messages) belong to the caller, so a schematic pane can sit beside this one.
  */
 @Composable
@@ -315,12 +315,14 @@ fun BoardPane(
                 modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).heightIn(max = panelMaxHeight),
             )
         }
-        if (state.visibleSide == Side.BOTTOM) {
+        // Warning while the view is mirrored (Mirror button), whichever side is shown.
+        if (state.mirrored) {
             Text(
-                "BOTTOM VIEW (mirrored)",
+                if (state.visibleSide == Side.BOTTOM) "MIRRORED · bottom side" else "MIRRORED",
                 color = MaterialTheme.colorScheme.onErrorContainer,
                 modifier = Modifier.align(Alignment.BottomCenter).padding(8.dp)
-                    .background(MaterialTheme.colorScheme.errorContainer, MaterialTheme.shapes.small).padding(horizontal = 12.dp, vertical = 6.dp),
+                    .background(MaterialTheme.colorScheme.errorContainer, MaterialTheme.shapes.small)
+                    .padding(horizontal = 12.dp, vertical = 6.dp).testTag("mirrored.label"),
             )
         }
     }

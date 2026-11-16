@@ -133,7 +133,7 @@ Android library (Compose). Everything below works in board µm until `ViewTransf
   (CAD: layers back-to-front, multi-layer, holes | Realistic: copper tone, pads, via rings,
   holes, silk, body shadows, bodies) → outline → net focus (fade + net) → component outlines →
   status paint → highlight focus (fade, status of highlighted, pads, outline) → selection
-  (glow, pads, outline, pulse) → ink strokes → live stroke → labels → status badges → FPS.
+  (glow, pads, outline, pulse) → ink strokes → live stroke → labels → status badges (only with "Review", `DisplayOptions.showStatusBadges`) → FPS.
 - **Gestures** (`ViewGestures.kt`, shared by the board, schematic and PDF views): `Modifier.viewGestures(state)` runs one `awaitEachGesture`: stylus → draw/erase only,
   never pans; finger long-press → `onLongPress` (caller returns true to take over: ring menu or
   box selection); finger drag with Pen tool → draw; otherwise pan + pinch + guarded two-finger
@@ -192,7 +192,9 @@ Android library (Compose). Everything below works in board µm until `ViewTransf
 - `ui/BoardPane.kt`: `BoardViewState` (`rememberBoardViewState(scene)`: transform, viewport,
   `fit()`, `mirror()`; hoisted so the top bar's Fit/Flip act on it) and `BoardPane`
   (`BoardCanvas` plus its own overlays: `RadialStatusMenu`, `MarqueeOverlay`, S Pen hover label,
-  `ToolPalette`/`ToolOptions`, `LayersPanel`, bottom-view label). View states keep their
+  `ToolPalette`/`ToolOptions`, `LayersPanel`). Flip switches the side in front; Mirror (top bar,
+  `UiState.mirrored`, `toggleMirror` in `BoardScreen`) mirrors the view on either side, with a
+  "MIRRORED" label in `BoardPane`. View states keep their
   centre point when the pane is resized.
 - `ui/SchematicPane.kt`: `SchematicViewState` (one transform per sheet), `SchematicPane` (sheet
   tabs with a dot where the focused net runs, canvas, status ring on long-press, follow

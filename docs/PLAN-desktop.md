@@ -180,6 +180,10 @@ When the user asks to update the PC version:
    distributable/installer, commit "Desktop: sync with Android <short hash>". Release to GitHub
    only when asked (attach `Flux-<version>-windows.msi` or a zipped distributable).
 
+The other direction (rule from 2026-11-16): every PC-only change that Android could also have is
+listed in `SYNC.md` › "PC features not on Android yet" in the same commit; `dev android` prints the
+list, and the agent shows it when Android work starts (see CLAUDE.md).
+
 ## 7. Documentation to update when the desktop module lands
 
 - CLAUDE.md: module map row for `desktop`, the `-Pdesktop` commands, the rule "Android first;
