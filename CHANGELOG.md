@@ -4,6 +4,31 @@ All notable changes to Flux. Dates are in YYYY-MM-DD.
 
 ## Unreleased
 
+### Native .PcbDoc (S5b, not released; JVM-tested)
+- Altium `.PcbDoc` files open directly, without exporting IPC-2581: outline, layers, pads (round,
+  rectangle, rounded, octagon, through-hole), tracks, arcs, vias, holes, copper pours, component
+  bodies and heights. Open it alone or with the `.SchDoc`, a BOM or a PDF.
+- Values come from the part's comment ("100nF"), better than the IPC-2581 export's library name
+  ("CAP"). Duplicate designators are made unique ("RP2040", "RP2040_2").
+- With an IPC-2581 file chosen too, the IPC-2581 is used. A damaged `.PcbDoc` falls back to a
+  Pick & Place file or the schematic, or explains how to export IPC-2581.
+
+### Desktop (Windows) 0.1.0, not released
+- New PC version (`desktop/` module, Compose for Desktop), matching Android at d60f979 (v0.1
+  schematic sync included): board, schematic, split view, PDF fallback, search, nets, layers,
+  status paint, pen/eraser, undo, recents with thumbnails, settings.
+- Mouse and keyboard: wheel zoom at the cursor, drag to pan, Shift+drag / Ctrl+wheel rotate,
+  double click fits, right click = status ring / box selection, menu bar, shortcuts, drag and
+  drop of files, open a whole folder, files from the command line.
+- Hover highlight: the part under the mouse is outlined, with its designator and value.
+- Bottom view: the red "mirrored" label is gone; a Mirror button chooses between the mirrored
+  view (board turned over) and seeing the bottom through the board.
+- Clicking empty board no longer selects a part as big as the board (a module footprint).
+- Opens Altium .PcbDoc files (shared reader).
+- Selecting a part gives a short, thin highlight (instead of the tablet's long pulse), and opening
+  the side panel no longer moves the board, even when the panel covers the selected part.
+- Data in `%APPDATA%lux` (json), not synchronised with the tablet.
+
 ### Schematic (v0.1, not released; untested on the tablet)
 - Open Altium schematics (`.SchDoc`, native or saved as ASCII) together with the board, or on
   their own. Each .SchDoc is a sheet; parts, pins, wires, net labels, power ports, junctions,

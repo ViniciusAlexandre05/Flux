@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="18 18 72 72">
+  <!-- Flux icon for Windows: the Android adaptive icon (app/src/main/res/drawable/ic_launcher_*.xml), visible area, rounded. -->
+  <defs>
+    <radialGradient id="glow" cx="46" cy="58" r="44" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F5B83D" stop-opacity="0.4"/>
+      <stop offset="1" stop-color="#F5B83D" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="r"><rect x="18" y="18" width="72" height="72" rx="15"/></clipPath>
+  </defs>
+  <g clip-path="url(#r)">
+    <rect x="0" y="0" width="108" height="108" fill="#0E1319"/>
+    <rect x="0" y="0" width="108" height="108" fill="url(#glow)"/>
+    <g transform="translate(1,-2) translate(54,54) scale(1.12) translate(-54,-54)">
+      <path stroke="#FFFFFF" stroke-opacity="0.45" stroke-width="1.8" stroke-linecap="round" fill="none" d="M40,49 C37,46 41,44 38,40 M44.5,47.5 C42.5,44.5 45.5,42.5 43.5,38.5"/>
+      <path stroke="#E8C065" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" fill="none" d="M60,68.5 H65 L71,74.5"/>
+      <path fill="#E8C065" d="M73,73m-4.6,0a4.6,4.6 0,1 1,9.2 0a4.6,4.6 0,1 1,-9.2 0"/>
+      <path fill="#0E1319" d="M73,73m-1.9,0a1.9,1.9 0,1 1,3.8 0a1.9,1.9 0,1 1,-3.8 0"/>
+      <path fill="#E8C065" d="M34,64.5h24a2,2 0,0 1,2 2v4a2,2 0,0 1,-2 2h-24a2,2 0,0 1,-2 -2v-4a2,2 0,0 1,2 -2z"/>
+      <path fill="#D9DFE6" d="M37,64.5 C38.5,57 42.5,53 46,53 C49.5,53 53.5,57 55,64.5 Z"/>
+      <path fill="#FFFFFF" fill-opacity="0.85" d="M42,60.5 C42.5,57.8 44,56.2 45.6,55.7 C44.6,57.2 44.1,58.8 43.9,60.7 Z"/>
+      <path fill="#F5B83D" d="M71.8,39.4 L81.9,31.2 L72.3,21 L63.6,30.6 Z"/>
+      <path fill="#2A313B" d="M69.3,41 L71.8,39.4 L63.6,30.6 L61.7,33 Z"/>
+      <path fill="#6E7886" d="M61.3,47.2 L69.3,41 L61.7,33 L55.1,40.6 Z"/>
+      <path fill="#D5DBE2" d="M47,52.4 A1.5,1.5 0,0 0,49 54.6 L61.3,47.2 L55.1,40.6 Z"/>
+      <path fill="#9AA4B0" d="M49,54.6 L61.3,47.2 L58.2,43.9 L48,53.5 Z"/>
+    </g>
+  </g>
+</svg>

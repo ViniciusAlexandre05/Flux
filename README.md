@@ -8,7 +8,7 @@ beyond the files you open.
 
 ## What it does
 
-- Opens **Altium IPC-2581** exports (`.cvg` / `.xml`) with full board geometry, or a
+- Opens Altium boards directly (**`.PcbDoc`**) or as **IPC-2581** exports (`.cvg` / `.xml`) with full board geometry, or a
   **Pick & Place** file with its **BOM** when only component positions are available.
 - Shows the board as **CAD layers** (Altium colours) or as a **realistic** assembled board.
 - **Parts mode:** tap a part for its value, description, part number, footprint, height,
@@ -21,11 +21,27 @@ For developers and coding agents: [CLAUDE.md](CLAUDE.md) (environment, commands,
 See [CHANGELOG.md](CHANGELOG.md) for the full list and [ROADMAP.md](ROADMAP.md) for what's next
 (schematic view synchronised with the board).
 
-## Exporting from Altium
+## Flux for Windows
+
+A PC version of the same app lives in `desktop/` (Compose for Desktop). It opens the same files
+(also a whole Altium project folder, or files dropped on the window), and adds mouse and keyboard
+control: wheel zoom, drag to pan, Shift+drag or Ctrl+wheel to rotate, double click to fit,
+right click on a part for the status ring, hover to highlight a part, Ctrl+F search, Ctrl+Z undo,
+Esc back, F fit, 1/2/3 board / split / schematic (Help › Mouse and keys). Its data lives in
+`%APPDATA%lux` and is separate from the tablet's.
+
+```powershell
+.dev pc; .dev run      # start it (or: .gradlew.bat -pdesktop :desktop:run)
+.dev build              # tests + desktopuildmposeinariesmainppluxlux.exe
+.gradlew.bat -pdesktop :desktop:packagemsi   # installer (unsigned: smartscreen warns)
+```
+
+## exporting from altium
 
 | What | Altium menu | Notes |
 |---|---|---|
-| IPC-2581 (recommended) | File › Fabrication Outputs › IPC-2581 Files | Include copper, silkscreen and the board-outline layer |
+| Native board (`.PcbDoc`) | nothing to export: open the `.PcbDoc` itself | Silkscreen text strings are not drawn yet |
+| IPC-2581 | File › Fabrication Outputs › IPC-2581 Files | Include copper, silkscreen and the board-outline layer |
 | Pick & Place | File › Assembly Outputs › Generates pick and place files | CSV, metric or imperial |
 | BOM | Reports › Bill of Materials | CSV or XLSX; add *Manufacturer Part Number* and *Manufacturer* columns to get exact part numbers |
 

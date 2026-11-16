@@ -37,6 +37,15 @@ Read `docs/ARCHITECTURE.md` before changing anything non-trivial. Implementation
   on a USB tablet if one is connected). When the user says "build/test/run it" without saying
   which version, read `.flux-mode`. The PC module is included only with `-Pdesktop`
   (settings.gradle.kts), never by the Android gate.
+- PC version (`desktop/`): `./gradlew -Pdesktop :desktop:test` (JVM tests + off-screen UI renders in
+  `desktop/build/renders/ui-*.png`, read them as images), `:desktop:run` (`-PfluxArgs="a|b"` opens
+  files, `-PfluxHome=<dir>` uses another data folder), `:desktop:createDistributable` (folder with
+  `Flux.exe` in `desktop/build/compose/binaries/main/app/Flux/`), `:desktop:packageMsi`.
+  Unlike Android, the PC app can be run and screenshotted here. Unsigned `Flux.exe` is blocked by
+  Windows Application Control on this machine; `:desktop:run` (signed java.exe) works.
+- **Android first.** The PC version follows only when the user asks ("update the PC version"):
+  procedure in `docs/PLAN-desktop.md` section 6, baseline commit in `desktop/SYNC.md`. Never edit
+  Android code for the desktop; the Android gate must not include `:desktop`.
 
 ## Module map
 
@@ -46,6 +55,7 @@ Read `docs/ARCHITECTURE.md` before changing anything non-trivial. Implementation
 | `core/parser` (pure Kotlin) | `BoardImporter` (entry point, file sniffing, .zip), IPC-2581, Pick & Place, BOM (CSV/XLSX), `altium/` (compound file, records, SchDoc) |
 | `core/render` (Android lib) | `ViewTransform` (the only Y flip), `ViewGestures` (all gestures), `BoardScene`/`BoardCanvas`, `SchematicScene`/`SchematicCanvas`/`SchematicColors`, hit-testing (`GridIndex`), grid, realistic view, thumbnails |
 | `app` | `BoardViewModel` (all UI state), screens in `ui/` (`BoardPane`, `SchematicPane`, `SplitPanes`, `PdfPane`), Room DB + DataStore in `data/` |
+| `desktop` (Compose Desktop, only with -Pdesktop) | Windows version: shared `core/model` + `core/parser`; ported copies of `core/render` and `app` (same packages), `platform/` (folders, dialogs, PDFBox), JSON storage in `%APPDATA%lux`; `desktop/sync.md` lists every change from android |
 
 ## Rules that are easy to break
 
@@ -106,8 +116,8 @@ Read `docs/ARCHITECTURE.md` before changing anything non-trivial. Implementation
 
 Released: v0.0, v0.0.1, v0.0.2 (latest, versionCode 3). Unreleased on main: **v0.1 schematic
 sync implemented** (S0, S5, S1, S2, S3, S4, S6; see `CHANGELOG.md` and `ROADMAP.md`), tested on the
-JVM only. Next: the user's tablet test, then fixes, then release v0.1. S5b (native PcbDoc
-reader, #7) is not started; `CompoundFile` already reads the container.
+JVM only. Next: the user's tablet test, then fixes, then release v0.1. S5b (native .PcbDoc
+reader, #7) is implemented on the JVM (2026-11-16, `PcbDocParser`), not yet tried on the tablet.
 
 Schematic facts learned from the RP2040 sample (`samples/real/RPI_Module/`):
 - Record keys are mixed case (`|RECORD=34|…|Text=C1`): `AltiumRecord` upper-cases keys.

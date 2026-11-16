@@ -66,11 +66,22 @@ without a .SchDoc). Only a schematic or PDF gives an empty board (`SourceFormat.
   else UNKNOWN; `PK` header → XLSX (BOM) if it contains `xl/`, else ZIP; text starting with `<`
   and containing `IPC-2581`/`<Content` → IPC2581; otherwise tries a Pick & Place header, then a
   BOM header. Files it doesn't recognise are ignored (no error).
-- `.PcbDoc` is recognised but not read yet (S5b): alone it throws `UnsupportedFormatException`
-  (`NativeFileMessages`, `ParseErrors.kt`); next to a board or schematic it is skipped with a
-  notice. A damaged `.SchDoc` next to other files is skipped with a notice too. `BoardViewModel.load()`
+- Board geometry precedence: IPC-2581 > `.PcbDoc` > Pick & Place. A `.PcbDoc` next to an IPC-2581
+  file is not used (notice); a damaged one falls back to a Pick & Place file or the schematic with
+  a notice, alone it is an error suggesting IPC-2581 (`NativeFileMessages`, `ParseErrors.kt`). A damaged `.SchDoc` next to other files is skipped with a notice too. `BoardViewModel.load()`
   shows notices as the on-screen message (not when reopening a recent). The app picker is
   `OpenMultipleDocuments`, so several files (or a .zip) can be chosen at once.
+- `altium/PcbDocParser` (S5b): native `.PcbDoc` → `Board` with IPC-2581 conventions. Text streams
+  `Board6` (outline vertices, V9 layer stack), `Components6`, `Nets6`, `Polygons6` (pour nets);
+  binary streams read with `BinaryReader` (bounded little-endian cursor; `sub()` = `u32 length` +
+  payload): `Pads6`, `Vias6`, `Tracks6`, `Arcs6`, `Fills6`, `Regions6` (pours, graphics; f64
+  vertices), `ComponentBodies6` (outline, `OVERALLHEIGHT`), `Texts6` (only each part's designator
+  and comment). Units 1/10000 mil (`UNIT_UM`); layer ids are Altium's legacy numbers (`layerInfo`).
+  Record layouts are in its KDoc. Through-hole pads become one `Pad` per copper layer; rounded
+  rectangles come from pad sub-record 6 (alt shape 9 + corner %). Designators come from the board
+  text (duplicates get `_2`); the value is the comment text, else derived like IPC. Damaged or
+  unknown records are skipped and counted in one notice. `Rp2040PcbDocTest` compares it with the
+  IPC-2581 export of the same board; `PcbDocParserTest` uses synthetic files (`PcbDocWriter`).
 - `altium/`: `CompoundFile` (MS-CFB reader: FAT, DIFAT, mini stream, storages; streams by path,
   case-insensitive), `AltiumRecords` (`|KEY=value|` records from native streams, 4-byte length
   headers, binary records kept as empty placeholders so OWNERINDEX stays right; or from ASCII
@@ -216,7 +227,27 @@ Android library (Compose). Everything below works in board µm until `ViewTransf
   its .SchDoc/PDF), and status paint is keyed by designator, so it also covers schematic-only
   parts.
 
-## Testing
+## desktop (Windows version)
+
+Compose for Desktop module, built only with `-Pdesktop`. `core/model` and `core/parser` are shared;
+`core/render`, the UI and `BoardViewModel` are copies with the same package names, so Android
+changes port as patches (`desktop/SYNC.md` records the baseline commit and every deliberate
+difference). Platform pieces:
+
+- `render/AndroidGraphics.kt`: the `android.graphics.Paint/Typeface` subset the canvases use, drawn
+  with Skia fonts, so text code is unchanged. `ViewGestures` adds the mouse (`mouseGesture`, wheel).
+- `BoardViewModel`: plain class with its own scope (Swing main dispatcher), `open(List<File>)`.
+- `data/`: the Room DAOs re-implemented over JSON files in `%APPDATA%lux` (`recents.json`,
+  `annotations/<sha1(key)>.json`, `settings.json`, `window.json`, `boards/<sha1(key)>/` copies);
+  every write lands on disk before the ui sees it and is not cancelled by closing the window.
+- `platform/`: `appdirs` (`flux.home` overrides), `supportedfiles` (folder expansion), `demos`
+  (synthetic samples as resources with an index), file/folder dialogs, `pdfrenderer` (pdfbox),
+  `windowprefs`. `main.kt`: window, menu bar, shortcuts (esc → `backdispatcher`), drag and drop.
+- tests: the android jvm tests (copied), `persistencetest` (restart with a temp data folder),
+  `screenshottest` (`imagecomposescene` renders of the real ui to `desktop/build/renders/`),
+  `iconexporttest` (builds `flux.ico` from `src/main/resources/flux.svg`).
+
+## testing
 
 - `core/model`, `core/parser`: JUnit 5 on the JVM. `samples/synthetic/*` fixtures; the real
   board tests (`Ipc2581RealBoardTest`) cross-check every component against the raw XML, compare
