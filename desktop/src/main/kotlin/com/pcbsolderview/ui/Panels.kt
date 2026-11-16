@@ -157,6 +157,11 @@ fun LayersPanel(
             ToggleRow("Component outlines", display.showComponentOutlines, enabled = cad) { onDisplay(display.copy(showComponentOutlines = it)) }
             if (scene.hasGeometry) ToggleRow("Through-hole pads & vias", display.showMultiLayer, enabled = cad) { onDisplay(display.copy(showMultiLayer = it)) }
             ToggleRow("Annotations & status paint", display.showAnnotations) { onDisplay(display.copy(showAnnotations = it)) }
+            ToggleRow(
+                "Review", display.showStatusBadges,
+                description = "Status symbols (✓ ! ? i) on painted parts",
+                enabled = display.showAnnotations,
+            ) { onDisplay(display.copy(showStatusBadges = it)) }
 
             if (scene.layers.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp)); HorizontalDivider(); Spacer(Modifier.height(8.dp))

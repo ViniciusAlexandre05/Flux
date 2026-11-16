@@ -157,8 +157,8 @@ data class UiState(
     /** Incremented to ask the view to zoom to [selected]. */
     val focusRequest: Int = 0,
     val visibleSide: Side = Side.TOP,
-    /** Desktop: the bottom view is shown mirrored (as if the board were turned over); off = seen through the board. */
-    val mirrorBottom: Boolean = true,
+    /** The view is mirrored left-right (Mirror button), on either side; independent of [visibleSide]. */
+    val mirrored: Boolean = false,
     val display: DisplayOptions = DisplayOptions(),
     val showLayersPanel: Boolean = false,
     val showSettingsPanel: Boolean = false,
@@ -329,7 +329,6 @@ class BoardViewModel(
                     val hasBoard = scene.board.components.isNotEmpty() || scene.board.outline.isNotEmpty()
                     _state.value = UiState(
                         recents = _state.value.recents,
-                        mirrorBottom = _state.value.mirrorBottom,
                         scene = scene,
                         schematic = sch?.schematic,
                         schematicScene = sch?.scene,
@@ -404,7 +403,7 @@ class BoardViewModel(
         loadJob?.cancel(); annotationsJob?.cancel()
         eraserFromButton = false
         boardKey = null; undo.clear()
-        _state.value = UiState(recents = _state.value.recents, mirrorBottom = _state.value.mirrorBottom)
+        _state.value = UiState(recents = _state.value.recents)
     }
 
     // ------------------------------------------------------------------ selection & search
@@ -571,8 +570,8 @@ class BoardViewModel(
 
     fun flipSide() = _state.update { it.copy(visibleSide = it.visibleSide.opposite) }
 
-    /** Desktop: mirror the bottom view or not (kept until the app closes). */
-    fun setMirrorBottom(on: Boolean) = _state.update { it.copy(mirrorBottom = on) }
+    /** Mirror the view or not (the view state applies it; a new board starts unmirrored). */
+    fun setMirrored(on: Boolean) = _state.update { it.copy(mirrored = on) }
 
     fun setDisplay(d: DisplayOptions) = _state.update { it.copy(display = d) }
 

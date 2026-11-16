@@ -134,7 +134,7 @@ class ScreenshotTest {
         }
     }
 
-    /** Bottom view: no warning label; mirrored by default, and through the board when Mirror is off. */
+    /** Flip changes the side only; Mirror mirrors either side and shows a label. */
     @Test
     fun bottomViewMirrorToggle() {
         val vm = DesktopTestSupport.vm()
@@ -146,16 +146,22 @@ class ScreenshotTest {
             fun frames(n: Int): Image { var img: Image? = null; repeat(n) { img = scene.render(t); t += 50_000_000L; Thread.sleep(25) }; return img!! }
             fun save(img: Image, name: String) = File(DesktopTestSupport.renders, "ui-$name.png").writeBytes(img.encodeToData(EncodedImageFormat.PNG)!!.bytes)
             val top = frames(20)
+            // Flip only changes the side: the bottom is seen through the board, not mirrored.
             DesktopTestSupport.onVm { com.pcbsolderview.ui.DesktopCommands.flip!!.invoke() }
-            val mirrored = frames(20).also { save(it, "bottom-mirrored") }
-            DesktopTestSupport.onVm { com.pcbsolderview.ui.DesktopCommands.mirror!!.invoke() }
-            vm.await { !it.mirrorBottom }
             val through = frames(20).also { save(it, "bottom-through") }
+            // Mirror works on either side and shows the "MIRRORED" label.
+            DesktopTestSupport.onVm { com.pcbsolderview.ui.DesktopCommands.mirror!!.invoke() }
+            vm.await { it.mirrored }
+            val mirrored = frames(20).also { save(it, "bottom-mirrored") }
             DesktopTestSupport.onVm { com.pcbsolderview.ui.DesktopCommands.flip!!.invoke() }
+            val topMirrored = frames(20).also { save(it, "top-mirrored") }
+            DesktopTestSupport.onVm { com.pcbsolderview.ui.DesktopCommands.mirror!!.invoke() }
+            vm.await { !it.mirrored }
             val topAgain = frames(20)
             fun px(i: Image) = org.jetbrains.skia.Bitmap.makeFromImage(i).let { b -> (0 until 40).map { k -> b.getColor(200 + k * 30, 300 + k * 15) } }
             assertTrue(px(mirrored) != px(through), "mirror toggle changes the view")
-            assertTrue(px(top) == px(topAgain), "back on top the view is unmirrored again")
+            assertTrue(px(topMirrored) != px(top), "the top side can be mirrored too")
+            assertTrue(px(top) == px(topAgain), "unmirrored top is back to the start")
         } finally {
             scene.close()
             vm.close()

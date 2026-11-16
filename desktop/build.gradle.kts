@@ -10,7 +10,7 @@ plugins {
 }
 
 /** Desktop version (x.y.z, MSI needs a numeric version with major > 0, see packageVersion below). */
-val fluxVersion = "0.1.0"
+val fluxVersion = "0.1.1"
 
 kotlin { jvmToolchain(17) }
 

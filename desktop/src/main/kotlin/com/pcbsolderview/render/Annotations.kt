@@ -21,6 +21,8 @@ data class DisplayOptions(
     val showComponentOutlines: Boolean = true,
     val showMultiLayer: Boolean = true,
     val showAnnotations: Boolean = true,
+    /** "Review": status symbol badges (✓ ! ? i) on painted parts. The status colours show without it. */
+    val showStatusBadges: Boolean = false,
     val showFps: Boolean = false,
     val rotationGesture: Boolean = true,
     /** When true only the stylus draws; fingers always navigate. */

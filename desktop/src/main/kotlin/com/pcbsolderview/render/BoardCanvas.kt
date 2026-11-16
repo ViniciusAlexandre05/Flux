@@ -297,7 +297,7 @@ fun BoardCanvas(
             }
         }
         if (options.showDesignators) drawLabels(scene, t, visibleSide, labelPaint, colors, highlightedRefs)
-        if (options.showAnnotations) drawStatusBadges(scene, t, visibleSide, marks, badgePaint)
+        if (options.showAnnotations && options.showStatusBadges) drawStatusBadges(scene, t, visibleSide, marks, badgePaint)
         if (options.showFps) {
             val fps = stats.frame(start, System.nanoTime())
             drawContext.canvas.nativeCanvas.drawText(fps, 16f, size.height - 16f, fpsPaint)

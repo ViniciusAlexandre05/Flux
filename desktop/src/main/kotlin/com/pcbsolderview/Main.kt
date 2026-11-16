@@ -180,7 +180,7 @@ private fun FrameWindowScope.FluxMenuBar(vm: BoardViewModel, state: UiState, ope
             Item("Fit to window   F", enabled = hasBoard, onClick = { DesktopCommands.fit?.invoke() })
             Item("Flip board (bottom view)", enabled = hasBoard && state.viewLayout != ViewLayout.SCHEMATIC, onClick = { DesktopCommands.flip?.invoke() })
             CheckboxItem(
-                "Mirror bottom view", checked = state.mirrorBottom, enabled = hasBoard && state.viewLayout != ViewLayout.SCHEMATIC,
+                "Mirror view", checked = state.mirrored, enabled = hasBoard && state.viewLayout != ViewLayout.SCHEMATIC,
                 onCheckedChange = { DesktopCommands.mirror?.invoke() },
             )
             CheckboxItem(

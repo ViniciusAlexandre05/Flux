@@ -1,5 +1,5 @@
-Synced with Android: 38d646d (0.1 incl. native .PcbDoc reader, 2026-11-16)
-Desktop version: 0.1.0
+Synced with Android: 4a042b5 (0.1 + Review option, independent Mirror, 2026-11-16)
+Desktop version: 0.1.1
 
 # Desktop ↔ Android sync record
 
@@ -46,9 +46,8 @@ the Android package names kept, so `git diff --no-index` between the two copies 
   mouse once (also used by the hover label) and passes it in inspect tools only.
 - Selection pulse (desktop only, 2026-11-16): `SELECTION_PULSE_MS` = 250 ms (Android 900) and a
   thinner glow (6–11 px, Android 10–28 px) in `BoardCanvas` and `SchematicCanvas`.
-- Bottom view (desktop only, 2026-11-16): no "BOTTOM VIEW (mirrored)" label in `BoardPane`; a
-  Mirror button (top bar, while the bottom is shown) and View › Mirror bottom view toggle
-  `UiState.mirrorBottom`; `flipView` / `toggleMirror` in `BoardScreen` apply it.
+- Mirror: same as Android (Mirror button independent of Flip, "MIRRORED" label); the PC adds
+  View › Mirror view and `DesktopCommands.mirror` for the menu.
 - Board-sized parts (desktop only, 2026-11-16): `BoardPicker.boardSized` (box ≥ half the board)
   are left out of the box hit-test, so clicking or hovering empty board never selects a module
   footprint as big as the board; its pads still select it.
@@ -86,6 +85,5 @@ the Android package names kept, so `git diff --no-index` between the two copies 
 
 ## Ported from PC to Android
 
-- 2026-11-16 Mirror button. Android went further (user, 2026-11-16): Mirror is independent of the
-  side and always shown, Flip no longer mirrors, and a "MIRRORED" label shows while mirrored. The
-  PC still ties Mirror to the bottom view: port this back on the next PC update.
+- 2026-11-16 Mirror button (on Android made independent of Flip, with a "MIRRORED" label; the PC
+  took that version back in the sync to 4a042b5).

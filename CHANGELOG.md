@@ -11,6 +11,7 @@ All notable changes to Flux. Dates are in YYYY-MM-DD.
   it no longer mirrors. A "MIRRORED" label shows while the view is mirrored (it replaces the old
   "BOTTOM VIEW (mirrored)" label). To see the bottom as if the board were turned over, use Flip
   and Mirror.
+- PC version 0.1.1 (unreleased): same Review option and Mirror behaviour as Android.
 
 ## 0.1 — 2026-11-16
 

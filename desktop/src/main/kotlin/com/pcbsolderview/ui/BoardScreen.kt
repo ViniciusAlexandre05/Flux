@@ -163,7 +163,8 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                 if (state.viewLayout != ViewLayout.SCHEMATIC) view.fit()
                 if (state.viewLayout != ViewLayout.BOARD) schView?.fit(state.sheetIndex)
             },
-            onFlip = { flipView(view, state, vm) },
+            // Flip only changes which side is in front (parts, draw order); Mirror is separate.
+            onFlip = vm::flipSide,
             onMirror = { toggleMirror(view, state, vm) },
         )
         // Desktop: the menu bar and keyboard shortcuts (Main.kt) reach Fit and Flip through here.
@@ -173,7 +174,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                 if (state.viewLayout != ViewLayout.BOARD) schView?.fit(state.sheetIndex)
             },
             flip = {
-                if (state.viewLayout != ViewLayout.SCHEMATIC) flipView(view, state, vm)
+                if (state.viewLayout != ViewLayout.SCHEMATIC) vm.flipSide()
             },
             mirror = { toggleMirror(view, state, vm) },
             focusSearch = null,
@@ -431,11 +432,11 @@ private fun TopBar(title: String, subtitle: String, state: UiState, vm: BoardVie
                             if (state.visibleSide == Side.TOP) "Showing top — tap for bottom view" else "Showing bottom — tap for top view",
                             onFlip, checked = state.visibleSide == Side.BOTTOM, tag = "flip",
                         )
-                        // Desktop: mirror the bottom view or look at it through the board.
-                        if (state.visibleSide == Side.BOTTOM) BarIcon(
+                        // Mirror is independent of the side: either side can be shown mirrored or not.
+                        BarIcon(
                             Icons.Filled.SwapHoriz,
-                            if (state.mirrorBottom) "Bottom view mirrored — click to see it through the board" else "Bottom view not mirrored — click to mirror it",
-                            onMirror, checked = state.mirrorBottom, tag = "mirror",
+                            if (state.mirrored) "Mirrored — click for the normal view" else "Mirror the view left-right",
+                            onMirror, checked = state.mirrored, tag = "mirror",
                         )
                         BarIcon(Icons.Filled.Layers, "Layers & view", vm::toggleLayersPanel, checked = state.showLayersPanel)
                     }
@@ -510,15 +511,8 @@ private fun SearchResults(results: List<Component>, onPick: (Component) -> Unit,
         }
     }
 }
-/** Desktop: top ↔ bottom; the bottom view is mirrored only when [UiState.mirrorBottom] is on. */
-private fun flipView(view: BoardViewState, state: UiState, vm: BoardViewModel) {
-    val want = state.visibleSide.opposite == Side.BOTTOM && state.mirrorBottom
-    if ((view.transform?.mirrored ?: false) != want) view.mirror()
-    vm.flipSide()
-}
-
-/** Desktop: mirror the bottom view or not; applied at once when the bottom is shown. */
+/** Mirror button: mirrors the view left-right, whichever side is shown. */
 private fun toggleMirror(view: BoardViewState, state: UiState, vm: BoardViewModel) {
-    vm.setMirrorBottom(!state.mirrorBottom)
-    if (state.visibleSide == Side.BOTTOM) view.mirror()
+    view.mirror()
+    vm.setMirrored(!state.mirrored)
 }
