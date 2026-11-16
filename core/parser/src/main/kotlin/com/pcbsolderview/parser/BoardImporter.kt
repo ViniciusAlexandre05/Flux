@@ -3,6 +3,7 @@ package com.pcbsolderview.parser
 import com.pcbsolderview.model.Board
 import com.pcbsolderview.model.Schematic
 import com.pcbsolderview.model.SourceFormat
+import com.pcbsolderview.parser.altium.PcbDocParser
 import com.pcbsolderview.parser.altium.SchDocParser
 import com.pcbsolderview.parser.bom.Bom
 import com.pcbsolderview.parser.bom.BomParser
@@ -34,7 +35,7 @@ data class ImportResult(
 /** What a file is, decided from its content (see [BoardImporter.classify]). */
 enum class FileKind {
     IPC2581, PICK_AND_PLACE, BOM, ZIP,
-    /** Altium native board (.PcbDoc, binary compound file): recognised, not readable yet. */
+    /** Altium native board (.PcbDoc, binary compound file), read by PcbDocParser. */
     ALTIUM_PCBDOC,
     /** Altium schematic sheet (.SchDoc), native compound file or saved as ASCII. */
     ALTIUM_SCHDOC,
@@ -61,15 +62,15 @@ class BoardImporter(private val xml: XmlParserFactory) {
         val hasPcbDoc = FileKind.ALTIUM_PCBDOC in kinds.values
         val schFiles = kinds.filterValues { it == FileKind.ALTIUM_SCHDOC }.keys.toList()
 
+        // Board geometry: IPC-2581 > .PcbDoc > Pick & Place.
         val geometryFile = kinds.entries.firstOrNull { it.value == FileKind.IPC2581 }?.key
+            ?: kinds.entries.firstOrNull { it.value == FileKind.ALTIUM_PCBDOC }?.key
             ?: kinds.entries.firstOrNull { it.value == FileKind.PICK_AND_PLACE }?.key
         val pdf = kinds.entries.firstOrNull { it.value == FileKind.PDF }?.key?.takeIf { schFiles.isEmpty() }
         if (geometryFile == null && schFiles.isEmpty() && pdf == null) {
-            throw UnsupportedFormatException(if (hasPcbDoc) NativeFileMessages.PCBDOC_ONLY else UnsupportedFormatException.DEFAULT)
+            throw UnsupportedFormatException(UnsupportedFormatException.DEFAULT)
         }
-        if (hasPcbDoc) onNotice(
-            if (geometryFile != null) NativeFileMessages.pcbDocSkipped(geometryFile.name) else NativeFileMessages.PCBDOC_WITH_SCHEMATIC,
-        )
+        if (hasPcbDoc && geometryFile != null && kinds.getValue(geometryFile) == FileKind.IPC2581) onNotice(NativeFileMessages.pcbDocSkipped(geometryFile.name))
 
         // Schematic sheets: a damaged sheet next to a board is skipped with a notice.
         val sheets = schFiles.mapNotNull { f ->
@@ -85,6 +86,9 @@ class BoardImporter(private val xml: XmlParserFactory) {
 
         val board = when {
             geometryFile == null -> Board(name = schematic?.name ?: baseName(pdf!!.name), source = SourceFormat.SCHEMATIC_ONLY)
+            kinds.getValue(geometryFile) == FileKind.ALTIUM_PCBDOC -> readPcbDoc(
+                geometryFile, kinds.entries.firstOrNull { it.value == FileKind.PICK_AND_PLACE }?.key, schematic, onNotice, onProgress,
+            )
             kinds.getValue(geometryFile) == FileKind.IPC2581 -> Ipc2581Parser(xml).parse(
                 ByteArrayInputStream(geometryFile.bytes), geometryFile.name, geometryFile.bytes.size.toLong(), onProgress,
             )
@@ -93,6 +97,23 @@ class BoardImporter(private val xml: XmlParserFactory) {
 
         val boms = kinds.filterValues { it == FileKind.BOM }.keys.map { readBom(it) }
         return ImportResult(board = boms.fold(board) { b, bom -> b.withBom(bom) }, schematic = schematic, schematicPdf = pdf)
+    }
+
+    /**
+     * A .PcbDoc board. When it cannot be read, a Pick & Place file opened with it is used instead,
+     * else the schematic opens alone (empty board), each with a notice; alone, the error is shown.
+     */
+    private fun readPcbDoc(
+        f: InputFile, pickPlace: InputFile?, schematic: Schematic?, onNotice: (String) -> Unit, onProgress: (Float) -> Unit,
+    ): Board = try {
+        PcbDocParser.parse(f.bytes, f.name, onNotice, onProgress)
+    } catch (e: BoardParseException) {
+        val message = NativeFileMessages.pcbDocUnreadable(f.name, e.message)
+        when {
+            pickPlace != null -> { onNotice(message); PickPlaceParser.parse(decodeText(pickPlace.bytes), baseName(pickPlace.name)) }
+            schematic != null -> { onNotice(message); Board(name = schematic.name, source = SourceFormat.SCHEMATIC_ONLY) }
+            else -> throw BoardParseException(message, e)
+        }
     }
 
     /** One sheet: its name; several: their common prefix ("Power", "Power_IO" → "Power"), else the first. */

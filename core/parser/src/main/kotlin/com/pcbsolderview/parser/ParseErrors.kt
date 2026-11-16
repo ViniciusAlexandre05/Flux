@@ -13,20 +13,14 @@ class UnsupportedFormatException(message: String = DEFAULT) : BoardParseExceptio
 
 /** User-facing texts for Altium's native files (.PcbDoc, .SchDoc). */
 object NativeFileMessages {
-    /** Only a .PcbDoc was chosen. */
-    const val PCBDOC_ONLY =
-        "Altium .PcbDoc files can't be opened yet, and they are not the recommended format: .PcbDoc is " +
-            "Altium's private binary format. In Altium, export File » Fabrication Outputs » IPC-2581 Files " +
-            "and open that file instead; it contains the same board."
-
-    /** A .PcbDoc was chosen together with a supported board file. */
+    /** A .PcbDoc was chosen together with an IPC-2581 export (the IPC file is used). */
     fun pcbDocSkipped(openedFrom: String) =
-        "The .PcbDoc was skipped (Altium's native format is not the recommended one). Board opened from $openedFrom."
+        "Board opened from $openedFrom (IPC-2581); the .PcbDoc chosen with it was not needed."
 
-    /** A .PcbDoc was chosen with schematics but no supported board file. */
-    const val PCBDOC_WITH_SCHEMATIC =
-        "The .PcbDoc was skipped (not readable yet). Showing the schematic only; to see the board too, " +
-            "export File » Fabrication Outputs » IPC-2581 Files from Altium and open it with the .SchDoc."
+    /** A .PcbDoc could not be read. */
+    fun pcbDocUnreadable(name: String, reason: String?) =
+        "Could not read $name" + (reason?.trimEnd('.')?.let { " ($it)" } ?: "") + ". In Altium, export File » Fabrication Outputs » " +
+            "IPC-2581 Files and open that file instead; it contains the same board."
 
     /** A schematic sheet could not be read but the rest opened. */
     fun schDocSkipped(name: String, reason: String?) =

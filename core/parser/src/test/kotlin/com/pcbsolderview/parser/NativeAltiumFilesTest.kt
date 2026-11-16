@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.io.File
 
-/** .PcbDoc / .SchDoc are recognised and explained to the user instead of a generic error. */
+/** .PcbDoc / .SchDoc are recognised; damaged ones are explained to the user instead of a generic error. */
 class NativeAltiumFilesTest {
     private val importer = BoardImporter(testXml)
 
@@ -32,10 +32,18 @@ class NativeAltiumFilesTest {
     }
 
     @Test
-    fun pcbDocAloneExplainsItIsNotRecommended() {
-        val e = assertThrows<UnsupportedFormatException> { importer.import(listOf(ole("Board.PcbDoc"))) }
-        assertEquals(NativeFileMessages.PCBDOC_ONLY, e.message)
+    fun damagedPcbDocAloneSuggestsIpc2581() {
+        val e = assertThrows<BoardParseException> { importer.import(listOf(ole("Board.PcbDoc"))) }
+        assertTrue(e.message!!.startsWith("Could not read Board.PcbDoc"), e.message)
         assertTrue(e.message!!.contains("IPC-2581"))
+    }
+
+    @Test
+    fun pcbDocNextToIpc2581IsNotNeeded() {
+        val notices = mutableListOf<String>()
+        val board = importer.import(listOf(ole("Board.PcbDoc"), Samples.input("synthetic/ipc-mini/mini.xml")), onNotice = { notices += it }).board
+        assertEquals(com.pcbsolderview.model.SourceFormat.IPC2581, board.source)
+        assertEquals(listOf(NativeFileMessages.pcbDocSkipped("mini.xml")), notices)
     }
 
     @Test
@@ -45,14 +53,16 @@ class NativeAltiumFilesTest {
     }
 
     @Test
-    fun pcbDocNextToABoardFileIsSkippedWithANotice() {
+    fun damagedPcbDocFallsBackToPickAndPlace() {
         val notices = mutableListOf<String>()
         val board = importer.import(
             listOf(ole("Board.PcbDoc"), ole("Sheet1.SchDoc"), Samples.input("synthetic/simple/Pick Place for Simple.csv")),
             onNotice = { notices += it },
         ).board
         assertEquals(10, board.components.size)
-        assertEquals(listOf(NativeFileMessages.pcbDocSkipped("Pick Place for Simple.csv"), NativeFileMessages.schDocSkipped("Sheet1.SchDoc", "Damaged compound file (sector size).")), notices)
+        assertEquals(2, notices.size)
+        assertEquals(NativeFileMessages.schDocSkipped("Sheet1.SchDoc", "Damaged compound file (sector size)."), notices[0])
+        assertTrue(notices[1].startsWith("Could not read Board.PcbDoc"), notices[1])
     }
 
     @Test

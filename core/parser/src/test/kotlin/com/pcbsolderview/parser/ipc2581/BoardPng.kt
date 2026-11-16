@@ -98,11 +98,15 @@ object BoardPng {
             g.color = Color(0x12301F); g.fill(p)
         }
 
-        val defaults = mapOf(LayerType.COPPER to 0xC83232, LayerType.SILKSCREEN to 0xFFFF00)
+        // Same fallback as the app (BoardScene.layerColor): Altium's default layer colours.
+        fun fallback(l: com.pcbsolderview.model.Layer) = when (l.type) {
+            LayerType.COPPER -> when (l.side) { Side.TOP -> 0xFF0000; Side.BOTTOM -> 0x0000FF; null -> 0xBC8E00 }
+            else -> if (l.side == Side.BOTTOM) 0x808000 else 0xFFFF00
+        }
         val drawn = board.layers.filter { it.type == LayerType.COPPER || it.type == LayerType.SILKSCREEN }
             .sortedWith(compareBy({ if (it.side == Side.TOP) 1 else 0 }, { if (it.type == LayerType.COPPER) 0 else 1 }))
         for (layer in drawn) {
-            val rgb = layer.rgb ?: defaults.getValue(layer.type)
+            val rgb = layer.rgb ?: fallback(layer)
             val alpha = if (layer.side == Side.BOTTOM) 110 else 230
             g.color = Color((rgb shr 16) and 255, (rgb shr 8) and 255, rgb and 255, alpha)
             board.fills.filter { it.layer == layer.name }.forEach { f ->
