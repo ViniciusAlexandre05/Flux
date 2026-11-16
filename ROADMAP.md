@@ -99,6 +99,13 @@ for the user: is the layout really incomplete, and what is `RP`?
 only; it is GPL, so it is studied, not copied); hierarchical sheets; fonts differ from Altium's;
 parts in the schematic that are not placed on the board.
 
+## Plans for agents
+
+- `docs/PLAN-android-next.md`: v0.1 release after the tablet test, S5b native .PcbDoc reader
+  (format facts verified on the RP2040 file), follow-ups.
+- `docs/PLAN-desktop.md`: Windows version (Compose Multiplatform desktop executable), synced
+  with Android only on request.
+
 ## Later (from the original plan)
 
 - Soldering checklist grouped by value, keep screen on while open

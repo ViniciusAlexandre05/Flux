@@ -45,6 +45,17 @@ Requirements: JDK 17 and the Android SDK (platform 35).
 .\gradlew.bat test lint            # unit tests and lint, the gate for every change
 ```
 
+Shortcut that also sets `JAVA_HOME` and switches between the Android and PC versions:
+
+```powershell
+.\dev                # which version you are working on, branch, versions
+.\dev android        # work on the Android app (default)
+.\dev pc             # work on the PC version (docs/PLAN-desktop.md; not built yet)
+.\dev build          # Android: tests + lint + APK.  PC: tests + app folder with Flux.exe
+.\dev run            # Android: install on a USB-connected tablet.  PC: start the app
+.\dev test           # tests of the chosen version
+```
+
 ## Project layout
 
 | Module | Contents |

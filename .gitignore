@@ -11,3 +11,6 @@ keystore.properties
 
 # Real board exports are private designs: kept on this machine for tests, never pushed.
 samples/real/
+
+# Which version the developer is working on (dev.cmd): android or pc.
+.flux-mode
