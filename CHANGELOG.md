@@ -2,9 +2,12 @@
 
 All notable changes to Flux. Dates are in YYYY-MM-DD.
 
-## Unreleased
+## 0.1 — 2026-11-16
 
-### Native .PcbDoc (S5b, not released; JVM-tested)
+Released before the tablet test (the schematic and .PcbDoc parts were tested on the JVM only).
+Windows installer and portable zip are attached to the same GitHub release.
+
+### Native .PcbDoc (S5b)
 - Altium `.PcbDoc` files open directly, without exporting IPC-2581: outline, layers, pads (round,
   rectangle, rounded, octagon, through-hole), tracks, arcs, vias, holes, copper pours, component
   bodies and heights. Open it alone or with the `.SchDoc`, a BOM or a PDF.
@@ -13,7 +16,7 @@ All notable changes to Flux. Dates are in YYYY-MM-DD.
 - With an IPC-2581 file chosen too, the IPC-2581 is used. A damaged `.PcbDoc` falls back to a
   Pick & Place file or the schematic, or explains how to export IPC-2581.
 
-### Desktop (Windows) 0.1.0, not released
+### Desktop (Windows) 0.1.0
 - New PC version (`desktop/` module, Compose for Desktop), matching Android at d60f979 (v0.1
   schematic sync included): board, schematic, split view, PDF fallback, search, nets, layers,
   status paint, pen/eraser, undo, recents with thumbnails, settings.
@@ -29,7 +32,7 @@ All notable changes to Flux. Dates are in YYYY-MM-DD.
   the side panel no longer moves the board, even when the panel covers the selected part.
 - Data in `%APPDATA%lux` (json), not synchronised with the tablet.
 
-### Schematic (v0.1, not released; untested on the tablet)
+### Schematic (v0.1)
 - Open Altium schematics (`.SchDoc`, native or saved as ASCII) together with the board, or on
   their own. Each .SchDoc is a sheet; parts, pins, wires, net labels, power ports, junctions,
   graphics, text frames and title-block fields are drawn. Multi-part parts show as U1A, U1B.

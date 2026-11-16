@@ -112,12 +112,13 @@ Read `docs/ARCHITECTURE.md` before changing anything non-trivial. Implementation
 - They test on the tablet and report problems in short messages; ambiguous wording is common,
   so state your interpretation and offer the alternative.
 
-## Status (2026-11-05)
+## Status (2026-11-16)
 
-Released: v0.0, v0.0.1, v0.0.2 (latest, versionCode 3). Unreleased on main: **v0.1 schematic
-sync implemented** (S0, S5, S1, S2, S3, S4, S6; see `CHANGELOG.md` and `ROADMAP.md`), tested on the
-JVM only. Next: the user's tablet test, then fixes, then release v0.1. S5b (native .PcbDoc
-reader, #7) is implemented on the JVM (2026-11-16, `PcbDocParser`), not yet tried on the tablet.
+Released: v0.0, v0.0.1, v0.0.2, **v0.1** (latest, versionCode 4, 2026-11-16): schematic sync (S0,
+S5, S1–S4, S6), native .PcbDoc reader (S5b, `PcbDocParser`) and the Windows version (desktop
+0.1.0; the GitHub release carries the APK, the MSI and a portable zip). Released at the user's
+request **before the tablet test**: schematic and .PcbDoc work is tested on the JVM only. Next:
+the user's tablet test, then fixes (0.1.x).
 
 Schematic facts learned from the RP2040 sample (`samples/real/RPI_Module/`):
 - Record keys are mixed case (`|RECORD=34|…|Text=C1`): `AltiumRecord` upper-cases keys.

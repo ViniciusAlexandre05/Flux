@@ -17,7 +17,9 @@ More distinct status colours with symbols; stronger selected-part highlight; tap
 "highlight identical"; All / SMD / PTH filter and search in the highlight chip; "Select all"
 in search results.
 
-## v0.1 — Schematic sync (implemented on main, not released)
+## v0.1 — released 2026-11-16 (schematic sync, native .PcbDoc, Windows version)
+
+Released before the tablet test, at the user's request; the open points below still apply.
 
 Tracked in the [v0.1 Schematic sync milestone](https://github.com/ViniciusAlexandre05/Flux/milestone/1).
 
