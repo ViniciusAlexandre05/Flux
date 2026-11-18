@@ -272,6 +272,7 @@ fun SymbolPanel(
             modifier = Modifier.background(MaterialTheme.colorScheme.errorContainer, MaterialTheme.shapes.small).padding(horizontal = 8.dp, vertical = 3.dp),
         )
         Spacer(Modifier.height(10.dp))
+        schematic.duplicateWarning(refDes)?.let { PanelWarning(it); Spacer(Modifier.height(6.dp)) }
         StatusRow(mark, onStatus)
         Spacer(Modifier.height(8.dp)); HorizontalDivider(); Spacer(Modifier.height(8.dp))
         Field("Description", first?.description)

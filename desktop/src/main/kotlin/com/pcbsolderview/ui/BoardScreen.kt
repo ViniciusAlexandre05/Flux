@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.FitScreen
 import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Handyman
+import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ViewInAr
@@ -149,6 +150,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
     BackHandler(enabled = state.showToolsPanel) { vm.toggleToolsPanel() }
     BackHandler(enabled = state.showLayersPanel) { vm.toggleLayersPanel() }
     BackHandler(enabled = state.showSettingsPanel) { vm.toggleSettingsPanel() }
+    BackHandler(enabled = state.showChecklistPanel) { vm.toggleChecklistPanel() }
     BackHandler(enabled = state.selectedRef != null || state.selectedNet != null || state.schNet != null) { vm.clearSelection() }
 
     Column(Modifier.fillMaxSize()) {
@@ -217,15 +219,23 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                         )
                     }
                     state.highlightLabel?.let { label ->
-                        val counts = remember(state.highlightBase, state.highlightQuery, scene) {
+                        // Only the side being viewed is highlighted; the chip says how many wait on the other side.
+                        val onSide = remember(state.highlightBase, state.visibleSide) { state.highlightBase.filter { it.side == state.visibleSide } }
+                        val counts = remember(onSide, state.highlightQuery, scene) {
                             com.pcbsolderview.model.MountFilter.entries.associateWith { f ->
-                                scene.board.filterByMount(state.highlightBase, f).count { it.matchesQuery(state.highlightQuery) }
+                                scene.board.filterByMount(onSide, f).count { it.matchesQuery(state.highlightQuery) }
                             }
+                        }
+                        val otherSide = remember(state.highlightBase, state.visibleSide, state.highlightFilter, state.highlightQuery, scene) {
+                            scene.board.filterByMount(state.highlightBase, state.highlightFilter)
+                                .count { it.side != state.visibleSide && it.matchesQuery(state.highlightQuery) }
                         }
                         HighlightChip(
                             label = label,
                             shown = state.highlighted.size,
-                            total = state.highlightBase.size,
+                            total = onSide.size,
+                            otherSide = otherSide,
+                            otherSideName = if (state.visibleSide == Side.TOP) "bottom" else "top",
                             override = state.highlightOverride,
                             filter = state.highlightFilter,
                             counts = counts,
@@ -268,6 +278,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                             identicalHighlighted = identical.size > 1 && state.highlightKey == vm.identicalKey(identical),
                             onHighlightIdentical = { all -> vm.toggleIdentical(sel, all) },
                             shows = appearance::shows,
+                            warning = state.schematic?.duplicateWarning(sel.refDes),
                         )
                     }
                     net != null -> Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = mod) {
@@ -456,6 +467,7 @@ private fun TopBar(title: String, subtitle: String, state: UiState, vm: BoardVie
                             if (state.mirrored) "Mirrored — click for the normal view" else "Mirror the view left-right",
                             onMirror, checked = state.mirrored, tag = "mirror",
                         )
+                        if (state.scene?.board?.components?.isNotEmpty() == true) BarIcon(Icons.Filled.Checklist, "Soldering checklist", vm::toggleChecklistPanel, checked = state.showChecklistPanel, tag = "checklist.button")
                         BarIcon(Icons.Filled.Layers, "Layers & view", vm::toggleLayersPanel, checked = state.showLayersPanel)
                     }
                     BarIcon(Icons.Filled.Settings, "Settings", vm::toggleSettingsPanel, checked = state.showSettingsPanel, tag = "settings.button")

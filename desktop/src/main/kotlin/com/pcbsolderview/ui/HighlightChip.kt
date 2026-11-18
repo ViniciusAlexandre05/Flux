@@ -51,6 +51,9 @@ fun HighlightChip(
     label: String,
     shown: Int,
     total: Int,
+    /** Parts of the group on the side not being viewed (not highlighted, no status from the chip). */
+    otherSide: Int = 0,
+    otherSideName: String = "bottom",
     override: Boolean,
     filter: MountFilter,
     counts: Map<MountFilter, Int>,
@@ -85,6 +88,7 @@ fun HighlightChip(
                         )
                         val detail = listOfNotNull(
                             if (shown != total) "$shown of $total shown" else null,
+                            if (otherSide > 0) "$otherSide more on the $otherSideName side (Flip)" else null,
                             if (override) "status applies to all" else null,
                         )
                         if (detail.isNotEmpty()) {

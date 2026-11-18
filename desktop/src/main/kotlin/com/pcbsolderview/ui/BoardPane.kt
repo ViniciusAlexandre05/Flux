@@ -169,6 +169,9 @@ fun BoardPane(
             },
             onStylusSeen = vm::onStylusSeen,
             onDoubleTap = { view.fit() },
+            // Ctrl+drag: box selection (also on parts); Ctrl+click: add or remove one part.
+            onBoxStart = if (state.tool == Tool.COMPONENTS) { p -> if (view.transform != null) { marquee = Marquee(p, p); true } else false } else null,
+            onCtrlTap = if (state.tool == Tool.COMPONENTS) { x, y, tol -> vm.componentAt(x, y, tol)?.let(vm::toggleInSelection) } else null,
             hovered = hovered.takeIf { state.tool.isInspect && radial == null && marquee == null },
             onErase = vm::eraseAt,
             onHover = { hover = it },
@@ -319,6 +322,14 @@ fun BoardPane(
                 onOpen = vm::toggleToolsPanel,
                 onDone = vm::endDrawing,
                 modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
+            )
+        }
+        if (state.showChecklistPanel) {
+            ChecklistPanel(
+                scene.board, state.marks, state.highlightKey, vm::groupKey,
+                onGroup = vm::toggleGroup,
+                onClose = vm::toggleChecklistPanel,
+                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).heightIn(max = panelMaxHeight),
             )
         }
         if (state.showLayersPanel) {

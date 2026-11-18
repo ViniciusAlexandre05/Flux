@@ -87,6 +87,8 @@ fun BoardCanvas(
     onStylusSeen: () -> Unit = {},
     /** Desktop: mouse double click (fit). */
     onDoubleTap: (() -> Unit)? = null,
+    onBoxStart: ((Offset) -> Boolean)? = null,
+    onCtrlTap: ((x: Double, y: Double, tolerance: Double) -> Unit)? = null,
     /** S Pen erasing at a board point with a tolerance (µm). */
     onErase: (x: Double, y: Double, toleranceUm: Double) -> Unit = { _, _, _ -> },
     /** S Pen hovering at a screen point, or null when it leaves / touches. */
@@ -160,6 +162,8 @@ fun BoardCanvas(
     gestures.onHover = onHover
     gestures.onStylusSeen = onStylusSeen
     gestures.onDoubleTap = onDoubleTap
+    gestures.onBoxStart = onBoxStart
+    gestures.onCtrlTap = onCtrlTap
     val livePoints = gestures.livePoints
 
     Canvas(

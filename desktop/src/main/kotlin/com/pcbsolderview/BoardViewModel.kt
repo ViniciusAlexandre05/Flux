@@ -24,11 +24,13 @@ import com.pcbsolderview.model.Component
 import com.pcbsolderview.model.Side
 import com.pcbsolderview.model.MountFilter
 import com.pcbsolderview.model.NaturalOrder
+import com.pcbsolderview.model.PartGroup
 import com.pcbsolderview.model.SchNet
 import com.pcbsolderview.model.SchSymbol
 import com.pcbsolderview.model.Schematic
 import com.pcbsolderview.model.SchematicConnectivity
 import com.pcbsolderview.model.filterByMount
+import com.pcbsolderview.model.highlightShown
 import com.pcbsolderview.model.identicalTo
 import com.pcbsolderview.model.matchesQuery
 import com.pcbsolderview.model.search
@@ -162,6 +164,8 @@ data class UiState(
     val display: DisplayOptions = DisplayOptions(),
     val showLayersPanel: Boolean = false,
     val showSettingsPanel: Boolean = false,
+    /** Soldering checklist (parts grouped by kind, with progress). */
+    val showChecklistPanel: Boolean = false,
     /** Floating tool palette visible (toggled by the Tools button). */
     val showToolsPanel: Boolean = true,
     val tool: Tool = Tool.COMPONENTS,
@@ -192,6 +196,9 @@ enum class ViewLayout { BOARD, SPLIT, SCHEMATIC }
  * Desktop port of the Android view model: a plain class owning its scope (Swing main dispatcher),
  * cancelled by [close] when the window closes. Function names match Android for mechanical syncs.
  */
+/** [UiState.highlightKey] of a box / Ctrl+click selection (desktop). */
+private const val SELECTION_KEY = "selection"
+
 class BoardViewModel(
     private val dirs: AppDirs = AppDirs.default(),
     private val viewModelScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
@@ -515,12 +522,16 @@ class BoardViewModel(
         s.copy(
             highlightBase = base, highlightLabel = label, highlightOverride = override, highlightKey = key,
             highlightFilter = MountFilter.ALL, highlightQuery = "", highlighted = base,
-        )
+        ).let(::refilter)
 
-    /** Recomputes the visible highlight from the group, the All/SMD/PTH switch and the search. */
+    /**
+     * Recomputes the visible highlight from the group, the All/SMD/PTH switch and the search.
+     * Only parts on the side being viewed are highlighted (and get a status from the chip): parts
+     * on the other side are hidden under the board, so a batch status must not reach them unseen.
+     */
     private fun refilter(s: UiState): UiState {
         val board = s.scene?.board ?: return s
-        val shown = board.filterByMount(s.highlightBase, s.highlightFilter).filter { it.matchesQuery(s.highlightQuery) }
+        val shown = board.highlightShown(s.highlightBase, s.highlightFilter, s.highlightQuery, s.visibleSide)
         return s.copy(highlighted = shown)
     }
 
@@ -550,6 +561,29 @@ class BoardViewModel(
         }
     }
 
+    /**
+     * Checklist line: highlights the parts of [group], like [toggleIdentical]. A tap ([all] = false)
+     * highlights the parts without a status, a long press all of them; repeating turns it off.
+     */
+    fun toggleGroup(group: PartGroup, all: Boolean = false) = _state.update { s ->
+        val members = group.parts
+        val shown = if (all) members else members.filter { s.marks[it.refDes] == null }
+        val key = groupKey(group)
+        when {
+            s.highlightKey == key && s.highlightOverride == all -> withHighlight(s, emptyList(), null)
+            shown.isEmpty() -> s.copy(message = "All ${members.size} already have a status · hold to highlight all")
+            else -> {
+                val c = group.first
+                val what = listOfNotNull(c.value ?: c.description, c.footprint).joinToString(" · ").ifEmpty { c.refDes }
+                val label = if (all) "all ${shown.size} × $what" else "${shown.size} to do × $what"
+                withHighlight(s.copy(selected = null, selectedNet = null), shown, label, override = all, key = key)
+            }
+        }
+    }
+
+    /** [UiState.highlightKey] of a checklist line. */
+    fun groupKey(group: PartGroup): String = "group:${group.key}"
+
     fun clearHighlight() = _state.update { withHighlight(it, emptyList(), null) }
 
     /** Key of the "identical parts" group of a part (the group is the same for every member). */
@@ -560,15 +594,29 @@ class BoardViewModel(
         if (parts.isEmpty()) it.copy(message = "No parts inside the box")
         else withHighlight(
             it.copy(selected = null, selectedNet = null),
-            parts, "${parts.size} part" + (if (parts.size == 1) "" else "s") + " selected",
+            parts, selectionLabel(parts.size), key = SELECTION_KEY,
         )
     }
+
+    /**
+     * Desktop Ctrl+click: adds [c] to the selection, or removes it when it is already in. A
+     * selection (box or Ctrl+clicks) continues; otherwise a new one starts from the selected part.
+     * The status dots of the highlight chip then apply to every selected part.
+     */
+    fun toggleInSelection(c: Component) = _state.update { s ->
+        val current = if (s.highlightKey == SELECTION_KEY) s.highlightBase else listOfNotNull(s.selected)
+        val next = if (current.any { it.refDes == c.refDes }) current.filterNot { it.refDes == c.refDes } else current + c
+        if (next.isEmpty()) withHighlight(s.copy(selected = null), emptyList(), null)
+        else withHighlight(s.copy(selected = null, selectedNet = null, selectedSymbol = null, schNet = null), next, selectionLabel(next.size), key = SELECTION_KEY)
+    }
+
+    private fun selectionLabel(n: Int) = "$n part" + (if (n == 1) "" else "s") + " selected"
 
     fun dismissMessage() = _state.update { it.copy(message = null) }
 
     // ------------------------------------------------------------------ view & display
 
-    fun flipSide() = _state.update { it.copy(visibleSide = it.visibleSide.opposite) }
+    fun flipSide() = _state.update { refilter(it.copy(visibleSide = it.visibleSide.opposite)) }
 
     /** Mirror the view or not (the view state applies it; a new board starts unmirrored). */
     fun setMirrored(on: Boolean) = _state.update { it.copy(mirrored = on) }
@@ -588,9 +636,11 @@ class BoardViewModel(
     fun resetLayers() = _state.update { s -> s.copy(display = s.display.copy(hiddenLayers = s.scene?.defaultHiddenLayers.orEmpty())) }
 
     // Layers and Settings share the right side: opening one closes the other.
-    fun toggleLayersPanel() = _state.update { it.copy(showLayersPanel = !it.showLayersPanel, showSettingsPanel = false) }
+    fun toggleLayersPanel() = _state.update { it.copy(showLayersPanel = !it.showLayersPanel, showSettingsPanel = false, showChecklistPanel = false) }
 
-    fun toggleSettingsPanel() = _state.update { it.copy(showSettingsPanel = !it.showSettingsPanel, showLayersPanel = false) }
+    fun toggleSettingsPanel() = _state.update { it.copy(showSettingsPanel = !it.showSettingsPanel, showLayersPanel = false, showChecklistPanel = false) }
+
+    fun toggleChecklistPanel() = _state.update { it.copy(showChecklistPanel = !it.showChecklistPanel, showLayersPanel = false, showSettingsPanel = false) }
 
     fun toggleToolsPanel() = _state.update { it.copy(showToolsPanel = !it.showToolsPanel) }
 

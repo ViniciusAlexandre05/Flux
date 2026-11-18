@@ -1,5 +1,6 @@
 package com.pcbsolderview.desktop
 
+import com.pcbsolderview.model.partGroups
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -153,6 +154,14 @@ class ScreenshotTest {
         shot("highlight") { vm.toggleIdentical(part, all = false) }
         shot("pen") { vm.clearHighlight(); vm.clearSelection(); vm.setTool(com.pcbsolderview.Tool.PEN) }
         shot("small", 1100, 700) { vm.setTool(com.pcbsolderview.Tool.COMPONENTS); vm.selectRef(part.refDes) }
+        shot("checklist") {
+            vm.clearSelection(); vm.toggleChecklistPanel()
+            vm.toggleGroup(vm.state.value.scene!!.board.partGroups().first())
+        }
+        shot("ctrl-select") {
+            vm.toggleChecklistPanel(); vm.clearHighlight()
+            s.scene!!.board.components.filter { it.side == com.pcbsolderview.model.Side.TOP }.take(3).forEach(vm::toggleInSelection)
+        }
         vm.close()
     }
 

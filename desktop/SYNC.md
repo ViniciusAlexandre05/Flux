@@ -1,4 +1,4 @@
-Synced with Android: 4a042b5 (0.1 + Review option, independent Mirror, 2026-11-16)
+Synced with Android: 10631c0 (0.1.1: duplicate designators, checklist, PcbDoc silkscreen, side-only highlights, 2026-11-18)
 Desktop version: 0.1.1
 
 # Desktop ↔ Android sync record
@@ -57,8 +57,12 @@ the Android package names kept, so `git diff --no-index` between the two copies 
 - `ui/PdfPane.kt`: PDFBox (`platform/Pdf.kt`) instead of `android.graphics.pdf.PdfRenderer`.
 - `ui/StartScreen.kt`: thumbnails via Skia, `relativeTime()` instead of `DateUtils`.
 
+- `ui/ChecklistPanel.kt`: "Click ... right-click" wording; right-click on a line = highlight all
+  (`onClick` with `PointerMatcher.mouse(Secondary)`), as in the part panel.
+
 ## Not ported (by design)
 
+- "Keep the screen on" (Android setting; a PC screen saver is the user's own setting).
 - S Pen side button (`StylusInput`), haptics (Compose desktop's haptic feedback is a no-op).
 - Android splash/window themes, "Open with"/share intents (the command line and drag and drop
   play that role), edge-to-edge insets.
@@ -84,6 +88,10 @@ the Android package names kept, so `git diff --no-index` between the two copies 
 
 ## PC only by nature (no Android equivalent needed)
 
+- 2026-11-18 Ctrl+drag = box selection (also starting on a part), Ctrl+click = add / remove a part
+  from the selection (`onBoxStart` / `onCtrlTap` in `render/ViewGestures.kt` and `BoardCanvas`, wired
+  in `ui/BoardPane.kt`; `toggleInSelection` and `SELECTION_KEY` in `BoardViewModel`, box selections
+  carry that key so Ctrl+click extends them). Android has box selection by long press.
 - Menu bar, keyboard shortcuts, drag and drop, open a folder, files from the command line,
   mouse gestures (wheel zoom, Shift+drag / Ctrl+wheel rotate, double-click fit, right-click ring).
 - Design review 2026-11-16: hover tooltips (`TooltipArea` in `BarIcon`); "click" instead of "tap"

@@ -63,6 +63,13 @@ class ViewGestureState internal constructor(internal var haptic: HapticFeedback?
     var onStylusSeen: () -> Unit = {}
     /** Desktop: double click with the mouse (fit). Null: off. */
     var onDoubleTap: (() -> Unit)? = null
+    /**
+     * Desktop: Ctrl+drag with the left button starts a box selection at a screen point (return true
+     * to take it; the drag and release then go to [onLongPressDrag] / [onLongPressRelease]). Null: off.
+     */
+    var onBoxStart: ((Offset) -> Boolean)? = null
+    /** Desktop: Ctrl+click (content point, tolerance): add or remove a part from the selection. Null: off. */
+    var onCtrlTap: ((x: Double, y: Double, tolerance: Double) -> Unit)? = null
     internal var lastClick: Pair<Long, Offset>? = null
 
     /** Stroke being drawn (content units); empty when not drawing. Snapshot state: the view redraws. */
@@ -334,6 +341,8 @@ private const val DOUBLE_CLICK_PX = 8f
  * - middle button: pan;
  * - left button: Pen tool draws, Eraser tool erases; Shift+drag rotates (snapping near 90° steps);
  *   otherwise drag pans and a click is a tap. A double click calls [ViewGestureState.onDoubleTap].
+ * - Ctrl + left button: drag = box selection ([ViewGestureState.onBoxStart]), click = add / remove the
+ *   part under the mouse ([ViewGestureState.onCtrlTap]).
  */
 private suspend fun AwaitPointerEventScope.mouseGesture(s: ViewGestureState, down: PointerInputChange, first: PointerEvent, slop: Float) {
     val buttons = first.buttons
@@ -350,6 +359,18 @@ private suspend fun AwaitPointerEventScope.mouseGesture(s: ViewGestureState, dow
             } else trackPress(down, slop) { _, d -> pan(d) }
         }
         buttons.isTertiaryPressed -> trackPress(down, slop) { _, d -> pan(d) }
+        first.keyboardModifiers.isCtrlPressed && s.tool == CanvasTool.NAVIGATE && (s.onBoxStart != null || s.onCtrlTap != null) -> {
+            var boxing = false
+            val (moved, end) = trackPress(down, slop) { ch, _ ->
+                if (!boxing) boxing = s.onBoxStart?.invoke(down.position) == true
+                if (boxing) s.onLongPressDrag(ch.position)
+            }
+            if (boxing) s.onLongPressRelease(end)
+            else if (!moved) s.transform?.let { t ->
+                val (bx, by) = t.toBoard(down.position.x.toDouble(), down.position.y.toDouble())
+                s.onCtrlTap?.invoke(bx, by, MOUSE_SLOP_PX / t.scale)
+            }
+        }
         s.tool == CanvasTool.ERASER -> {
             fun erase(p: Offset) { val t = s.transform ?: return; content(p)?.let { s.onErase(it.first, it.second, STYLUS_ERASE_PX / t.scale) } }
             erase(down.position)
