@@ -34,8 +34,8 @@ portable folder.
   History checked the same day: no `samples/real/` file, keystore, `local.properties` or secret was
   ever committed. What becomes public besides the code: the author email of every commit, and
   names and details of the user's boards in tests and docs (`IEPE_CONDITIONER_V1`,
-  `RP2040-Module`, part descriptions, counts). Switch visibility only after the user confirms
-  (`gh repo edit --visibility public --accept-visibility-change-consequences`).
+  `RP2040-Module`, part descriptions, counts). Done 2026-11-18, with the PolyForm Noncommercial 1.0.0 license (`LICENSE.md`: non-commercial use, credit
+  required through the "Required Notice" line).
 - **D2: keep the debug key**, backed up by the user, used explicitly through `local.properties`.
 - **D3: no automatic check.** The app goes online only when the user taps "Check now" (or opens
   the version list). Drop `autoCheckUpdates` / `lastUpdateCheck` and the start-screen banner;

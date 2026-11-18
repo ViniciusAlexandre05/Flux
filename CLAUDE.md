@@ -19,7 +19,7 @@ Read `docs/ARCHITECTURE.md` before changing anything non-trivial. Implementation
 - Android SDK: `%LOCALAPPDATA%\Android\Sdk` (platform 35, build-tools 35.0.0). `local.properties` points to it (not committed).
 - git: `C:\Program Files\Git\cmd\git.exe` (may not be on PATH in PowerShell; Bash has it).
 - GitHub CLI: `C:\Program Files\GitHub CLI\gh.exe`, signed in as ViniciusAlexandre05.
-  Repo: https://github.com/ViniciusAlexandre05/Flux (private).
+  Repo: https://github.com/ViniciusAlexandre05/Flux (public since 2026-11-18, PolyForm Noncommercial 1.0.0 license, `LICENSE.md`).
 - No emulator or device is attached. You cannot run the app; the user tests on the tablet.
 
 ## Commands
