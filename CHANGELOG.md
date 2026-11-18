@@ -4,6 +4,10 @@ All notable changes to Flux. Dates are in YYYY-MM-DD.
 
 ## Unreleased
 
+## 0.1.1 — 2026-11-18
+
+Android 0.1.1 (versionCode 5) and PC 0.1.1. Like 0.1, released before the tablet test.
+
 - Status symbol badges (✓ ! ? i) on painted parts are now off by default; turn them on with
   **Review** in Layers & view. The status colours show as before.
 - **Mirror** is now its own button next to Flip, always available: it mirrors the view left-right
@@ -24,7 +28,14 @@ All notable changes to Flux. Dates are in YYYY-MM-DD.
   side being viewed, and a status set from the highlight chip only reaches those. The chip says
   how many more are on the other side ("3 more on the bottom side (Flip)"); Flip shows them.
 - **Keep the screen on** while a board is open (Settings › Touch & S Pen, on by default).
-- PC version 0.1.1 (unreleased): same Review option and Mirror behaviour as Android.
+- Boards opened from a native .PcbDoc now show their silkscreen text (designators and other
+  overlay text) in the CAD and realistic views, at Altium's positions and sizes. Hidden texts stay
+  hidden (values whose "Comment" is off, assembly-drawing templates).
+- PC: everything above except "Keep the screen on", plus the same Review option and Mirror
+  behaviour as Android. In the checklist, click a line for the parts still to do, right-click for
+  all of them.
+- PC: **Ctrl+drag** draws a selection box (also when it starts on a part) and **Ctrl+click** adds
+  or removes a part from the selection; the highlight chip then sets a status on all of them.
 - PC design review: tooltips on mouse hover, "click" wording, Settings › Mouse & pen (Rotation;
   the S Pen option is hidden), search results under the field, search on its own row in narrow
   windows, right-click to highlight all identical parts, View menu toggles for Tools, Layers & view

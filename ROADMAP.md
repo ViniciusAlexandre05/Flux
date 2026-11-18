@@ -111,7 +111,12 @@ parts in the schematic that are not placed on the board.
 - `docs/PLAN-desktop.md`: Windows version (Compose Multiplatform desktop executable), synced
   with Android only on request. D1–D5 done 2026-11-16 (desktop 0.1.0, unreleased); next: user test on PC.
 
-## 0.1.x — in progress (Android, 2026-11-17)
+## 0.1.1 — released 2026-11-18 (Android and PC)
+
+The three follow-ups below, highlights limited to the side being viewed, and the PC synced with
+Android plus Ctrl+drag / Ctrl+click selection. Released before the tablet test.
+
+## 0.1.x (Android, 2026-11-17)
 
 Follow-ups from `docs/PLAN-android-next.md` Phase C, in order:
 - Duplicate designators in a schematic: notice on open, warning in the part panel. Done.
