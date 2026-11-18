@@ -51,11 +51,13 @@ object FileDialogs {
               Ctrl + wheel              rotate 90°
               Left drag                 pan (draws with the Pen tool, erases with the Eraser)
               Shift + left drag         rotate (locks near 0/90/180/270°)
+                                        (Settings › Rotation turns rotating off)
               Middle or right drag      pan
               Click                     select a part or net
               Double click              fit to window
               Right click on a part     status ring (OK / Problem / Check / Info)
               Right drag on empty board box selection
+              Right click "Highlight…"   (part panel) highlight all identical parts
 
             Keys
               Ctrl+O / Ctrl+Shift+O     open files / open a folder

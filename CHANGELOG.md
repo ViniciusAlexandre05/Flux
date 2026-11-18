@@ -12,6 +12,10 @@ All notable changes to Flux. Dates are in YYYY-MM-DD.
   "BOTTOM VIEW (mirrored)" label). To see the bottom as if the board were turned over, use Flip
   and Mirror.
 - PC version 0.1.1 (unreleased): same Review option and Mirror behaviour as Android.
+- PC design review: tooltips on mouse hover, "click" wording, Settings › Mouse & pen (Rotation;
+  the S Pen option is hidden), search results under the field, search on its own row in narrow
+  windows, right-click to highlight all identical parts, View menu toggles for Tools, Layers & view
+  and Settings.
 
 ## 0.1 — 2026-11-16
 

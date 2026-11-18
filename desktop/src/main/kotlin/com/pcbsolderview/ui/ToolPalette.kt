@@ -223,7 +223,7 @@ fun ToolOptions(
                 IconButton(onClick = onClose, modifier = Modifier.size(40.dp)) { Icon(Icons.Filled.Close, contentDescription = "Close options") }
             }
             if (tool == Tool.PAINT) {
-                Text("Tap a part to fill it. Tap it again with the same colour to remove.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Click a part to fill it. Click it again with the same colour to remove.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
                 Status.entries.forEach { s -> OptionRow(s.label, Color(s.argb), paintStatus == s) { onPaintStatus(s) } }
                 OptionRow("Remove status", null, paintStatus == null) { onPaintStatus(null) }
@@ -248,7 +248,7 @@ fun ToolOptions(
                     }
                 }
                 Spacer(Modifier.height(8.dp))
-                Text("Draw with a finger or the S Pen. Hold the S Pen button to erase.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Draw with the left mouse button or a pen. The middle button or the wheel moves the view.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

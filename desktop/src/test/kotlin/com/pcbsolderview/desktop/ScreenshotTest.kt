@@ -134,6 +134,28 @@ class ScreenshotTest {
         }
     }
 
+    /** Every panel and menu of the board screen, rendered for design review (ui-panel-*.png). */
+    @Test
+    fun panelsForDesignReview() {
+        val vm = DesktopTestSupport.vm()
+        DesktopTestSupport.onVm { vm.openDemo("ipc-mini") }
+        val s = vm.awaitBoard()
+        val part = s.scene!!.board.components.first()
+        fun shot(name: String, w: Int = 1600, h: Int = 1000, setup: () -> Unit) {
+            DesktopTestSupport.onVm(setup)
+            Thread.sleep(150)
+            render("panel-$name", vm, w, h, frames = 25)
+        }
+        shot("layers") { vm.toggleLayersPanel() }
+        shot("settings") { vm.toggleSettingsPanel() }
+        shot("search") { vm.toggleSettingsPanel(); vm.search("C") }
+        shot("details") { vm.clearSearch(); vm.selectRef(part.refDes) }
+        shot("highlight") { vm.toggleIdentical(part, all = false) }
+        shot("pen") { vm.clearHighlight(); vm.clearSelection(); vm.setTool(com.pcbsolderview.Tool.PEN) }
+        shot("small", 1100, 700) { vm.setTool(com.pcbsolderview.Tool.COMPONENTS); vm.selectRef(part.refDes) }
+        vm.close()
+    }
+
     /** Flip changes the side only; Mirror mirrors either side and shows a label. */
     @Test
     fun bottomViewMirrorToggle() {

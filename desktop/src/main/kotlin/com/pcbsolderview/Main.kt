@@ -188,8 +188,10 @@ private fun FrameWindowScope.FluxMenuBar(vm: BoardViewModel, state: UiState, ope
                 onCheckedChange = { on -> vm.setDisplay(state.display.copy(viewMode = if (on) ViewMode.REALISTIC else ViewMode.CAD)) },
             )
             Separator()
-            Item("Layers…", enabled = hasBoard, onClick = vm::toggleLayersPanel)
-            Item("Settings…", onClick = vm::toggleSettingsPanel)
+            CheckboxItem("Tools", checked = state.showToolsPanel, enabled = hasBoard, onCheckedChange = { vm.toggleToolsPanel() })
+            CheckboxItem("Layers & view", checked = state.showLayersPanel, enabled = hasBoard, onCheckedChange = { vm.toggleLayersPanel() })
+            // On the start screen the gear button opens settings; this panel exists only with a board open.
+            CheckboxItem("Settings", checked = state.showSettingsPanel, enabled = hasBoard, onCheckedChange = { vm.toggleSettingsPanel() })
         }
         Menu("Help", mnemonic = 'H') {
             Item("Mouse and keys", onClick = { FileDialogs.showHelp(window) })

@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.onClick
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.heightIn
@@ -146,7 +147,7 @@ fun DetailsPanel(
         if (pads.isEmpty()) {
             Text(DASH, modifier = Modifier.padding(vertical = 4.dp))
         } else {
-            Text("Tap a pin to highlight its net", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Click a pin to highlight its net", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             pads.forEach { p ->
                 Row(
                     Modifier.fillMaxWidth().heightIn(min = 40.dp)
@@ -177,7 +178,7 @@ private fun IdenticalButton(total: Int, todo: Int, highlighted: Boolean, onHighl
         todo == 0 -> "All $total already have a status"
         else -> "Highlight $todo without status"
     }
-    val subtitle = if (enabled && !highlighted) "Hold to highlight all $total and set a status on every one" else null
+    val subtitle = if (enabled && !highlighted) "Right-click (or hold) to highlight all $total and set a status on every one" else null
     val bg = if (highlighted) MaterialTheme.colorScheme.primary else Color.Transparent
     val fg = when {
         !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
@@ -188,6 +189,8 @@ private fun IdenticalButton(total: Int, todo: Int, highlighted: Boolean, onHighl
         Modifier.fillMaxWidth().heightIn(min = 56.dp)
             .background(bg, RoundedCornerShape(28.dp))
             .border(1.dp, if (highlighted) Color.Transparent else MaterialTheme.colorScheme.outline, RoundedCornerShape(28.dp))
+            // Desktop: right-click = "all" (the long press of the tablet also works with the mouse).
+            .onClick(enabled = enabled, matcher = androidx.compose.foundation.PointerMatcher.mouse(androidx.compose.ui.input.pointer.PointerButton.Secondary)) { onHighlight(true) }
             .combinedClickable(
                 enabled = enabled,
                 onClick = { onHighlight(false) },

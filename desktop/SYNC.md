@@ -77,11 +77,18 @@ the Android package names kept, so `git diff --no-index` between the two copies 
   (`anchorNextResize` in `BoardViewState` / `SchematicViewState`, set in `BoardScreen`).
 - 2026-11-16 Parts as big as the board (a module footprint) are not selected by clicking empty
   board, only through their pads (`BoardPicker.boardSized`).
+- 2026-11-16 Search results open right under the search field instead of in the middle of the
+  board area (`searchFieldLeft` in `BoardScreen`).
 
 ## PC only by nature (no Android equivalent needed)
 
 - Menu bar, keyboard shortcuts, drag and drop, open a folder, files from the command line,
   mouse gestures (wheel zoom, Shift+drag / Ctrl+wheel rotate, double-click fit, right-click ring).
+- Design review 2026-11-16: hover tooltips (`TooltipArea` in `BarIcon`); "click" instead of "tap"
+  in tooltips and hints; Settings › "Mouse & pen" with one Rotation switch (also gates
+  Ctrl+wheel; "Only the S Pen draws" hidden); search field on its own row below 1240 dp (more
+  buttons than Android); right-click = "highlight all" in the part panel; View menu checkboxes
+  for Tools, Layers & view and Settings (Settings disabled on the start screen).
 
 ## Ported from PC to Android
 

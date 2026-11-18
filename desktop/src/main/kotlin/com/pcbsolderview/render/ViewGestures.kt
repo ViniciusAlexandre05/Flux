@@ -269,7 +269,7 @@ fun Modifier.viewGestures(s: ViewGestureState): Modifier = this
                 val dy = ch.scrollDelta.y
                 if (dy == 0f) continue
                 val p = ch.position
-                val next = if (e.keyboardModifiers.isCtrlPressed) {
+                val next = if (e.keyboardModifiers.isCtrlPressed && s.rotation) {
                     val target = (Math.round(t.rotationDeg / 90.0) * 90.0 + if (dy > 0) 90.0 else -90.0)
                     t.rotateBy(ViewTransform.angleDelta(t.rotationDeg, ViewTransform.normalize(target)), p.x.toDouble(), p.y.toDouble())
                 } else {

@@ -76,6 +76,9 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -202,7 +205,10 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                     }
                     // Screen-wide overlays, above the pane(s).
                     if (state.results.isNotEmpty()) {
-                        SearchResults(state.results, vm::pickResult, vm::selectAllResults, Modifier.align(Alignment.TopCenter).padding(8.dp))
+                        SearchResults(
+                            state.results, vm::pickResult, vm::selectAllResults,
+                            Modifier.align(Alignment.TopStart).offset { androidx.compose.ui.unit.IntOffset(searchFieldLeft.floatValue.toInt(), 0) }.padding(8.dp),
+                        )
                     }
                     if (state.showSettingsPanel) {
                         SettingsPanel(
@@ -316,10 +322,18 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BarIcon(icon: ImageVector, label: String, onClick: () -> Unit, checked: Boolean = false, tag: String? = null) {
-    TooltipBox(
-        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-        tooltip = { PlainTooltip { Text(label) } },
-        state = rememberTooltipState(),
+    // Desktop: the tooltip appears when the mouse rests on the button (Android: long-press).
+    @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+    androidx.compose.foundation.TooltipArea(
+        tooltip = {
+            Surface(color = MaterialTheme.colorScheme.inverseSurface, shape = MaterialTheme.shapes.small, shadowElevation = 4.dp) {
+                Text(label, color = MaterialTheme.colorScheme.inverseOnSurface, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+            }
+        },
+        delayMillis = 400,
+        tooltipPlacement = androidx.compose.foundation.TooltipPlacement.ComponentRect(
+            anchor = Alignment.BottomCenter, alignment = Alignment.BottomCenter, offset = androidx.compose.ui.unit.DpOffset(0.dp, 4.dp),
+        ),
     ) {
         val mod = Modifier.size(52.dp).then(if (tag != null) Modifier.testTag(tag) else Modifier)
         if (checked) FilledIconButton(onClick = onClick, modifier = mod) { Icon(icon, contentDescription = label, modifier = Modifier.size(26.dp)) }
@@ -391,7 +405,11 @@ private fun BarDivider() {
 }
 
 /** Below this width the search field moves to its own row (portrait tablet, phones). */
-private val SEARCH_INLINE_MIN_WIDTH = 1040.dp
+// Desktop: the bar has more buttons (Mirror), so the field gets its own row sooner than on Android.
+private val SEARCH_INLINE_MIN_WIDTH = 1240.dp
+
+/** Desktop: left edge of the search field in the window, so the results open right under it. */
+private val searchFieldLeft = androidx.compose.runtime.mutableFloatStateOf(0f)
 
 @Composable
 private fun TopBar(title: String, subtitle: String, state: UiState, vm: BoardViewModel, onFit: () -> Unit, onFlip: () -> Unit, onMirror: () -> Unit) {
@@ -423,13 +441,13 @@ private fun TopBar(title: String, subtitle: String, state: UiState, vm: BoardVie
                         val realistic = state.display.viewMode == ViewMode.REALISTIC
                         BarIcon(
                             Icons.Filled.ViewInAr,
-                            if (realistic) "Realistic view — tap for CAD layers" else "CAD layers — tap for realistic view",
+                            if (realistic) "Realistic view — click for CAD layers" else "CAD layers — click for realistic view",
                             { vm.setDisplay(state.display.copy(viewMode = if (realistic) ViewMode.CAD else ViewMode.REALISTIC)) },
                             checked = realistic, tag = "viewmode.button",
                         )
                         BarIcon(
                             Icons.Filled.Flip,
-                            if (state.visibleSide == Side.TOP) "Showing top — tap for bottom view" else "Showing bottom — tap for top view",
+                            if (state.visibleSide == Side.TOP) "Showing top — click for bottom view" else "Showing bottom — click for top view",
                             onFlip, checked = state.visibleSide == Side.BOTTOM, tag = "flip",
                         )
                         // Mirror is independent of the side: either side can be shown mirrored or not.
@@ -474,7 +492,8 @@ private fun SearchField(state: UiState, vm: BoardViewModel, modifier: Modifier) 
         },
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { vm.pickResult(null); focus.clearFocus() }),
-        modifier = modifier.heightIn(max = 64.dp).focusRequester(requester).testTag("search"),
+        modifier = modifier.heightIn(max = 64.dp).focusRequester(requester)
+            .onGloballyPositioned { searchFieldLeft.floatValue = it.positionInWindow().x }.testTag("search"),
     )
 }
 

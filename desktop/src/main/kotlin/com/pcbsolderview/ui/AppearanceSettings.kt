@@ -161,12 +161,10 @@ fun SettingsContent(a: Appearance, onChange: (Appearance) -> Unit, modifier: Mod
             }
         }
         Spacer(Modifier.height(12.dp)); HorizontalDivider()
-        SectionTitle("Touch & S Pen")
-        ToggleRow("Two-finger rotation", a.rotationGesture, "Twist with two fingers to rotate; locks near 0°, 90°, 180° and 270°.") {
+        // Desktop: mouse wording; "Only the S Pen draws" does not apply to a mouse and is not shown.
+        SectionTitle("Mouse & pen")
+        ToggleRow("Rotation", a.rotationGesture, "Shift+drag and Ctrl+wheel rotate the board (also a two-finger twist on a touch screen); locks near 0°, 90°, 180° and 270°.") {
             onChange(a.copy(rotationGesture = it))
-        }
-        ToggleRow("Only the S Pen draws", a.penOnlyDrawing, "Fingers always move the board, even with the Pen tool.") {
-            onChange(a.copy(penOnlyDrawing = it))
         }
         Spacer(Modifier.height(8.dp)); HorizontalDivider()
         SectionTitle("Schematic")
