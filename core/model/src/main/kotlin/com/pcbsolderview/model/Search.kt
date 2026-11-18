@@ -95,6 +95,14 @@ fun Board.filterByMount(parts: List<Component>, filter: MountFilter): List<Compo
 }
 
 /**
+ * The parts of a highlight group that are shown and get a status from the chip: the All / SMD / PTH
+ * switch, the chip's search, and only the [side] being viewed (parts on the other side are under
+ * the board, so a batch status must never reach them unseen).
+ */
+fun Board.highlightShown(group: List<Component>, filter: MountFilter, query: String, side: Side): List<Component> =
+    filterByMount(group, filter).filter { it.side == side && it.matchesQuery(query) }
+
+/**
  * "Custom" search inside a group: true when every word of [query] appears in the designator,
  * value, description, footprint, part number or manufacturer (case and spaces ignored).
  * "R1" matches R1 and R10; "100n 0402" matches 100 nF capacitors in 0402.

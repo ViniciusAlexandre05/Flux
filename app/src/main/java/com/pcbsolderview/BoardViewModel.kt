@@ -28,6 +28,7 @@ import com.pcbsolderview.model.SchSymbol
 import com.pcbsolderview.model.Schematic
 import com.pcbsolderview.model.SchematicConnectivity
 import com.pcbsolderview.model.filterByMount
+import com.pcbsolderview.model.highlightShown
 import com.pcbsolderview.model.identicalTo
 import com.pcbsolderview.model.matchesQuery
 import com.pcbsolderview.model.search
@@ -506,12 +507,16 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
         s.copy(
             highlightBase = base, highlightLabel = label, highlightOverride = override, highlightKey = key,
             highlightFilter = MountFilter.ALL, highlightQuery = "", highlighted = base,
-        )
+        ).let(::refilter)
 
-    /** Recomputes the visible highlight from the group, the All/SMD/PTH switch and the search. */
+    /**
+     * Recomputes the visible highlight from the group, the All/SMD/PTH switch and the search.
+     * Only parts on the side being viewed are highlighted (and get a status from the chip): parts
+     * on the other side are hidden under the board, so a batch status must not reach them unseen.
+     */
     private fun refilter(s: UiState): UiState {
         val board = s.scene?.board ?: return s
-        val shown = board.filterByMount(s.highlightBase, s.highlightFilter).filter { it.matchesQuery(s.highlightQuery) }
+        val shown = board.highlightShown(s.highlightBase, s.highlightFilter, s.highlightQuery, s.visibleSide)
         return s.copy(highlighted = shown)
     }
 
@@ -582,7 +587,7 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
 
     // ------------------------------------------------------------------ view & display
 
-    fun flipSide() = _state.update { it.copy(visibleSide = it.visibleSide.opposite) }
+    fun flipSide() = _state.update { refilter(it.copy(visibleSide = it.visibleSide.opposite)) }
 
     /** Mirror the view or not (the view state applies it; a new board starts unmirrored). */
     fun setMirrored(on: Boolean) = _state.update { it.copy(mirrored = on) }

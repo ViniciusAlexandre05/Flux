@@ -20,6 +20,9 @@ All notable changes to Flux. Dates are in YYYY-MM-DD.
   count, designators and OK progress (problems in red). All / SMD / PTH filter and "Hide
   finished". Tap a line to highlight the parts still to do, hold to highlight all of them; the
   highlight chip then sets a status on the whole group.
+- Highlights (identical parts, search results, checklist lines) now show only the parts on the
+  side being viewed, and a status set from the highlight chip only reaches those. The chip says
+  how many more are on the other side ("3 more on the bottom side (Flip)"); Flip shows them.
 - **Keep the screen on** while a board is open (Settings › Touch & S Pen, on by default).
 - PC version 0.1.1 (unreleased): same Review option and Mirror behaviour as Android.
 - PC design review: tooltips on mouse hover, "click" wording, Settings › Mouse & pen (Rotation;

@@ -207,15 +207,23 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                         )
                     }
                     state.highlightLabel?.let { label ->
-                        val counts = remember(state.highlightBase, state.highlightQuery, scene) {
+                        // Only the side being viewed is highlighted; the chip says how many wait on the other side.
+                        val onSide = remember(state.highlightBase, state.visibleSide) { state.highlightBase.filter { it.side == state.visibleSide } }
+                        val counts = remember(onSide, state.highlightQuery, scene) {
                             com.pcbsolderview.model.MountFilter.entries.associateWith { f ->
-                                scene.board.filterByMount(state.highlightBase, f).count { it.matchesQuery(state.highlightQuery) }
+                                scene.board.filterByMount(onSide, f).count { it.matchesQuery(state.highlightQuery) }
                             }
+                        }
+                        val otherSide = remember(state.highlightBase, state.visibleSide, state.highlightFilter, state.highlightQuery, scene) {
+                            scene.board.filterByMount(state.highlightBase, state.highlightFilter)
+                                .count { it.side != state.visibleSide && it.matchesQuery(state.highlightQuery) }
                         }
                         HighlightChip(
                             label = label,
                             shown = state.highlighted.size,
-                            total = state.highlightBase.size,
+                            total = onSide.size,
+                            otherSide = otherSide,
+                            otherSideName = if (state.visibleSide == Side.TOP) "bottom" else "top",
                             override = state.highlightOverride,
                             filter = state.highlightFilter,
                             counts = counts,

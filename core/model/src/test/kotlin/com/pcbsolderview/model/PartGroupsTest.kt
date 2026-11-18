@@ -36,6 +36,17 @@ class PartGroupsTest {
     }
 
     @Test
+    fun highlightShowsOnlyTheViewedSide() {
+        val top = comp("R1", "1k"); val top2 = comp("R2", "1k")
+        val bottom = comp("R3", "1k").copy(side = Side.BOTTOM)
+        val b = board(top, top2, bottom)
+        val group = listOf(top, top2, bottom)
+        assertEquals(listOf("R1", "R2"), b.highlightShown(group, MountFilter.ALL, "", Side.TOP).map { it.refDes })
+        assertEquals(listOf("R3"), b.highlightShown(group, MountFilter.ALL, "", Side.BOTTOM).map { it.refDes })
+        assertEquals(listOf("R2"), b.highlightShown(group, MountFilter.SMD, "R2", Side.TOP).map { it.refDes })
+    }
+
+    @Test
     fun smdFirstThenThroughHoleThenNoPadsBiggestFirst() {
         val b = board(
             comp("J1", "HDR", fp = "HDR2", th = true),
