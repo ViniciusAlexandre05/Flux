@@ -69,6 +69,8 @@ the Android package names kept, so `git diff --no-index` between the two copies 
      change that Android could also have (date, what it does, where it lives); remove it when it
      is ported to Android or the user decides Android should not have it. -->
 
+## PC only by the user's decision (2026-11-17: "those changes can be only for the pc version")
+
 - 2026-11-16 Hover highlight: the part under the mouse is outlined, with its name and value
   (`BoardCanvas` `hovered`, `BoardPane`). Android equivalent: S Pen hover.
 - 2026-11-16 Short, thin selection pulse: 250 ms and a 6–11 px glow (Android: 900 ms, 10–28 px)

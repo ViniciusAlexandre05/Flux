@@ -306,6 +306,14 @@ fun BoardPane(
                 modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
             )
         }
+        if (state.showChecklistPanel) {
+            ChecklistPanel(
+                scene.board, state.marks, state.highlightKey, vm::groupKey,
+                onGroup = vm::toggleGroup,
+                onClose = vm::toggleChecklistPanel,
+                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).heightIn(max = panelMaxHeight),
+            )
+        }
         if (state.showLayersPanel) {
             LayersPanel(
                 scene, state.display, vm::setDisplay, vm::toggleLayer,

@@ -22,6 +22,7 @@ import com.pcbsolderview.model.Component
 import com.pcbsolderview.model.Side
 import com.pcbsolderview.model.MountFilter
 import com.pcbsolderview.model.NaturalOrder
+import com.pcbsolderview.model.PartGroup
 import com.pcbsolderview.model.SchNet
 import com.pcbsolderview.model.SchSymbol
 import com.pcbsolderview.model.Schematic
@@ -160,6 +161,8 @@ data class UiState(
     val display: DisplayOptions = DisplayOptions(),
     val showLayersPanel: Boolean = false,
     val showSettingsPanel: Boolean = false,
+    /** Soldering checklist (parts grouped by kind, with progress). */
+    val showChecklistPanel: Boolean = false,
     /** Floating tool palette visible (toggled by the Tools button). */
     val showToolsPanel: Boolean = true,
     val tool: Tool = Tool.COMPONENTS,
@@ -538,6 +541,29 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Checklist line: highlights the parts of [group], like [toggleIdentical]. A tap ([all] = false)
+     * highlights the parts without a status, a long press all of them; repeating turns it off.
+     */
+    fun toggleGroup(group: PartGroup, all: Boolean = false) = _state.update { s ->
+        val members = group.parts
+        val shown = if (all) members else members.filter { s.marks[it.refDes] == null }
+        val key = groupKey(group)
+        when {
+            s.highlightKey == key && s.highlightOverride == all -> withHighlight(s, emptyList(), null)
+            shown.isEmpty() -> s.copy(message = "All ${members.size} already have a status · hold to highlight all")
+            else -> {
+                val c = group.first
+                val what = listOfNotNull(c.value ?: c.description, c.footprint).joinToString(" · ").ifEmpty { c.refDes }
+                val label = if (all) "all ${shown.size} × $what" else "${shown.size} to do × $what"
+                withHighlight(s.copy(selected = null, selectedNet = null), shown, label, override = all, key = key)
+            }
+        }
+    }
+
+    /** [UiState.highlightKey] of a checklist line. */
+    fun groupKey(group: PartGroup): String = "group:${group.key}"
+
     fun clearHighlight() = _state.update { withHighlight(it, emptyList(), null) }
 
     /** Key of the "identical parts" group of a part (the group is the same for every member). */
@@ -576,9 +602,11 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
     fun resetLayers() = _state.update { s -> s.copy(display = s.display.copy(hiddenLayers = s.scene?.defaultHiddenLayers.orEmpty())) }
 
     // Layers and Settings share the right side: opening one closes the other.
-    fun toggleLayersPanel() = _state.update { it.copy(showLayersPanel = !it.showLayersPanel, showSettingsPanel = false) }
+    fun toggleLayersPanel() = _state.update { it.copy(showLayersPanel = !it.showLayersPanel, showSettingsPanel = false, showChecklistPanel = false) }
 
-    fun toggleSettingsPanel() = _state.update { it.copy(showSettingsPanel = !it.showSettingsPanel, showLayersPanel = false) }
+    fun toggleSettingsPanel() = _state.update { it.copy(showSettingsPanel = !it.showSettingsPanel, showLayersPanel = false, showChecklistPanel = false) }
+
+    fun toggleChecklistPanel() = _state.update { it.copy(showChecklistPanel = !it.showChecklistPanel, showLayersPanel = false, showSettingsPanel = false) }
 
     fun toggleToolsPanel() = _state.update { it.copy(showToolsPanel = !it.showToolsPanel) }
 

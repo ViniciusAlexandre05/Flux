@@ -11,6 +11,16 @@ All notable changes to Flux. Dates are in YYYY-MM-DD.
   it no longer mirrors. A "MIRRORED" label shows while the view is mirrored (it replaces the old
   "BOTTOM VIEW (mirrored)" label). To see the bottom as if the board were turned over, use Flip
   and Mirror.
+- Duplicate designators in a schematic (two different parts both called `RP2040`, or one part
+  placed twice) are reported once when the files are opened, and the part panel shows a warning
+  on those parts (their pins and nets may be mixed up until the annotation is fixed in Altium).
+  The parts of one multi-part part (U1A, U1B) are not reported.
+- **Soldering checklist** (checklist button in the top bar): the board's parts grouped by kind
+  (part number, or value + footprint), SMD first and the biggest groups first, each line with its
+  count, designators and OK progress (problems in red). All / SMD / PTH filter and "Hide
+  finished". Tap a line to highlight the parts still to do, hold to highlight all of them; the
+  highlight chip then sets a status on the whole group.
+- **Keep the screen on** while a board is open (Settings › Touch & S Pen, on by default).
 - PC version 0.1.1 (unreleased): same Review option and Mirror behaviour as Android.
 - PC design review: tooltips on mouse hover, "click" wording, Settings › Mouse & pen (Rotation;
   the S Pen option is hidden), search results under the field, search on its own row in narrow

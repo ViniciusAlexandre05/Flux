@@ -58,6 +58,8 @@ data class Appearance(
     val hiddenDetails: Set<DetailField> = setOf(DetailField.LIBRARY),
     /** Selecting on the board pans the schematic to the part (and the other way round). */
     val followSelection: Boolean = true,
+    /** Keep the screen on while a board is open (bench work with dirty hands). */
+    val keepScreenOn: Boolean = true,
 ) {
     fun shows(f: DetailField) = f !in hiddenDetails
 
@@ -98,6 +100,7 @@ class AppearancePrefs(private val context: Context) {
     private val kGridStep = longPreferencesKey("grid_step_um")
     private val kHiddenDetails = stringPreferencesKey("hidden_details")
     private val kFollow = booleanPreferencesKey("follow_selection")
+    private val kKeepOn = booleanPreferencesKey("keep_screen_on")
 
     companion object {
         private const val SYNC = "appearance_sync"
@@ -123,6 +126,7 @@ class AppearancePrefs(private val context: Context) {
                 gridStepUm = p.getLong("grid_step_um", d.gridStepUm),
                 hiddenDetails = Appearance.decodeFields(p.getString("hidden_details", null)) ?: d.hiddenDetails,
                 followSelection = p.getBoolean("follow_selection", d.followSelection),
+                keepScreenOn = p.getBoolean("keep_screen_on", d.keepScreenOn),
             )
         }
 
@@ -134,6 +138,7 @@ class AppearancePrefs(private val context: Context) {
                 .putBoolean("grid_auto", a.gridAuto).putString("grid_unit", a.gridUnit.name).putLong("grid_step_um", a.gridStepUm)
                 .putString("hidden_details", Appearance.encodeFields(a.hiddenDetails))
                 .putBoolean("follow_selection", a.followSelection)
+                .putBoolean("keep_screen_on", a.keepScreenOn)
                 .apply()
         }
     }
@@ -153,6 +158,7 @@ class AppearancePrefs(private val context: Context) {
             gridStepUm = p[kGridStep] ?: d.gridStepUm,
             hiddenDetails = Appearance.decodeFields(p[kHiddenDetails]) ?: d.hiddenDetails,
             followSelection = p[kFollow] ?: d.followSelection,
+            keepScreenOn = p[kKeepOn] ?: d.keepScreenOn,
         )
     }
 
@@ -171,6 +177,7 @@ class AppearancePrefs(private val context: Context) {
             p[kGridStep] = a.gridStepUm
             p[kHiddenDetails] = Appearance.encodeFields(a.hiddenDetails)
             p[kFollow] = a.followSelection
+            p[kKeepOn] = a.keepScreenOn
         }
     }
 }

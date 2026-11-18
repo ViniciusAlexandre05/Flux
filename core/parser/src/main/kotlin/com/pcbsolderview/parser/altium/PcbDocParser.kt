@@ -14,6 +14,8 @@ import com.pcbsolderview.model.Polygon
 import com.pcbsolderview.model.Rect
 import com.pcbsolderview.model.Side
 import com.pcbsolderview.model.SourceFormat
+import com.pcbsolderview.model.StrokeFont
+import com.pcbsolderview.model.BoardText
 import com.pcbsolderview.model.Track
 import com.pcbsolderview.model.Units
 import com.pcbsolderview.model.Via
@@ -41,7 +43,7 @@ import kotlin.math.sin
  * | 2 pad | Pads6 | 5 or 6 | (1) name: u8 len + text; (5) x, y, size top/mid/bottom x, y, hole (i32), shape top/mid/bottom (u8: 1 round, 2 rect, 3 octagon), rotation (f64), plated (u8); (6) per-layer: alt shape at 532 + i (9 = rounded rect), corner radius % at 564 + i (i = 0 top … 31 bottom) |
  * | 3 via | Vias6 | 1 | x, y, diameter, hole (i32), start layer, end layer (u8) |
  * | 4 track | Tracks6 | 1 | start x, y, end x, y, width (i32) |
- * | 5 text | Texts6 | 2 | byte 40 comment flag, 41 designator flag; sub-record 2 = u8 length + text (component designator and comment = value) |
+ * | 5 text | Texts6 | 2 | x, y, height (i32), font (u16), rotation (f64), mirrored (u8), stroke width (i32); byte 40 comment flag, 41 designator flag; sub-record 2 = u8 length + text. Drawn with [StrokeFont] as tracks; a component's designator / comment only when NAMEON / COMMENTON; `.Designator`-style templates are skipped |
  * | 6 fill | Fills6 | 1 | x1, y1, x2, y2 (i32), rotation (f64) — unverified (no sample has fills) |
  * | 11 region | Regions6 | 1 | u8, u16 hole count, u16, u32 len + properties (KIND, V7_LAYER), u32 n + n × (f64 x, f64 y), then per hole u32 n + points |
  * | 12 body | ComponentBodies6 | 1 | same as a region; properties carry OVERALLHEIGHT |
@@ -161,6 +163,11 @@ object PcbDocParser {
 
     private class Body(val component: Int, val outline: List<Point>, val heightUm: Long?)
 
+    private class RawText(
+        val layer: Int, val component: Int, val isComment: Boolean, val isDesignator: Boolean,
+        val x: Long, val y: Long, val height: Long, val rotation: Double, val mirrored: Boolean, val stroke: Long, val text: String,
+    )
+
     private class Builder(
         val fileName: String,
         val boardRec: AltiumRecord,
@@ -178,6 +185,7 @@ object PcbDocParser {
         /** Component index → its designator and comment texts (the silkscreen strings). */
         val designatorText = HashMap<Int, String>()
         val commentText = HashMap<Int, String>()
+        val texts = ArrayList<RawText>()
         val holes = LinkedHashMap<Triple<Long, Long, Long>, Hole>()
 
         fun net(i: Int): String? = if (i == NONE) null else netNames.getOrNull(i)
@@ -223,22 +231,53 @@ object PcbDocParser {
         }
 
         /**
-         * Texts: only the designator and comment of each component are used (byte 40 of the first
-         * sub-record = comment, byte 41 = designator; the string is sub-record 2, u8 length + text).
-         * Special strings such as ".Designator" are templates, not values.
+         * Texts (verified on the RP2040 file): after the header x, y, height (i32), font (u16),
+         * rotation (f64), mirrored (u8), stroke width (i32); byte 40 of the first sub-record =
+         * comment flag, byte 41 = designator flag; the string is sub-record 2, u8 length + text.
+         * Special strings such as ".Designator" are templates (assembly drawings), not values.
+         * A component's designator and comment also name it and give its value.
          */
         fun text(parts: List<BinaryReader>) {
             val s = parts[0]
             val h = s.header()
-            if (h.component == NONE || s.remaining < 42 - 13) return
-            s.skip(40 - 13)
+            if (h.keepout || s.remaining < 42 - 13) return
+            val x = um(s.i32()); val y = um(s.i32()); val height = um(s.i32())
+            s.u16() // font: 0/1 stroke, 2 TrueType, 3 barcode; all drawn with the stroke font
+            val rotation = s.f64()
+            val mirrored = s.u8() != 0
+            val stroke = um(s.i32())
             val isComment = s.u8() != 0
             val isDesignator = s.u8() != 0
-            if (!isComment && !isDesignator) return
             val t = parts.getOrNull(1)?.takeIf { it.remaining > 0 } ?: return
-            val str = t.text(minOf(t.u8(), t.remaining)).trim()
+            // Line breaks in multi-line texts: drawn as one line.
+            val str = fixMojibake(t.text(minOf(t.u8(), t.remaining)).replace("\r\n", " ").replace('\n', ' ').trim())
             if (str.isEmpty() || str.startsWith(".")) return
-            if (isDesignator) designatorText.putIfAbsent(h.component, str) else commentText.putIfAbsent(h.component, str)
+            if (h.component != NONE && isDesignator) designatorText.putIfAbsent(h.component, str)
+            if (h.component != NONE && isComment) commentText.putIfAbsent(h.component, str)
+            texts += RawText(h.layer, h.component, isComment, isDesignator, x, y, height, rotation, mirrored, stroke, str)
+        }
+
+        /**
+         * Visible texts as [BoardText] and stroke-font tracks. A component's designator and comment
+         * are printed only when the component shows them (NAMEON / COMMENTON).
+         */
+        fun textGeometry(): Pair<List<BoardText>, List<Track>> {
+            val boardTexts = ArrayList<BoardText>()
+            val strokes = ArrayList<Track>()
+            for (t in texts) {
+                if (t.component != NONE) {
+                    val c = compRecs.getOrNull(t.component)
+                    if (t.isDesignator && c?.get("NAMEON") != null && !c.bool("NAMEON")) continue
+                    if (t.isComment && c?.get("COMMENTON") != null && !c.bool("COMMENTON")) continue
+                }
+                val layer = layerName(t.layer)
+                boardTexts += BoardText(layer, t.text, Point(t.x, t.y), t.height, t.rotation, t.mirrored)
+                val width = t.stroke.coerceAtLeast(1)
+                for (line in StrokeFont.strokes(t.text, t.x, t.y, t.height, width, t.rotation, t.mirrored)) {
+                    for (i in 0 until line.size - 1) strokes += Track(layer, line[i], line[i + 1], width, null)
+                }
+            }
+            return boardTexts to strokes
         }
 
         fun track(s: BinaryReader) {
@@ -395,6 +434,7 @@ object PcbDocParser {
         }
 
         fun build(name: String): Board {
+            val (boardTexts, textStrokes) = textGeometry()
             val copper = copperStack()
             val copperName = copper.toMap()
             fun copperLayerName(id: Int): String { usedLayers += id; return copperName[id] ?: layerInfo(id).first }
@@ -488,11 +528,12 @@ object PcbDocParser {
                 source = SourceFormat.PCBDOC,
                 outline = outline(),
                 layers = layers,
-                tracks = tracks,
+                tracks = tracks + textStrokes,
                 vias = vias,
                 pads = pads,
                 holes = holes.values.toList(),
                 fills = fills,
+                texts = boardTexts,
                 components = components,
                 nets = nets,
                 units = Units.MIL,

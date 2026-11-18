@@ -25,6 +25,40 @@ data class Schematic(
     /** Sheet index that holds [symbol]. */
     fun sheetOf(symbol: SchSymbol): Int = sheets.indexOfFirst { s -> s.symbols.any { it === symbol } }
 
+    /**
+     * Designators used by more than one part (upper-case key, natural order): symbols under one
+     * designator that come from different library parts, or repeat a part number (two "part 1").
+     * The parts of one multi-part part (U201A, U201B) are not duplicates. The annotation should be
+     * fixed in Altium, otherwise the pins and nets of those parts are mixed up.
+     */
+    val duplicateDesignators: Map<String, List<SchSymbol>> by lazy {
+        symbolsByRef.filter { (ref, syms) ->
+            ref.isAnnotated() && syms.size > 1 &&
+                (syms.map { it.libRef }.distinct().size > 1 || syms.groupingBy { it.partId }.eachCount().values.any { it > 1 })
+        }.toSortedMap(NaturalOrder)
+    }
+
+    fun isDuplicate(refDes: String): Boolean = refDes.uppercase() in duplicateDesignators
+
+    /** Warning for the part panel when [refDes] is a duplicate designator, else null. */
+    fun duplicateWarning(refDes: String): String? {
+        val syms = duplicateDesignators[refDes.uppercase()] ?: return null
+        val parts = syms.map { it.libRef ?: it.comment ?: "?" }.distinct()
+        return "Used by ${syms.size} symbols in the schematic" +
+            (if (parts.size > 1) " (${parts.joinToString(", ")})" else "") +
+            ". Pins and nets of these parts may be mixed up; fix the annotation in Altium."
+    }
+
+    /** One notice for the user about [duplicateDesignators], null when there are none. */
+    fun duplicateNotice(): String? {
+        val list = duplicateDesignators.keys.toList()
+        if (list.isEmpty()) return null
+        val names = if (list.size <= 4) list.joinToString(", ") else list.take(4).joinToString(", ") + " and ${list.size - 4} more"
+        val one = list.size == 1
+        return "Schematic: the designator${if (one) "" else "s"} $names ${if (one) "is" else "are"} used by more than one part. " +
+            "Their pins and nets may be mixed up; fix the annotation in Altium."
+    }
+
     /** Designators of the parts (unique, natural order), without unannotated "R?" / "*". */
     val designators: List<String> by lazy {
         symbols.map { it.refDes }.filter { it.isAnnotated() }.distinct().sortedWith(NaturalOrder)

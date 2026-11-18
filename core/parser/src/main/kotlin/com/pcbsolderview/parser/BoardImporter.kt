@@ -83,6 +83,7 @@ class BoardImporter(private val xml: XmlParserFactory) {
         }
         if (geometryFile == null && sheets.isEmpty() && pdf == null) throw UnsupportedFormatException(NativeFileMessages.SCHDOC_UNREADABLE)
         val schematic = sheets.takeIf { it.isNotEmpty() }?.let { Schematic(schematicName(it.map { s -> s.name }), it) }
+        schematic?.duplicateNotice()?.let(onNotice)
 
         val board = when {
             geometryFile == null -> Board(name = schematic?.name ?: baseName(pdf!!.name), source = SourceFormat.SCHEMATIC_ONLY)

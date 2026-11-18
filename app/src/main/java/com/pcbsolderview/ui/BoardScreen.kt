@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.FitScreen
 import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Handyman
+import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ViewInAr
@@ -74,6 +75,8 @@ import com.pcbsolderview.model.filterByMount
 import com.pcbsolderview.model.matchesQuery
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -144,6 +147,13 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
     BackHandler(enabled = state.showToolsPanel) { vm.toggleToolsPanel() }
     BackHandler(enabled = state.showLayersPanel) { vm.toggleLayersPanel() }
     BackHandler(enabled = state.showSettingsPanel) { vm.toggleSettingsPanel() }
+    BackHandler(enabled = state.showChecklistPanel) { vm.toggleChecklistPanel() }
+    // Bench work: the screen stays on while a board is open (Settings › Keep the screen on).
+    val hostView = LocalView.current
+    DisposableEffect(hostView, appearance.keepScreenOn) {
+        hostView.keepScreenOn = appearance.keepScreenOn
+        onDispose { hostView.keepScreenOn = false }
+    }
     BackHandler(enabled = state.selectedRef != null || state.selectedNet != null || state.schNet != null) { vm.clearSelection() }
 
     Column(Modifier.fillMaxSize()) {
@@ -248,6 +258,7 @@ private fun BoardContent(scene: BoardScene, state: UiState, vm: BoardViewModel) 
                             identicalHighlighted = identical.size > 1 && state.highlightKey == vm.identicalKey(identical),
                             onHighlightIdentical = { all -> vm.toggleIdentical(sel, all) },
                             shows = appearance::shows,
+                            warning = state.schematic?.duplicateWarning(sel.refDes),
                         )
                     }
                     net != null -> Surface(color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = mod) {
@@ -416,6 +427,7 @@ private fun TopBar(title: String, subtitle: String, state: UiState, vm: BoardVie
                             if (state.mirrored) "Mirrored — tap for the normal view" else "Mirror the view left-right",
                             onMirror, checked = state.mirrored, tag = "mirror",
                         )
+                        if (state.scene?.board?.components?.isNotEmpty() == true) BarIcon(Icons.Filled.Checklist, "Soldering checklist", vm::toggleChecklistPanel, checked = state.showChecklistPanel, tag = "checklist.button")
                         BarIcon(Icons.Filled.Layers, "Layers & view", vm::toggleLayersPanel, checked = state.showLayersPanel)
                     }
                     BarIcon(Icons.Filled.Settings, "Settings", vm::toggleSettingsPanel, checked = state.showSettingsPanel, tag = "settings.button")

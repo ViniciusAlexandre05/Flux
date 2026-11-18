@@ -83,4 +83,15 @@ class Rp2040RealBoardTest {
         }
         assertEquals(listOf("RP2040"), differ)
     }
+
+    /** The chip and the module header are both "RP2040": flagged once, nothing else is. */
+    @Test
+    fun duplicateDesignatorIsReported() {
+        assumeTrue(File(Samples.dir, schPath).exists())
+        val notices = ArrayList<String>()
+        val sch = BoardImporter(testXml).import(listOf(Samples.input(path), Samples.input(schPath)), onNotice = { notices += it }).schematic!!
+        println("RP2040 duplicates: " + sch.duplicateDesignators.mapValues { (_, s) -> s.map { "${it.label}/${it.libRef}" } })
+        assertEquals(listOf("RP2040"), sch.duplicateDesignators.keys.toList())
+        assertEquals(1, notices.count { "RP2040" in it && "more than one part" in it })
+    }
 }

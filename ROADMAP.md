@@ -30,7 +30,7 @@ Tracked in the [v0.1 Schematic sync milestone](https://github.com/ViniciusAlexan
   (`core/parser/build/renders/schematic-RP2040-Module.png`) already reads like Altium's PDF.
 - **S3 timing** (highlight on the other side within 100 ms) needs a measurement on the device.
 - **S5b** (native PcbDoc) done on the JVM (2026-11-16): the RP2040 .PcbDoc gives the same parts,
-  pads, nets and vias as its IPC-2581 export. Not drawn yet: silkscreen text strings (Texts6).
+  pads, nets and vias as its IPC-2581 export. Silkscreen text (Texts6) is drawn since 2026-11-17.
   Boards opened from .PcbDoc and from IPC-2581 have different annotation keys (source is in the key).
 - Hierarchical designs: sheet symbols are drawn, but nets join by name across all sheets.
 - The RP2040 sheet has two symbols designated `RP2040` (the chip and the module header). Fix
@@ -110,7 +110,13 @@ parts in the schematic that are not placed on the board.
 - `docs/PLAN-desktop.md`: Windows version (Compose Multiplatform desktop executable), synced
   with Android only on request. D1–D5 done 2026-11-16 (desktop 0.1.0, unreleased); next: user test on PC.
 
+## 0.1.x — in progress (Android, 2026-11-17)
+
+Follow-ups from `docs/PLAN-android-next.md` Phase C, in order:
+- Duplicate designators in a schematic: notice on open, warning in the part panel. Done.
+- Soldering checklist grouped by kind, keep the screen on while a board is open. Done.
+- Silkscreen text strings from native .PcbDoc (Texts6), the last missing piece of S5b. Done.
+
 ## Later (from the original plan)
 
-- Soldering checklist grouped by value, keep screen on while open
-- Signed release APK
+- Signed release APK (needs a keystore the user creates and keeps)

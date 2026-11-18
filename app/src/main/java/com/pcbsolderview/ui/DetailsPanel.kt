@@ -50,6 +50,19 @@ fun String?.orDash(): String = if (this.isNullOrBlank()) DASH else this
 
 fun formatMm(um: Long): String = String.format(Locale.US, "%.3f", um / 1000.0)
 
+/** A problem with the design shown at the top of a part panel (e.g. a duplicate designator). */
+@Composable
+fun PanelWarning(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onErrorContainer,
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)
+            .background(MaterialTheme.colorScheme.errorContainer, MaterialTheme.shapes.small)
+            .padding(horizontal = 10.dp, vertical = 8.dp).testTag("panel.warning"),
+    )
+}
+
 @Composable
 fun DetailsPanel(
     board: Board,
@@ -69,6 +82,8 @@ fun DetailsPanel(
     onHighlightIdentical: (all: Boolean) -> Unit = {},
     /** Which rows to show (Settings › Part details). */
     shows: (DetailField) -> Boolean = { true },
+    /** Design problem to point out (duplicate designator in the schematic), null when none. */
+    warning: String? = null,
 ) {
     Column(modifier.padding(16.dp).verticalScroll(rememberScrollState()).testTag("details")) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -100,6 +115,7 @@ fun DetailsPanel(
             )
         }
         Spacer(Modifier.height(10.dp))
+        warning?.let { PanelWarning(it); Spacer(Modifier.height(6.dp)) }
         if (shows(DetailField.IDENTICAL)) {
         IdenticalButton(identicalCount, identicalTodo, identicalHighlighted, onHighlightIdentical)
         Spacer(Modifier.height(12.dp))

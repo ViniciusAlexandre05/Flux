@@ -41,6 +41,23 @@ class Rp2040PcbDocTest {
             (a.width == a.height && near(a.width, b.width) && near(a.height, b.height))
     }
 
+    /**
+     * Texts6: each part's designator is printed on the Top Overlay; the values (COMMENTON=FALSE)
+     * and the `.Designator` templates on Mechanical 7 are not. Strokes land on the overlay layer.
+     */
+    @Test
+    fun silkscreenTextsFollowAltiumVisibility() {
+        val (native, _) = boards()
+        val texts = native.texts
+        assertEquals(17, texts.size, texts.map { it.text }.toString())
+        assertEquals(setOf("Top Overlay"), texts.map { it.layer }.toSet())
+        assertTrue(texts.none { it.text == "100nF" || it.text.startsWith(".") })
+        assertTrue(texts.any { it.text == "FLASH" } && texts.count { it.text == "RP2040" } == 2)
+        // Value still comes from the (hidden) comment text.
+        assertEquals("100nF", native.component("C1")!!.value)
+        assertTrue(native.tracks.count { it.layer == "Top Overlay" && it.net == null } > 300)
+    }
+
     @Test
     fun sameBoardAsIpc2581Export() {
         val (native, ipc) = boards()

@@ -168,6 +168,9 @@ fun SettingsContent(a: Appearance, onChange: (Appearance) -> Unit, modifier: Mod
         ToggleRow("Only the S Pen draws", a.penOnlyDrawing, "Fingers always move the board, even with the Pen tool.") {
             onChange(a.copy(penOnlyDrawing = it))
         }
+        ToggleRow("Keep the screen on", a.keepScreenOn, "While a board is open the screen does not turn off by itself.") {
+            onChange(a.copy(keepScreenOn = it))
+        }
         Spacer(Modifier.height(8.dp)); HorizontalDivider()
         SectionTitle("Schematic")
         ToggleRow("Follow selection", a.followSelection, "In split view, selecting a part or net on one side pans the other side to it.") {

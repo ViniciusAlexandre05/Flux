@@ -44,6 +44,36 @@ fun sameKind(a: Component, b: Component): Boolean {
 fun Board.identicalTo(c: Component): List<Component> =
     components.filter { it.refDes == c.refDes || sameKind(it, c) }.sortedWith(ComponentOrder)
 
+/** One line of the soldering checklist: parts that are the same kind (see [partGroups]). */
+data class PartGroup(
+    /** Stable id of the group within one board ("pn:…", "v:…|footprint" or "ref:R1"). */
+    val key: String,
+    /** Members in natural designator order. */
+    val parts: List<Component>,
+    /** Mounting of the first member; null without pads. */
+    val mount: Mount?,
+) {
+    val first: Component get() = parts.first()
+}
+
+/**
+ * The soldering checklist: every part in exactly one group. Parts with a part number group by it;
+ * the others by value (or description) and footprint, as in [sameKind]; a part without value or
+ * description stands alone. Order: SMD first, then through-hole, then parts without pads; within
+ * each, the biggest groups first (most solder joints of one kind), then by designator.
+ */
+fun Board.partGroups(): List<PartGroup> {
+    fun key(c: Component): String {
+        c.partNumber?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }?.let { return "pn:$it" }
+        val v = (c.value ?: c.description)?.let { normalizeValue(it) }?.takeIf { it.isNotEmpty() } ?: return "ref:${c.refDes}"
+        return "v:$v|${c.footprint?.lowercase().orEmpty()}"
+    }
+    fun rank(m: Mount?) = when (m) { Mount.SMD -> 0; Mount.MIXED, Mount.THROUGH_HOLE -> 1; null -> 2 }
+    return components.groupBy(::key)
+        .map { (k, parts) -> parts.sortedWith(ComponentOrder).let { PartGroup(k, it, mountOf(it.first())) } }
+        .sortedWith(compareBy<PartGroup> { rank(it.mount) }.thenByDescending { it.parts.size }.thenBy(ComponentOrder) { it.first })
+}
+
 /** How a part is mounted, from its pads. */
 enum class Mount { SMD, THROUGH_HOLE, MIXED }
 

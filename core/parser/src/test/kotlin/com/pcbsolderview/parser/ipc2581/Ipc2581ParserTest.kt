@@ -1,5 +1,6 @@
 package com.pcbsolderview.parser.ipc2581
 
+import com.pcbsolderview.model.partGroups
 import com.pcbsolderview.model.Board
 import com.pcbsolderview.model.LayerType
 import com.pcbsolderview.model.PadShape
@@ -133,6 +134,22 @@ class Ipc2581RealBoardTest {
                     c.manufacturer, c.footprint, c.libraryRef, c.side, c.position.x / 1000.0, c.position.y / 1000.0, c.rotationDeg,
                     c.heightUm?.let { it / 1000.0 }, board.padsOf(c).map { it.name }.distinct().size,
                 ).joinToString(",") { q(it) })
+            }
+        }, Charsets.UTF_8)
+    }
+
+    /** Soldering checklist: every part in one line; writes build/reports/checklist-<board>.csv. */
+    @Test
+    fun checklistCoversEveryPartOnce() {
+        val groups = board.partGroups()
+        assertEquals(board.components.map { it.refDes }.sorted(), groups.flatMap { g -> g.parts.map { it.refDes } }.sorted())
+        val report = File(Samples.dir.parentFile, "core/parser/build/reports/checklist-IEPE_CONDITIONER_V1.csv")
+        report.parentFile.mkdirs()
+        report.writeText(buildString {
+            appendLine("Count,Mount,Value,Footprint,Designators")
+            fun q(s: Any?) = "\"" + (s?.toString() ?: "").replace("\"", "\"\"") + "\""
+            groups.forEach { g ->
+                appendLine(listOf(g.parts.size, g.mount, g.first.value ?: g.first.description, g.first.footprint, g.parts.joinToString(" ") { it.refDes }).joinToString(",") { q(it) })
             }
         }, Charsets.UTF_8)
     }
