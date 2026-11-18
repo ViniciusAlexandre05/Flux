@@ -86,3 +86,15 @@ Shortcut that also sets `JAVA_HOME` and switches between the Android and PC vers
 `samples/synthetic/` holds small hand-written example boards used by the tests and as in-app
 demos. Real board exports go in `samples/real/`, which is ignored by git: designs stay on the
 machine, and the tests that need them are skipped when they are missing.
+
+## License
+
+Flux is free to use, study and change for **non-commercial purposes** (personal use, study,
+research, hobby projects, schools and other non-profit organisations) under the
+[PolyForm Noncommercial License 1.0.0](LICENSE.md). Commercial use is not allowed without
+the author's written permission.
+
+**Credit is required:** anyone who shares Flux or any part of it, changed or not, must include
+the license and this notice:
+
+> Required Notice: Copyright (c) 2026 Vinicius Alexandre Gomes (https://github.com/ViniciusAlexandre05/Flux)
