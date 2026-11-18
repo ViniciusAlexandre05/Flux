@@ -107,6 +107,7 @@ parts in the schematic that are not placed on the board.
 
 - `docs/PLAN-android-next.md`: v0.1 release after the tablet test, S5b native .PcbDoc reader
   (format facts verified on the RP2040 file), follow-ups.
+- `docs/PLAN-updates.md`: in-app updates from GitHub for Android and PC (decided 2026-11-18: Flux goes public, debug key kept, "Check now" only, test versions behind a switch).
 - `docs/PLAN-desktop.md`: Windows version (Compose Multiplatform desktop executable), synced
   with Android only on request. D1–D5 done 2026-11-16 (desktop 0.1.0, unreleased); next: user test on PC.
 

@@ -5,7 +5,8 @@ bench on a Samsung Galaxy Tab S6 Lite (2000×1200, S Pen). Package/applicationId
 `com.pcbsolderview` (the app was renamed to Flux; the id stays so installs update in place).
 
 Read `docs/ARCHITECTURE.md` before changing anything non-trivial. Implementation plans for agents:
-`docs/PLAN-android-next.md` (v0.1 release, native .PcbDoc reader, follow-ups) and `docs/PLAN-desktop.md`
+`docs/PLAN-android-next.md` (v0.1 release, native .PcbDoc reader, follow-ups),
+`docs/PLAN-updates.md` (in-app updates from GitHub, both versions) and `docs/PLAN-desktop.md`
 (Windows version; Android is the main version, the PC version follows only when the user asks).
 `ROADMAP.md` says what is next,
 `CHANGELOG.md` what shipped. The original product brief is the PDF in the repo root
