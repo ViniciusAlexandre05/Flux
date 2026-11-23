@@ -13,6 +13,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.PointMode
+import androidx.compose.ui.graphics.luminance
+import com.pcbsolderview.model.Rect
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Fill
@@ -58,6 +61,7 @@ fun SchematicCanvas(
     onTap: (x: Double, y: Double, toleranceUm: Double, fromStylus: Boolean) -> Unit,
     modifier: Modifier = Modifier,
     colors: SchematicColors = SchematicColors(),
+    style: SchematicStyle = SchematicStyle(),
     focus: SchematicFocus = SchematicFocus(),
     rotationGesture: Boolean = true,
     onLongPress: ((Offset) -> Boolean)? = null,
@@ -108,6 +112,7 @@ fun SchematicCanvas(
         val paper = Color(colors.paper(sheet.sheet.paperArgb))
         withTransform({ transform(matrix) }) {
             drawPath(Path().apply { addRect(sheet.extent) }, paper, style = Fill)
+            if (style.grid != GridStyle.NONE) drawSheetGrid(sheet.extent, style, t.scale, px, paper)
             for ((argb, path) in sheet.fills) drawPath(path, Color(colors.fill(argb)), style = Fill)
             // Status paint under the lines, translucent so the symbol stays readable.
             for ((argb, path) in marks) drawPath(path, Color(argb).copy(alpha = 0.45f), style = Fill)
@@ -130,7 +135,49 @@ fun SchematicCanvas(
                 drawPath(selection, Color(colors.selected), style = Stroke(3.5f * px, join = StrokeJoin.Round))
             }
         }
-        drawTexts(sheet, t, colors, focus, textPaint)
+        drawTexts(sheet, t, colors, focus, textPaint, style.textScale)
+    }
+}
+
+/**
+ * Sheet grid on the paper, in sheet coordinates (inside the view transform), from the origin.
+ * Too dense to read: every 5th line only; still too dense: nothing. Faint ink that suits the paper.
+ */
+private fun DrawScope.drawSheetGrid(extent: Rect, style: SchematicStyle, scale: Double, px: Float, paper: Color) {
+    var step = style.gridStepUm.coerceAtLeast(1)
+    if (step * scale < 8) step *= 5
+    if (step * scale < 8) return
+    val ink = if (paper.luminance() > 0.5f) Color.Black else Color.White
+    val color = ink.copy(alpha = if (paper.luminance() > 0.5f) 0.13f else 0.11f)
+    val x0 = Math.floorDiv(extent.minX + step - 1, step) * step
+    val y0 = Math.floorDiv(extent.minY + step - 1, step) * step
+    val cols = (extent.maxX - x0) / step + 1
+    val rows = (extent.maxY - y0) / step + 1
+    when (style.grid) {
+        GridStyle.LINES -> {
+            var x = x0
+            while (x <= extent.maxX) {
+                drawLine(color, Offset(x.toFloat(), extent.minY.toFloat()), Offset(x.toFloat(), extent.maxY.toFloat()), strokeWidth = px)
+                x += step
+            }
+            var y = y0
+            while (y <= extent.maxY) {
+                drawLine(color, Offset(extent.minX.toFloat(), y.toFloat()), Offset(extent.maxX.toFloat(), y.toFloat()), strokeWidth = px)
+                y += step
+            }
+        }
+        GridStyle.DOTS -> {
+            if (cols * rows > 60_000) return // a whole A0 sheet of dots: too many to draw every frame
+            val dots = ArrayList<Offset>((cols * rows).toInt())
+            var x = x0
+            while (x <= extent.maxX) {
+                var y = y0
+                while (y <= extent.maxY) { dots += Offset(x.toFloat(), y.toFloat()); y += step }
+                x += step
+            }
+            drawPoints(dots, PointMode.Points, color.copy(alpha = color.alpha * 2.2f), strokeWidth = 2.2f * px, cap = StrokeCap.Round)
+        }
+        GridStyle.NONE -> Unit
     }
 }
 
@@ -142,14 +189,14 @@ private fun boxes(sheet: SheetScene, refs: Set<String>): Path = Path().apply {
 
 private const val MIN_TEXT_PX = 3.5f
 
-private fun DrawScope.drawTexts(sheet: SheetScene, t: ViewTransform, colors: SchematicColors, focus: SchematicFocus, paint: Paint) {
+private fun DrawScope.drawTexts(sheet: SheetScene, t: ViewTransform, colors: SchematicColors, focus: SchematicFocus, paint: Paint, textScale: Float = 1f) {
     val canvas = drawContext.canvas.nativeCanvas
     val w = size.width; val h = size.height
     val texts = sheet.layout.texts
     val owners = sheet.layout.textOwners
     for (i in texts.indices) {
         val tx = texts[i]
-        val sizePx = (tx.sizeUm * t.scale).toFloat()
+        val sizePx = (tx.sizeUm * t.scale).toFloat() * textScale
         if (sizePx < MIN_TEXT_PX || tx.text.isEmpty()) continue
         val sx = t.toScreenX(tx.position.x.toDouble(), tx.position.y.toDouble()).toFloat()
         val sy = t.toScreenY(tx.position.x.toDouble(), tx.position.y.toDouble()).toFloat()

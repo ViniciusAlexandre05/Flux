@@ -162,6 +162,14 @@ class ScreenshotTest {
             vm.toggleChecklistPanel(); vm.clearHighlight()
             s.scene!!.board.components.filter { it.side == com.pcbsolderview.model.Side.TOP }.take(3).forEach(vm::toggleInSelection)
         }
+        // Schematic appearance: white paper, Altium colours, line grid, larger text.
+        shot("schematic-style") {
+            vm.clearHighlight(); vm.clearSelection()
+            vm.setAppearance(vm.appearance.value.copy(
+                schPaper = 0xFFFFFFFF.toInt(), schInk = com.pcbsolderview.data.SchematicInk.ORIGINAL,
+                schGrid = com.pcbsolderview.render.GridStyle.LINES, schTextScale = 1.5f,
+            ))
+        }
         vm.close()
     }
 

@@ -75,3 +75,14 @@ data class SchematicColors(
         }
     }
 }
+
+/**
+ * Schematic view options that are not colours (Settings › Appearance › Schematic view).
+ * [textScale] multiplies every text size of the sheet; the grid is drawn on the paper in sheet
+ * units, from the sheet origin, every [gridStepUm] (Altium's default snap grid is 100 mil).
+ */
+data class SchematicStyle(
+    val textScale: Float = 1f,
+    val grid: GridStyle = GridStyle.NONE,
+    val gridStepUm: Long = 2540,
+)

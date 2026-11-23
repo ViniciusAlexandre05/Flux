@@ -13,6 +13,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.floatOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.longOrNull
@@ -20,7 +21,10 @@ import kotlinx.serialization.json.put
 import com.pcbsolderview.render.GridStyle
 import com.pcbsolderview.render.GridUnit
 
-enum class ThemeMode(val label: String) { DARK("Dark"), LIGHT("Light"), HIGH_CONTRAST("High contrast") }
+enum class ThemeMode(val label: String) { DARK("Dark"), LIGHT("Light"), HIGH_CONTRAST("Contrast") }
+
+/** How schematic lines and text are coloured; [THEME] follows the app theme (Light = Altium's colours). */
+enum class SchematicInk(val label: String) { THEME("Theme"), ORIGINAL("Altium"), INVERTED("Inverted"), HIGH_CONTRAST("Contrast") }
 
 /** Rows of the part details panel; each can be shown or hidden in Settings. */
 enum class DetailField(val label: String) {
@@ -66,12 +70,47 @@ data class Appearance(
     val hiddenDetails: Set<DetailField> = setOf(DetailField.LIBRARY),
     /** Selecting on the board pans the schematic to the part (and the other way round). */
     val followSelection: Boolean = true,
+    // ---- Schematic view (Settings > Appearance > Schematic view). 0 = follow the theme.
+    /** Paper colour: [SCH_PAPER_THEME], [SCH_PAPER_FILE] (the colour saved in the .SchDoc) or 0xAARRGGBB. */
+    val schPaper: Int = SCH_PAPER_THEME,
+    val schInk: SchematicInk = SchematicInk.THEME,
+    /** Colour of a traced net, 0 = theme. */
+    val schNetColor: Int = 0,
+    val schGrid: GridStyle = GridStyle.NONE,
+    /** Schematic grid spacing in um (Altium's default snap grid: 100 mil). */
+    val schGridStepUm: Long = 2540,
+    /** Multiplies every schematic text size (0.8 to 2). */
+    val schTextScale: Float = 1f,
 ) {
     fun shows(f: DetailField) = f !in hiddenDetails
 
     companion object {
         fun encodeFields(s: Set<DetailField>) = s.joinToString(",") { it.name }
         fun decodeFields(s: String?): Set<DetailField>? = s?.split(',')?.mapNotNull { n -> runCatching { DetailField.valueOf(n.trim()) }.getOrNull() }?.toSet()
+
+        /** Paper choices; the two first are not colours (alpha 0) but "follow the theme" / "as in the file". */
+        const val SCH_PAPER_THEME = 0
+        const val SCH_PAPER_FILE = 1
+        val SCH_PAPERS: List<Pair<String, Int>> = listOf(
+            "Theme" to SCH_PAPER_THEME,
+            "File" to SCH_PAPER_FILE,
+            "White" to 0xFFFFFFFF.toInt(),
+            "Cream" to 0xFFFFFCF8.toInt(),
+            "Dark" to 0xFF161C24.toInt(),
+            "Black" to 0xFF000000.toInt(),
+        )
+        /** Traced-net colours; 0 = the theme's. */
+        val SCH_NET_COLORS: List<Pair<String, Int>> = listOf(
+            "Theme" to 0,
+            "Cyan" to 0xFF00B8D4.toInt(),
+            "Magenta" to 0xFFFF2BD6.toInt(),
+            "Green" to 0xFF22C55E.toInt(),
+            "Orange" to 0xFFFF851B.toInt(),
+        )
+        /** Grid spacings offered (um): 50, 100, 200 mil. */
+        val SCH_GRID_STEPS: List<Pair<String, Long>> = listOf("50 mil" to 1270L, "100 mil" to 2540L, "200 mil" to 5080L)
+        /** Text size steps. */
+        val SCH_TEXT_SCALES: List<Float> = listOf(0.8f, 1f, 1.25f, 1.5f, 1.75f, 2f)
 
         val ACCENTS: List<Pair<String, Int>> = listOf(
             "Solder" to 0xFFF5B83D.toInt(),
@@ -123,6 +162,12 @@ class AppearancePrefs(private val dirs: AppDirs) {
                 gridStepUm = long("grid_step_um") ?: d.gridStepUm,
                 hiddenDetails = Appearance.decodeFields(str("hidden_details")) ?: d.hiddenDetails,
                 followSelection = bool("follow_selection") ?: d.followSelection,
+                schPaper = int("sch_paper") ?: d.schPaper,
+                schInk = str("sch_ink")?.let { runCatching { SchematicInk.valueOf(it) }.getOrNull() } ?: d.schInk,
+                schNetColor = int("sch_net_color") ?: d.schNetColor,
+                schGrid = str("sch_grid")?.let { runCatching { GridStyle.valueOf(it) }.getOrNull() } ?: d.schGrid,
+                schGridStepUm = long("sch_grid_step_um") ?: d.schGridStepUm,
+                schTextScale = (p["sch_text_scale"] as? JsonPrimitive)?.floatOrNull ?: d.schTextScale,
             )
         }
 
@@ -140,6 +185,12 @@ class AppearancePrefs(private val dirs: AppDirs) {
             put("grid_step_um", a.gridStepUm)
             put("hidden_details", Appearance.encodeFields(a.hiddenDetails))
             put("follow_selection", a.followSelection)
+            put("sch_paper", a.schPaper)
+            put("sch_ink", a.schInk.name)
+            put("sch_net_color", a.schNetColor)
+            put("sch_grid", a.schGrid.name)
+            put("sch_grid_step_um", a.schGridStepUm)
+            put("sch_text_scale", a.schTextScale)
         })
     }
 

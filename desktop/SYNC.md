@@ -1,4 +1,4 @@
-Synced with Android: 10631c0 (0.1.1: duplicate designators, checklist, PcbDoc silkscreen, side-only highlights, 2026-11-18)
+Synced with Android: 59bb758 (Board/Schematic on/off buttons, schematic appearance settings, 2026-11-23)
 Desktop version: 0.1.1
 
 # Desktop ↔ Android sync record
@@ -59,6 +59,12 @@ the Android package names kept, so `git diff --no-index` between the two copies 
 
 - `ui/ChecklistPanel.kt`: "Click ... right-click" wording; right-click on a line = highlight all
   (`onClick` with `PointerMatcher.mouse(Secondary)`), as in the part panel.
+
+- `ui/BoardScreen.kt` `LayoutToggle`: hover tooltip and "click to hide (1)" wording. `Main.kt`:
+  keys 1 / 2 toggle Board / Schematic (Android has no keys; 3 is gone) and View menu has two
+  check items instead of the three radio items.
+- `data/AppearancePrefs.kt`: the schematic appearance keys (`sch_paper`, `sch_ink`,
+  `sch_net_color`, `sch_grid`, `sch_grid_step_um`, `sch_text_scale`) in `settings.json`.
 
 ## Not ported (by design)
 

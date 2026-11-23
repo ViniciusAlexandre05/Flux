@@ -140,9 +140,9 @@ private fun handleKey(e: KeyEvent, vm: BoardViewModel): Boolean {
     if (vm.state.value.scene == null) return false
     return when (native.keyChar) {
         'f', 'F' -> DesktopCommands.fit?.invoke() != null
-        '1' -> { vm.setViewLayout(ViewLayout.BOARD); true }
-        '2' -> { vm.setViewLayout(ViewLayout.SPLIT); true }
-        '3' -> { vm.setViewLayout(ViewLayout.SCHEMATIC); true }
+        // Same on/off switches as the Board and Schematic buttons.
+        '1' -> { if (vm.state.value.hasSchematicView) vm.toggleBoardView(); true }
+        '2' -> { if (vm.state.value.hasSchematicView) vm.toggleSchematicView(); true }
         else -> false
     }
 }
@@ -173,9 +173,8 @@ private fun FrameWindowScope.FluxMenuBar(vm: BoardViewModel, state: UiState, ope
         }
         Menu("View", mnemonic = 'V') {
             val hasSch = state.hasSchematicView
-            RadioButtonItem("Board   1", selected = state.viewLayout == ViewLayout.BOARD, enabled = hasBoard && state.hasBoard, onClick = { vm.setViewLayout(ViewLayout.BOARD) })
-            RadioButtonItem("Board + schematic   2", selected = state.viewLayout == ViewLayout.SPLIT, enabled = hasSch && state.hasBoard, onClick = { vm.setViewLayout(ViewLayout.SPLIT) })
-            RadioButtonItem("Schematic   3", selected = state.viewLayout == ViewLayout.SCHEMATIC, enabled = hasSch, onClick = { vm.setViewLayout(ViewLayout.SCHEMATIC) })
+            CheckboxItem("Board   1", checked = hasBoard && state.viewLayout.showsBoard, enabled = hasSch && state.hasBoard, onCheckedChange = { vm.toggleBoardView() })
+            CheckboxItem("Schematic   2", checked = hasSch && state.viewLayout.showsSchematic, enabled = hasSch, onCheckedChange = { vm.toggleSchematicView() })
             Separator()
             Item("Fit to window   F", enabled = hasBoard, onClick = { DesktopCommands.fit?.invoke() })
             Item("Flip board (bottom view)", enabled = hasBoard && state.viewLayout != ViewLayout.SCHEMATIC, onClick = { DesktopCommands.flip?.invoke() })

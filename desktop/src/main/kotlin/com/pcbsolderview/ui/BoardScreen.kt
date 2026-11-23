@@ -27,7 +27,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeveloperBoard
 import androidx.compose.material.icons.filled.Schema
-import androidx.compose.material.icons.filled.VerticalSplit
 import androidx.compose.material.icons.filled.FitScreen
 import androidx.compose.material.icons.filled.Flip
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -379,23 +378,40 @@ private fun InspectModeToggle(tool: Tool, onTool: (Tool) -> Unit, showLabels: Bo
     }
 }
 
-/** Board / Split / Schematic, shown when a schematic is open. Board and Split need a board. */
+/**
+ * Two on/off buttons, shown when a schematic is open: Board and Schematic. Both on = side by side.
+ * The last view that is on cannot be turned off (the view model says so); Board needs a board.
+ */
 @Composable
-private fun LayoutToggle(layout: ViewLayout, hasBoard: Boolean, onLayout: (ViewLayout) -> Unit) {
+private fun LayoutToggle(layout: ViewLayout, hasBoard: Boolean, onToggleBoard: () -> Unit, onToggleSchematic: () -> Unit) {
     Surface(color = MaterialTheme.colorScheme.surfaceContainerHighest, shape = MaterialTheme.shapes.extraLarge) {
         Row(Modifier.padding(4.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            val boardOn = layout != ViewLayout.SCHEMATIC
+            val schOn = layout != ViewLayout.BOARD
             listOf(
-                Triple(ViewLayout.BOARD, Icons.Filled.DeveloperBoard, "Board"),
-                Triple(ViewLayout.SPLIT, Icons.Filled.VerticalSplit, "Board and schematic"),
-                Triple(ViewLayout.SCHEMATIC, Icons.Filled.Schema, "Schematic"),
-            ).forEach { (l, icon, label) ->
-                val on = layout == l
-                val enabled = hasBoard || l == ViewLayout.SCHEMATIC
+                // Desktop: "click" wording, keys 1 / 2, and a tooltip on hover.
+                Triple("board", Icons.Filled.DeveloperBoard, if (boardOn) "Board shown: click to hide (1)" else "Show the board (1)"),
+                Triple("schematic", Icons.Filled.Schema, if (schOn) "Schematic shown: click to hide (2)" else "Show the schematic (2)"),
+            ).forEach { (which, icon, label) ->
+                val on = if (which == "board") boardOn else schOn
+                val enabled = hasBoard || which == "schematic"
+                @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+                androidx.compose.foundation.TooltipArea(
+                    tooltip = {
+                        Surface(color = MaterialTheme.colorScheme.inverseSurface, shape = MaterialTheme.shapes.small, shadowElevation = 4.dp) {
+                            Text(label, color = MaterialTheme.colorScheme.inverseOnSurface, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+                        }
+                    },
+                    delayMillis = 400,
+                    tooltipPlacement = androidx.compose.foundation.TooltipPlacement.ComponentRect(
+                        anchor = Alignment.BottomCenter, alignment = Alignment.BottomCenter, offset = androidx.compose.ui.unit.DpOffset(0.dp, 4.dp),
+                    ),
+                ) {
                 Box(
                     Modifier.size(width = 52.dp, height = 44.dp)
                         .background(if (on) MaterialTheme.colorScheme.primary else Color.Transparent, MaterialTheme.shapes.extraLarge)
-                        .clickable(enabled = enabled) { onLayout(l) }
-                        .testTag("layout.${l.name.lowercase()}"),
+                        .clickable(enabled = enabled) { if (which == "board") onToggleBoard() else onToggleSchematic() }
+                        .testTag("view.$which"),
                     contentAlignment = Alignment.Center,
                 ) {
                     val fg = when {
@@ -404,6 +420,7 @@ private fun LayoutToggle(layout: ViewLayout, hasBoard: Boolean, onLayout: (ViewL
                         else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
                     }
                     Icon(icon, contentDescription = label, tint = fg, modifier = Modifier.size(24.dp))
+                }
                 }
             }
         }
@@ -443,7 +460,7 @@ private fun TopBar(title: String, subtitle: String, state: UiState, vm: BoardVie
                     }
                     if (inline) SearchField(state, vm, Modifier.weight(1f))
                     InspectModeToggle(state.tool, vm::setTool, showLabels = !compactToggle)
-                    if (state.hasSchematicView) LayoutToggle(state.viewLayout, state.hasBoard, vm::setViewLayout)
+                    if (state.hasSchematicView) LayoutToggle(state.viewLayout, state.hasBoard, vm::toggleBoardView, vm::toggleSchematicView)
                     BarDivider()
                     BarIcon(Icons.Filled.Handyman, "Tools", vm::toggleToolsPanel, checked = state.showToolsPanel, tag = "tools.button")
                     BarIcon(Icons.Filled.FitScreen, "Fit to screen", onFit)
