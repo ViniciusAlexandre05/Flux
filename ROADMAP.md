@@ -111,6 +111,11 @@ parts in the schematic that are not placed on the board.
 - `docs/PLAN-desktop.md`: Windows version (Compose Multiplatform desktop executable), synced
   with Android only on request. D1–D5 done 2026-11-16 (desktop 0.1.0, unreleased); next: user test on PC.
 
+## 0.1.2 — released 2026-11-23 (Android and PC)
+
+Board and Schematic on/off buttons (instead of the three-way switch) and schematic appearance
+settings (paper, colours, traced net, grid, text size) under Settings › Appearance › Schematic view.
+
 ## 0.1.1 — released 2026-11-18 (Android and PC)
 
 The three follow-ups below, highlights limited to the side being viewed, and the PC synced with

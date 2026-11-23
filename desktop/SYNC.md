@@ -1,5 +1,5 @@
 Synced with Android: 59bb758 (Board/Schematic on/off buttons, schematic appearance settings, 2026-11-23)
-Desktop version: 0.1.1
+Desktop version: 0.1.2
 
 # Desktop ↔ Android sync record
 

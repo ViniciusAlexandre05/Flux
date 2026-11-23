@@ -122,11 +122,12 @@ Read `docs/ARCHITECTURE.md` before changing anything non-trivial. Implementation
 - They test on the tablet and report problems in short messages; ambiguous wording is common,
   so state your interpretation and offer the alternative.
 
-## Status (2026-11-18)
+## Status (2026-11-23)
 
 Released: v0.0, v0.0.1, v0.0.2, v0.1 (2026-11-16: schematic sync, native .PcbDoc reader, Windows
-version), **v0.1.1** (latest, versionCode 5, desktop 0.1.1, 2026-11-18: duplicate designators,
-soldering checklist, .PcbDoc silkscreen text, side-only highlights; PC Ctrl selection). Each GitHub
+version), v0.1.1 (2026-11-18: duplicate designators, soldering checklist, .PcbDoc silkscreen
+text, side-only highlights; PC Ctrl selection), **v0.1.2** (latest, versionCode 6, desktop 0.1.2,
+2026-11-23: Board/Schematic on/off buttons, schematic appearance settings). Each GitHub
 release carries the APK, the MSI and a portable zip. Released at the user's request **before the
 tablet test**: schematic and .PcbDoc work is tested on the JVM only. Next: the user's tablet test,
 then fixes; in-app updates (`docs/PLAN-updates.md`, U0 first).
