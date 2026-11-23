@@ -21,8 +21,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pcbsolderview.data.Appearance
 import com.pcbsolderview.data.ThemeMode
+import com.pcbsolderview.data.SchematicInk
 import com.pcbsolderview.render.BoardColors
 import com.pcbsolderview.render.SchematicColors
+import com.pcbsolderview.render.SchematicStyle
 
 /** "Workbench" dark palette (default theme). */
 object Palette {
@@ -144,6 +146,29 @@ fun boardColorsFor(a: Appearance): BoardColors {
  * lightness on dark paper; High contrast uses bright ink on black.
  */
 fun schematicColorsFor(a: Appearance): SchematicColors {
+    val base = themeSchematicColors(a)
+    // Settings › Appearance › Schematic view: each choice overrides the theme's value.
+    return base.copy(
+        paper = when (a.schPaper) {
+            Appearance.SCH_PAPER_THEME -> base.paper
+            Appearance.SCH_PAPER_FILE -> null
+            else -> a.schPaper
+        },
+        ink = when (a.schInk) {
+            SchematicInk.THEME -> base.ink
+            SchematicInk.ORIGINAL -> SchematicColors.Ink.ORIGINAL
+            SchematicInk.INVERTED -> SchematicColors.Ink.INVERTED
+            SchematicInk.HIGH_CONTRAST -> SchematicColors.Ink.HIGH_CONTRAST
+        },
+        net = if (a.schNetColor != 0) a.schNetColor else base.net,
+    )
+}
+
+/** Text size and grid of the schematic view (Settings › Appearance › Schematic view). */
+fun schematicStyleFor(a: Appearance): SchematicStyle =
+    SchematicStyle(textScale = a.schTextScale.coerceIn(0.5f, 3f), grid = a.schGrid, gridStepUm = a.schGridStepUm)
+
+private fun themeSchematicColors(a: Appearance): SchematicColors {
     val accent = a.accent
     return when (a.mode) {
         ThemeMode.LIGHT -> SchematicColors(background = 0xFFE2E6EC.toInt(), paper = null, ink = SchematicColors.Ink.ORIGINAL, selected = 0xFFE08A00.toInt(), highlight = 0xFFD5009F.toInt(), net = 0xFF0097A7.toInt())

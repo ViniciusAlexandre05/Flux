@@ -4,6 +4,15 @@ All notable changes to Flux. Dates are in YYYY-MM-DD.
 
 ## Unreleased
 
+- The three-way Board / Split / Schematic switch is now two on/off buttons, **Board** and
+  **Schematic**: both on shows them side by side, one on shows that view alone. The last view
+  that is on cannot be turned off (a short message says so).
+- Settings › Appearance has a **PCB view / Schematic view** switch. PCB view: board background
+  and grid, as before. Schematic view (new): paper colour (theme, the file's, white, cream, dark,
+  black), line and text colours (theme, Altium's own, inverted, high contrast), traced-net colour,
+  a grid on the paper (lines or dots, 50 / 100 / 200 mil) and text size (80 % to 200 %). Theme
+  and accent colour stay above the switch; they apply to the whole app.
+
 ## 0.1.1 — 2026-11-18
 
 Android 0.1.1 (versionCode 5) and PC 0.1.1. Like 0.1, released before the tablet test.

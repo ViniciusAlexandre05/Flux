@@ -162,6 +162,7 @@ fun SchematicPane(
                 onViewport = { w, h -> view.viewport = w to h },
                 onTap = { x, y, tol, _ -> vm.onSchematicTap(sheetIndex, x, y, tol) },
                 colors = LocalSchematicColors.current,
+                style = remember(appearance) { schematicStyleFor(appearance) },
                 focus = focus,
                 rotationGesture = appearance.rotationGesture,
                 onStylusSeen = vm::onStylusSeen,

@@ -11,8 +11,12 @@ import kotlinx.coroutines.flow.map
 import com.pcbsolderview.render.GridStyle
 import com.pcbsolderview.render.GridUnit
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.floatPreferencesKey
 
-enum class ThemeMode(val label: String) { DARK("Dark"), LIGHT("Light"), HIGH_CONTRAST("High contrast") }
+enum class ThemeMode(val label: String) { DARK("Dark"), LIGHT("Light"), HIGH_CONTRAST("Contrast") }
+
+/** How schematic lines and text are coloured; [THEME] follows the app theme (Light = Altium's colours). */
+enum class SchematicInk(val label: String) { THEME("Theme"), ORIGINAL("Altium"), INVERTED("Inverted"), HIGH_CONTRAST("Contrast") }
 
 /** Rows of the part details panel; each can be shown or hidden in Settings. */
 enum class DetailField(val label: String) {
@@ -60,12 +64,47 @@ data class Appearance(
     val followSelection: Boolean = true,
     /** Keep the screen on while a board is open (bench work with dirty hands). */
     val keepScreenOn: Boolean = true,
+    // ---- Schematic view (Settings > Appearance > Schematic view). 0 = follow the theme.
+    /** Paper colour: [SCH_PAPER_THEME], [SCH_PAPER_FILE] (the colour saved in the .SchDoc) or 0xAARRGGBB. */
+    val schPaper: Int = SCH_PAPER_THEME,
+    val schInk: SchematicInk = SchematicInk.THEME,
+    /** Colour of a traced net, 0 = theme. */
+    val schNetColor: Int = 0,
+    val schGrid: GridStyle = GridStyle.NONE,
+    /** Schematic grid spacing in um (Altium's default snap grid: 100 mil). */
+    val schGridStepUm: Long = 2540,
+    /** Multiplies every schematic text size (0.8 to 2). */
+    val schTextScale: Float = 1f,
 ) {
     fun shows(f: DetailField) = f !in hiddenDetails
 
     companion object {
         fun encodeFields(s: Set<DetailField>) = s.joinToString(",") { it.name }
         fun decodeFields(s: String?): Set<DetailField>? = s?.split(',')?.mapNotNull { n -> runCatching { DetailField.valueOf(n.trim()) }.getOrNull() }?.toSet()
+
+        /** Paper choices; the two first are not colours (alpha 0) but "follow the theme" / "as in the file". */
+        const val SCH_PAPER_THEME = 0
+        const val SCH_PAPER_FILE = 1
+        val SCH_PAPERS: List<Pair<String, Int>> = listOf(
+            "Theme" to SCH_PAPER_THEME,
+            "File" to SCH_PAPER_FILE,
+            "White" to 0xFFFFFFFF.toInt(),
+            "Cream" to 0xFFFFFCF8.toInt(),
+            "Dark" to 0xFF161C24.toInt(),
+            "Black" to 0xFF000000.toInt(),
+        )
+        /** Traced-net colours; 0 = the theme's. */
+        val SCH_NET_COLORS: List<Pair<String, Int>> = listOf(
+            "Theme" to 0,
+            "Cyan" to 0xFF00B8D4.toInt(),
+            "Magenta" to 0xFFFF2BD6.toInt(),
+            "Green" to 0xFF22C55E.toInt(),
+            "Orange" to 0xFFFF851B.toInt(),
+        )
+        /** Grid spacings offered (um): 50, 100, 200 mil. */
+        val SCH_GRID_STEPS: List<Pair<String, Long>> = listOf("50 mil" to 1270L, "100 mil" to 2540L, "200 mil" to 5080L)
+        /** Text size steps. */
+        val SCH_TEXT_SCALES: List<Float> = listOf(0.8f, 1f, 1.25f, 1.5f, 1.75f, 2f)
 
         val ACCENTS: List<Pair<String, Int>> = listOf(
             "Solder" to 0xFFF5B83D.toInt(),
@@ -101,6 +140,12 @@ class AppearancePrefs(private val context: Context) {
     private val kHiddenDetails = stringPreferencesKey("hidden_details")
     private val kFollow = booleanPreferencesKey("follow_selection")
     private val kKeepOn = booleanPreferencesKey("keep_screen_on")
+    private val kSchPaper = intPreferencesKey("sch_paper")
+    private val kSchInk = stringPreferencesKey("sch_ink")
+    private val kSchNet = intPreferencesKey("sch_net_color")
+    private val kSchGrid = stringPreferencesKey("sch_grid")
+    private val kSchGridStep = longPreferencesKey("sch_grid_step_um")
+    private val kSchText = floatPreferencesKey("sch_text_scale")
 
     companion object {
         private const val SYNC = "appearance_sync"
@@ -127,6 +172,12 @@ class AppearancePrefs(private val context: Context) {
                 hiddenDetails = Appearance.decodeFields(p.getString("hidden_details", null)) ?: d.hiddenDetails,
                 followSelection = p.getBoolean("follow_selection", d.followSelection),
                 keepScreenOn = p.getBoolean("keep_screen_on", d.keepScreenOn),
+                schPaper = p.getInt("sch_paper", d.schPaper),
+                schInk = p.getString("sch_ink", null)?.let { runCatching { SchematicInk.valueOf(it) }.getOrNull() } ?: d.schInk,
+                schNetColor = p.getInt("sch_net_color", d.schNetColor),
+                schGrid = p.getString("sch_grid", null)?.let { runCatching { GridStyle.valueOf(it) }.getOrNull() } ?: d.schGrid,
+                schGridStepUm = p.getLong("sch_grid_step_um", d.schGridStepUm),
+                schTextScale = p.getFloat("sch_text_scale", d.schTextScale),
             )
         }
 
@@ -139,6 +190,8 @@ class AppearancePrefs(private val context: Context) {
                 .putString("hidden_details", Appearance.encodeFields(a.hiddenDetails))
                 .putBoolean("follow_selection", a.followSelection)
                 .putBoolean("keep_screen_on", a.keepScreenOn)
+                .putInt("sch_paper", a.schPaper).putString("sch_ink", a.schInk.name).putInt("sch_net_color", a.schNetColor)
+                .putString("sch_grid", a.schGrid.name).putLong("sch_grid_step_um", a.schGridStepUm).putFloat("sch_text_scale", a.schTextScale)
                 .apply()
         }
     }
@@ -159,6 +212,12 @@ class AppearancePrefs(private val context: Context) {
             hiddenDetails = Appearance.decodeFields(p[kHiddenDetails]) ?: d.hiddenDetails,
             followSelection = p[kFollow] ?: d.followSelection,
             keepScreenOn = p[kKeepOn] ?: d.keepScreenOn,
+            schPaper = p[kSchPaper] ?: d.schPaper,
+            schInk = p[kSchInk]?.let { runCatching { SchematicInk.valueOf(it) }.getOrNull() } ?: d.schInk,
+            schNetColor = p[kSchNet] ?: d.schNetColor,
+            schGrid = p[kSchGrid]?.let { runCatching { GridStyle.valueOf(it) }.getOrNull() } ?: d.schGrid,
+            schGridStepUm = p[kSchGridStep] ?: d.schGridStepUm,
+            schTextScale = p[kSchText] ?: d.schTextScale,
         )
     }
 
@@ -178,6 +237,12 @@ class AppearancePrefs(private val context: Context) {
             p[kHiddenDetails] = Appearance.encodeFields(a.hiddenDetails)
             p[kFollow] = a.followSelection
             p[kKeepOn] = a.keepScreenOn
+            p[kSchPaper] = a.schPaper
+            p[kSchInk] = a.schInk.name
+            p[kSchNet] = a.schNetColor
+            p[kSchGrid] = a.schGrid.name
+            p[kSchGridStep] = a.schGridStepUm
+            p[kSchText] = a.schTextScale
         }
     }
 }

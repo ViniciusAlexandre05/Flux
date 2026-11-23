@@ -188,7 +188,27 @@ data class UiState(
     val hasBoard: Boolean get() = scene?.board?.let { it.components.isNotEmpty() || it.outline.isNotEmpty() } == true
 }
 
-enum class ViewLayout { BOARD, SPLIT, SCHEMATIC }
+enum class ViewLayout {
+    BOARD, SPLIT, SCHEMATIC;
+
+    val showsBoard: Boolean get() = this != SCHEMATIC
+    val showsSchematic: Boolean get() = this != BOARD
+
+    /**
+     * The Board and Schematic buttons are independent on/off switches; both on = side by side.
+     * Returns the layout after toggling one of them, or null when that would hide both views.
+     */
+    fun toggled(board: Boolean): ViewLayout? {
+        val b = if (board) !showsBoard else showsBoard
+        val s = if (board) showsSchematic else !showsSchematic
+        return when {
+            b && s -> SPLIT
+            b -> BOARD
+            s -> SCHEMATIC
+            else -> null
+        }
+    }
+}
 
 class BoardViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -418,6 +438,24 @@ class BoardViewModel(app: Application) : AndroidViewModel(app) {
     fun setViewLayout(l: ViewLayout) = _state.update { s ->
         if (!s.hasSchematicView || (l != ViewLayout.SCHEMATIC && !s.hasBoard)) s else s.copy(viewLayout = l)
     }
+
+    /** Board button: shows or hides the board; the schematic stays as it is. */
+    fun toggleBoardView() = toggleView(board = true)
+
+    /** Schematic button: shows or hides the schematic; the board stays as it is. */
+    fun toggleSchematicView() = toggleView(board = false)
+
+    private fun toggleView(board: Boolean) = _state.update { s ->
+        val next = s.viewLayout.toggled(board)
+        when {
+            next == null -> s.copy(message = "One view stays on: show the " + (if (board) "schematic" else "board") + " first to hide this one")
+            next.showsBoard && !s.hasBoard -> s
+            else -> setViewLayoutState(s, next)
+        }
+    }
+
+    private fun setViewLayoutState(s: UiState, l: ViewLayout): UiState =
+        if (!s.hasSchematicView || (l != ViewLayout.SCHEMATIC && !s.hasBoard)) s else s.copy(viewLayout = l)
 
     fun setSheet(i: Int) = _state.update { s -> s.copy(sheetIndex = i.coerceIn(0, (s.schematic?.sheets?.size ?: 1) - 1)) }
 
