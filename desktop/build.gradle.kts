@@ -10,7 +10,7 @@ plugins {
 }
 
 /** Desktop version (x.y.z, MSI needs a numeric version with major > 0, see packageVersion below). */
-val fluxVersion = "0.1.3"
+val fluxVersion = "0.1.4-test1"
 
 kotlin { jvmToolchain(17) }
 
@@ -93,7 +93,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
             packageName = "Flux"
-            packageVersion = fluxVersion
+            packageVersion = fluxVersion.substringBefore("-") // MSI needs numbers only: 0.1.4-test1 -> 0.1.4
             description = "PCB viewer for the soldering bench"
             vendor = "Vinicius Alexandre Gomes"
             // java.naming etc. are not needed; PDFBox needs java.desktop (always included).

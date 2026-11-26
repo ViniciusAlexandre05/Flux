@@ -128,6 +128,8 @@ Get-ChildItem $Out | ForEach-Object { Write-Host ("  {0,-40} {1,12:N0} bytes" -f
 if ($DryRun) { Step "Dry run: nothing tagged, pushed or released. Files in $Out"; exit 0 }
 
 # ---- 4. Tag, push, release
+# git and gh print progress on stderr; with "Stop" Windows PowerShell 5.1 turns that into an error.
+$ErrorActionPreference = "Continue"
 Step "Tagging and pushing $Tag"
 & $Git tag -a $Tag -m "Flux $Version"; if ($LASTEXITCODE -ne 0) { Fail "git tag failed." }
 & $Git push origin HEAD; if ($LASTEXITCODE -ne 0) { Fail "git push failed." }

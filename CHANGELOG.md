@@ -2,6 +2,12 @@
 
 All notable changes to Flux. Dates are in YYYY-MM-DD.
 
+## 0.1.4-test1 — 2026-11-26
+
+- Test version: the same app as 0.1.3. It exists only to try the in-app update: in 0.1.3, turn
+  on Settings › Updates › Show test versions, tap Check now and install it. If this note appears
+  after the update, it worked.
+
 ## 0.1.3 — 2026-11-26
 
 - **In-app updates** (Android): Settings › Updates shows the installed version and a **Check now**
