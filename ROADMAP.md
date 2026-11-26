@@ -111,11 +111,12 @@ parts in the schematic that are not placed on the board.
 - `docs/PLAN-desktop.md`: Windows version (Compose Multiplatform desktop executable), synced
   with Android only on request. D1–D5 done 2026-11-16 (desktop 0.1.0, unreleased); next: user test on PC.
 
-## Next: in-app updates (docs/PLAN-updates.md)
+## 0.1.3 — released 2026-11-26 (Android in-app updates; PC version number only)
 
-U0–U2 implemented on Android 2026-11-24 (unreleased): Settings › Updates, release script with
-`flux-release.json`. To finish: release 0.1.3 (installed by hand once), then update to a test
-version from inside the app. U3 (PC updater) on request.
+Settings › Updates on Android (Check now, install, all versions, test versions) and the release
+script with `flux-release.json` (docs/PLAN-updates.md U0–U2). Test pre-release 0.1.4-test1 (same
+app) to try the update from inside the app. Still open: that tablet test; U3 (PC updater) on
+request.
 
 ## 0.1.2 — released 2026-11-23 (Android and PC)
 

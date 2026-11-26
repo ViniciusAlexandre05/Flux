@@ -130,15 +130,18 @@ Read `docs/ARCHITECTURE.md` before changing anything non-trivial. Implementation
 - They test on the tablet and report problems in short messages; ambiguous wording is common,
   so state your interpretation and offer the alternative.
 
-## Status (2026-11-23)
+## Status (2026-11-26)
 
 Released: v0.0, v0.0.1, v0.0.2, v0.1 (2026-11-16: schematic sync, native .PcbDoc reader, Windows
 version), v0.1.1 (2026-11-18: duplicate designators, soldering checklist, .PcbDoc silkscreen
-text, side-only highlights; PC Ctrl selection), **v0.1.2** (latest, versionCode 6, desktop 0.1.2,
-2026-11-23: Board/Schematic on/off buttons, schematic appearance settings). Each GitHub
-release carries the APK, the MSI and a portable zip. Released at the user's request **before the
-tablet test**: schematic and .PcbDoc work is tested on the JVM only. Next: the user's tablet test,
-then fixes; in-app updates (`docs/PLAN-updates.md`, U0 first).
+text, side-only highlights; PC Ctrl selection), v0.1.2 (2026-11-23: Board/Schematic on/off
+buttons, schematic appearance settings), **v0.1.3** (latest, versionCode 7, desktop 0.1.3,
+2026-11-26: Android in-app updates; the PC build only changed its version number) and the test
+pre-release **v0.1.4-test1** (versionCode 8; same app, it only exists to try the in-app update).
+Each GitHub release carries the APK, the MSI, a portable zip and `flux-release.json`. The user's
+tablet test of 0.1.2 passed (2026-11-24). Next: the user installs 0.1.3 by hand and updates to
+0.1.4-test1 from Settings › Updates; then U3 (PC updater) on request. The next real version is
+0.1.4 (versionCode 9).
 
 Schematic facts learned from the RP2040 sample (`samples/real/RPI_Module/`):
 - Record keys are mixed case (`|RECORD=34|…|Text=C1`): `AltiumRecord` upper-cases keys.

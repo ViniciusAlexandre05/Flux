@@ -2,7 +2,7 @@
 
 All notable changes to Flux. Dates are in YYYY-MM-DD.
 
-## Unreleased
+## 0.1.3 — 2026-11-26
 
 - **In-app updates** (Android): Settings › Updates shows the installed version and a **Check now**
   button. When a newer Flux is on GitHub it shows what's new and **Download and install** (progress,
@@ -16,6 +16,7 @@ All notable changes to Flux. Dates are in YYYY-MM-DD.
 - **Show test versions** (off by default): also offers test versions, to try a fix before it is
   released.
 - Flux now has the Internet and "install apps" permissions, used only for the above.
+- PC: no changes except the version number (its updater comes later).
 - Releases: `scripts/release.ps1` builds, checks and publishes a release with a
   `flux-release.json` file that the app reads (versions, file sizes, SHA-256, notes).
 
