@@ -2,6 +2,12 @@
 
 All notable changes to Flux. Dates are in YYYY-MM-DD.
 
+## 0.1.4-test3 — 2026-11-26 (PC only)
+
+- Test version for the PC: the same as 0.1.4-test2. It exists only to try the in-app update: in
+  0.1.4-test2, turn on Settings › Updates › Show test versions, click Check now and install it.
+  If this note appears after Flux restarts, it worked.
+
 ## 0.1.4-test2 — 2026-11-26 (PC only)
 
 - Test version for the PC: install this one by hand (MSI or portable zip), then update to

@@ -1,5 +1,5 @@
 Synced with Android: 4b6b4cd (in-app updates, 2026-11-26)
-Desktop version: 0.1.4-test2
+Desktop version: 0.1.4-test3
 
 # Desktop ↔ Android sync record
 
