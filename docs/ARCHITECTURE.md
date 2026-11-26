@@ -177,6 +177,10 @@ version; plan in `docs/PLAN-updates.md`.
 - Android (`app/.../update/`): `UpdateViewModel` (Settings › Updates, "Updated to" note),
   `ApkInstaller` (PackageInstaller session, result through `UpdateInstallReceiver` →
   `InstallEvents`; older versions are saved to Downloads). Online only when the user asks.
+- PC (`desktop/.../update/`): `UpdateController` (same flow, `update.json` for the after-update
+  note) and `WindowsInstall.kt`: `RunMode` (development run / MSI / portable) and the PowerShell
+  helpers that run after Flux closes (msiexec with `INSTALLDIR`, or rename-and-swap of the
+  portable folder), log to `update.log` and start Flux again.
 
 ## app
 

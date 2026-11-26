@@ -46,6 +46,9 @@ import com.pcbsolderview.ui.BackDispatcher
 import com.pcbsolderview.ui.BoardScreen
 import com.pcbsolderview.ui.DesktopCommands
 import com.pcbsolderview.ui.PcbTheme
+import com.pcbsolderview.ui.UpdatedNotice
+import com.pcbsolderview.ui.UpdatesDialog
+import com.pcbsolderview.update.UpdateController
 import java.awt.datatransfer.DataFlavor
 import java.awt.event.KeyEvent as AwtKeyEvent
 import java.io.File
@@ -65,11 +68,14 @@ fun main(args: Array<String>) {
             val files = args.map(::File).filter { it.exists() }
             if (files.isNotEmpty()) vm.open(files)
         }
-        FluxWindow(vm, windowState, onClose = {
+        val quit = {
             WindowPrefs.save(dirs, windowState)
             vm.close()
             exitApplication()
-        })
+        }
+        // The updater closes Flux the normal way before its helper installs the new version.
+        LaunchedEffect(Unit) { UpdateController.instance.quit = quit }
+        FluxWindow(vm, windowState, onClose = quit)
     }
 }
 
@@ -79,6 +85,7 @@ private fun ApplicationScope.FluxWindow(vm: BoardViewModel, windowState: WindowS
     val state by vm.state.collectAsState()
     val appearance by vm.appearance.collectAsState()
     var about by remember { mutableStateOf(false) }
+    var updates by remember { mutableStateOf(false) }
     val title = state.scene?.let { "${state.boardTitle ?: it.board.name} — Flux" } ?: "Flux"
 
     Window(
@@ -90,7 +97,7 @@ private fun ApplicationScope.FluxWindow(vm: BoardViewModel, windowState: WindowS
     ) {
         window.minimumSize = java.awt.Dimension(800, 560)
         val openFiles = { FileDialogs.openFiles(window)?.let(vm::open); Unit }
-        FluxMenuBar(vm, state, openFiles, onAbout = { about = true })
+        FluxMenuBar(vm, state, openFiles, onAbout = { about = true }, onUpdates = { updates = true })
 
         val dropTarget = remember {
             object : DragAndDropTarget {
@@ -113,6 +120,10 @@ private fun ApplicationScope.FluxWindow(vm: BoardViewModel, windowState: WindowS
                 ),
             ) {
                 BoardScreen(state = state, vm = vm, openFiles = openFiles)
+            }
+            UpdatedNotice()
+            if (updates) {
+                UpdatesDialog(appearance.showTestVersions, onShowTest = { vm.setAppearance(appearance.copy(showTestVersions = it)) }, onDismiss = { updates = false })
             }
             if (about) {
                 AlertDialog(
@@ -148,7 +159,7 @@ private fun handleKey(e: KeyEvent, vm: BoardViewModel): Boolean {
 }
 
 @Composable
-private fun FrameWindowScope.FluxMenuBar(vm: BoardViewModel, state: UiState, openFiles: () -> Unit, onAbout: () -> Unit) {
+private fun FrameWindowScope.FluxMenuBar(vm: BoardViewModel, state: UiState, openFiles: () -> Unit, onAbout: () -> Unit, onUpdates: () -> Unit) {
     val hasBoard = state.scene != null
     MenuBar {
         Menu("File", mnemonic = 'F') {
@@ -194,6 +205,7 @@ private fun FrameWindowScope.FluxMenuBar(vm: BoardViewModel, state: UiState, ope
         }
         Menu("Help", mnemonic = 'H') {
             Item("Mouse and keys", onClick = { FileDialogs.showHelp(window) })
+            Item("Check for updates…", onClick = onUpdates)
             Item("About Flux", onClick = onAbout)
         }
     }

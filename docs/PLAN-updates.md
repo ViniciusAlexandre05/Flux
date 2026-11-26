@@ -9,6 +9,20 @@ Not built, per D3: the start-screen banner and automatic checks. Next: the user 
 0.1.3 (first version with the updater) is released and installed by hand, then a test pre-release
 checks the in-app update on the tablet. U3 (PC) only when the user asks.
 
+**Status 2026-11-26:** 0.1.3 and the test pre-release 0.1.4-test1 are released. U3 is implemented
+(`desktop/.../update/`, 7 JVM tests; the portable swap runs for real in PowerShell on temp
+folders, both helper scripts pass PowerShell's parser). Differences from the text below:
+- The MSI helper passes `INSTALLDIR` (the user may have picked a folder: `dirChooser = true`) and
+  uninstalls first not only for older versions but also when the numeric versions are equal
+  (`0.1.4-test1` and `0.1.4` both build an MSI numbered 0.1.4). The product code comes from the
+  registry uninstall keys (DisplayName Flux, Publisher = vendor), not the COM installer object,
+  which Constrained Language Mode blocks.
+- The install folder is found from `jpackage.app-path`, or the process command when it is not
+  `java.exe`. Development runs can check but not install.
+- State in `%APPDATA%\Flux\update.json`; downloads, `update.ps1` and `update.log` in
+  `%LOCALAPPDATA%\Flux\updates\`.
+Not testable here (Application Control blocks unsigned Flux.exe): the real MSI install and restart.
+
 ## Goal
 
 Both versions (Android and the Windows PC version) check GitHub for new releases, show what is

@@ -115,8 +115,11 @@ parts in the schematic that are not placed on the board.
 
 Settings › Updates on Android (Check now, install, all versions, test versions) and the release
 script with `flux-release.json` (docs/PLAN-updates.md U0–U2). Test pre-release 0.1.4-test1 (same
-app) to try the update from inside the app. Still open: that tablet test; U3 (PC updater) on
-request.
+app) to try the update from inside the app. Still open: that tablet test.
+
+**U3 (PC updater) implemented 2026-11-26 (unreleased):** Settings › Updates and Help › Check for
+updates… on the PC; MSI and portable folder, newer and older versions. Needs a release after it
+(installed by hand once) and a test on a PC that allows unsigned builds.
 
 ## 0.1.2 — released 2026-11-23 (Android and PC)
 

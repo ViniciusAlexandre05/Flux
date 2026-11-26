@@ -2,6 +2,15 @@
 
 All notable changes to Flux. Dates are in YYYY-MM-DD.
 
+## Unreleased
+
+- **In-app updates on the PC**: Settings › Updates and **Help › Check for updates…** work as on
+  Android (Check now, what's new, All versions, Show test versions). **Download, install and
+  restart** downloads the installer (or the portable zip, for the portable folder), closes Flux,
+  installs it and starts Flux again; boards, statuses and settings in `%APPDATA%\Flux` stay. Older
+  versions install the same way (**Go back**, after a warning). If an update does not finish,
+  the next start says why. When Flux runs from the source code it can check but not install.
+
 ## 0.1.4-test1 — 2026-11-26
 
 - Test version: the same app as 0.1.3. It exists only to try the in-app update: in 0.1.3, turn

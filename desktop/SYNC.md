@@ -1,5 +1,5 @@
-Synced with Android: 59bb758 (Board/Schematic on/off buttons, schematic appearance settings, 2026-11-23)
-Desktop version: 0.1.2
+Synced with Android: 4b6b4cd (in-app updates, 2026-11-26)
+Desktop version: 0.1.4-test1
 
 # Desktop ↔ Android sync record
 
@@ -65,6 +65,14 @@ the Android package names kept, so `git diff --no-index` between the two copies 
   check items instead of the three radio items.
 - `data/AppearancePrefs.kt`: the schematic appearance keys (`sch_paper`, `sch_ink`,
   `sch_net_color`, `sch_grid`, `sch_grid_step_um`, `sch_text_scale`) in `settings.json`.
+- In-app updates (2026-11-26): `core/update` is shared; `update/UpdateController.kt` plays the
+  Android `UpdateViewModel` (plain class, own scope, `update.json` instead of SharedPreferences) and
+  `update/WindowsInstall.kt` replaces `ApkInstaller`: `RunMode` (development run / MSI / portable,
+  from `jpackage.app-path` and `portable.txt`) and the PowerShell helpers `UpdateScripts.msi` /
+  `.portable`, which wait for Flux to close, install, and start it again. Older versions install
+  in place too ("Go back" with a warning; Android only saves the APK). `ui/UpdatesSection.kt`
+  follows Android's, plus `UpdatesDialog` (Help › Check for updates…). `show_test_versions` in
+  `settings.json`.
 
 ## Not ported (by design)
 

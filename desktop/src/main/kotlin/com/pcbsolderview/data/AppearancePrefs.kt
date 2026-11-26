@@ -81,6 +81,8 @@ data class Appearance(
     val schGridStepUm: Long = 2540,
     /** Multiplies every schematic text size (0.8 to 2). */
     val schTextScale: Float = 1f,
+    /** Settings › Updates also offers test versions (pre-releases). */
+    val showTestVersions: Boolean = false,
 ) {
     fun shows(f: DetailField) = f !in hiddenDetails
 
@@ -168,6 +170,7 @@ class AppearancePrefs(private val dirs: AppDirs) {
                 schGrid = str("sch_grid")?.let { runCatching { GridStyle.valueOf(it) }.getOrNull() } ?: d.schGrid,
                 schGridStepUm = long("sch_grid_step_um") ?: d.schGridStepUm,
                 schTextScale = (p["sch_text_scale"] as? JsonPrimitive)?.floatOrNull ?: d.schTextScale,
+                showTestVersions = bool("show_test_versions") ?: d.showTestVersions,
             )
         }
 
@@ -191,6 +194,7 @@ class AppearancePrefs(private val dirs: AppDirs) {
             put("sch_grid", a.schGrid.name)
             put("sch_grid_step_um", a.schGridStepUm)
             put("sch_text_scale", a.schTextScale)
+            put("show_test_versions", a.showTestVersions)
         })
     }
 

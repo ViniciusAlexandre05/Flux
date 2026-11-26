@@ -140,7 +140,8 @@ buttons, schematic appearance settings), **v0.1.3** (latest, versionCode 7, desk
 pre-release **v0.1.4-test1** (versionCode 8; same app, it only exists to try the in-app update).
 Each GitHub release carries the APK, the MSI, a portable zip and `flux-release.json`. The user's
 tablet test of 0.1.2 passed (2026-11-24). Next: the user installs 0.1.3 by hand and updates to
-0.1.4-test1 from Settings › Updates; then U3 (PC updater) on request. The next real version is
+0.1.4-test1 from Settings › Updates. U3 (PC updater, `desktop/.../update/`) is implemented
+(2026-11-26, unreleased; the released PC builds have no updater yet). The next real version is
 0.1.4 (versionCode 9).
 
 Schematic facts learned from the RP2040 sample (`samples/real/RPI_Module/`):
