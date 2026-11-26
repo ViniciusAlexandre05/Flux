@@ -75,6 +75,8 @@ data class Appearance(
     val schGridStepUm: Long = 2540,
     /** Multiplies every schematic text size (0.8 to 2). */
     val schTextScale: Float = 1f,
+    /** Settings › Updates: also offer test versions (GitHub pre-releases). */
+    val showTestVersions: Boolean = false,
 ) {
     fun shows(f: DetailField) = f !in hiddenDetails
 
@@ -146,6 +148,7 @@ class AppearancePrefs(private val context: Context) {
     private val kSchGrid = stringPreferencesKey("sch_grid")
     private val kSchGridStep = longPreferencesKey("sch_grid_step_um")
     private val kSchText = floatPreferencesKey("sch_text_scale")
+    private val kTestVersions = booleanPreferencesKey("show_test_versions")
 
     companion object {
         private const val SYNC = "appearance_sync"
@@ -178,6 +181,7 @@ class AppearancePrefs(private val context: Context) {
                 schGrid = p.getString("sch_grid", null)?.let { runCatching { GridStyle.valueOf(it) }.getOrNull() } ?: d.schGrid,
                 schGridStepUm = p.getLong("sch_grid_step_um", d.schGridStepUm),
                 schTextScale = p.getFloat("sch_text_scale", d.schTextScale),
+                showTestVersions = p.getBoolean("show_test_versions", d.showTestVersions),
             )
         }
 
@@ -192,6 +196,7 @@ class AppearancePrefs(private val context: Context) {
                 .putBoolean("keep_screen_on", a.keepScreenOn)
                 .putInt("sch_paper", a.schPaper).putString("sch_ink", a.schInk.name).putInt("sch_net_color", a.schNetColor)
                 .putString("sch_grid", a.schGrid.name).putLong("sch_grid_step_um", a.schGridStepUm).putFloat("sch_text_scale", a.schTextScale)
+                .putBoolean("show_test_versions", a.showTestVersions)
                 .apply()
         }
     }
@@ -218,6 +223,7 @@ class AppearancePrefs(private val context: Context) {
             schGrid = p[kSchGrid]?.let { runCatching { GridStyle.valueOf(it) }.getOrNull() } ?: d.schGrid,
             schGridStepUm = p[kSchGridStep] ?: d.schGridStepUm,
             schTextScale = p[kSchText] ?: d.schTextScale,
+            showTestVersions = p[kTestVersions] ?: d.showTestVersions,
         )
     }
 
@@ -243,6 +249,7 @@ class AppearancePrefs(private val context: Context) {
             p[kSchGrid] = a.schGrid.name
             p[kSchGridStep] = a.schGridStepUm
             p[kSchText] = a.schTextScale
+            p[kTestVersions] = a.showTestVersions
         }
     }
 }

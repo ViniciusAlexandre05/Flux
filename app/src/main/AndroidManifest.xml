@@ -1,7 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- No permissions: files arrive through the system picker or "Open with"/share grants. -->
+    <!-- Files arrive through the system picker or "Open with"/share grants (no storage permission).
+         Network and installing: only for Settings > Updates > Check now (docs/PLAN-updates.md). -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:allowBackup="true"
@@ -52,6 +55,11 @@
                 <data android:mimeType="application/octet-stream" />
             </intent-filter>
         </activity>
+
+        <!-- Result of an in-app update install (PackageInstaller session). -->
+        <receiver
+            android:name=".update.UpdateInstallReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

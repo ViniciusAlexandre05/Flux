@@ -2,6 +2,23 @@
 
 All notable changes to Flux. Dates are in YYYY-MM-DD.
 
+## Unreleased
+
+- **In-app updates** (Android): Settings › Updates shows the installed version and a **Check now**
+  button. When a newer Flux is on GitHub it shows what's new and **Download and install** (progress,
+  Cancel; an interrupted download continues where it stopped, and every file is checked against
+  its SHA-256 before installing). Android asks once to allow Flux to install apps, then shows its
+  own update prompt; boards, statuses and settings stay. After the update a short note says what's
+  new. Flux goes online only when you tap Check now or All versions.
+- **All versions**: every release with in-app install, newest first, with Install for newer ones
+  and **Save APK** (to Downloads) for older ones (Android only installs an older version after
+  Flux is uninstalled, which deletes its annotations).
+- **Show test versions** (off by default): also offers test versions, to try a fix before it is
+  released.
+- Flux now has the Internet and "install apps" permissions, used only for the above.
+- Releases: `scripts/release.ps1` builds, checks and publishes a release with a
+  `flux-release.json` file that the app reads (versions, file sizes, SHA-256, notes).
+
 ## 0.1.2 — 2026-11-23
 
 Android 0.1.2 (versionCode 6) and PC 0.1.2. Released before the tablet test.

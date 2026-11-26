@@ -111,6 +111,12 @@ parts in the schematic that are not placed on the board.
 - `docs/PLAN-desktop.md`: Windows version (Compose Multiplatform desktop executable), synced
   with Android only on request. D1–D5 done 2026-11-16 (desktop 0.1.0, unreleased); next: user test on PC.
 
+## Next: in-app updates (docs/PLAN-updates.md)
+
+U0–U2 implemented on Android 2026-11-24 (unreleased): Settings › Updates, release script with
+`flux-release.json`. To finish: release 0.1.3 (installed by hand once), then update to a test
+version from inside the app. U3 (PC updater) on request.
+
 ## 0.1.2 — released 2026-11-23 (Android and PC)
 
 Board and Schematic on/off buttons (instead of the three-way switch) and schematic appearance

@@ -1,0 +1,27 @@
+{
+    "schema":  1,
+    "tag":  "v0.1.2",
+    "date":  "2026-11-24",
+    "notes":  "Android 0.1.2 (versionCode 6) and PC 0.1.2. Released before the tablet test.\n\n- The three-way Board / Split / Schematic switch is now two on/off buttons, **Board** and\n  **Schematic**: both on shows them side by side, one on shows that view alone. The last view\n  that is on cannot be turned off (a short message says so).\n- Settings › Appearance has a **PCB view / Schematic view** switch. PCB view: board background\n  and grid, as before. Schematic view (new): paper colour (theme, the file\u0027s, white, cream, dark,\n  black), line and text colours (theme, Altium\u0027s own, inverted, high contrast), traced-net colour,\n  a grid on the paper (lines or dots, 50 / 100 / 200 mil) and text size (80 % to 200 %). Theme\n  and accent colour stay above the switch; they apply to the whole app.\n- PC: both of the above. Keys **1** and **2** turn the board and the schematic on and off (key 3\n  is gone), and the View menu has two check items, Board and Schematic.",
+    "android":  {
+                    "versionCode":  6,
+                    "versionName":  "0.1.2",
+                    "minSdk":  28,
+                    "asset":  "Flux-0.1.2-debug.apk",
+                    "size":  59843285,
+                    "sha256":  "c0299a54142cca59a11b104df7fd429f71f06d6e05305c946c36e1f4a4369c56"
+                },
+    "desktop":  {
+                    "version":  "0.1.2",
+                    "msi":  {
+                                "asset":  "Flux-0.1.2-windows.msi",
+                                "size":  101396544,
+                                "sha256":  "ebb6e87af49de6875a584a2fba516ec9dd90b71066b5342cab0654e840034a64"
+                            },
+                    "portable":  {
+                                     "asset":  "Flux-0.1.2-windows-portable.zip",
+                                     "size":  100347062,
+                                     "sha256":  "a9667a5cfb79a0b195998f54255c1874542b7a483f5fdf7238d4af14b65e2a85"
+                                 }
+                }
+}

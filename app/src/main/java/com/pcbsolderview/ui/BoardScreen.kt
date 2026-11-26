@@ -104,6 +104,7 @@ fun BoardScreen(state: UiState, vm: BoardViewModel, openFiles: () -> Unit) {
                 )
             }
             else BoardContent(scene, state, vm)
+            UpdatedNotice()
 
             state.loading?.let { msg ->
                 Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.6f)), contentAlignment = Alignment.Center) {

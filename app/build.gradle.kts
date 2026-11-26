@@ -1,3 +1,10 @@
+import java.util.Properties
+
+// local.properties is not committed (SDK path, optional signing key backup).
+val localProps = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.isFile }?.inputStream()?.use { load(it) }
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -16,6 +23,15 @@ android {
         versionCode = 6
         versionName = "0.1.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // In-app updates only install over an APK signed with the same key (docs/PLAN-updates.md, D2).
+    // The key is Android's debug key; local.properties may point at its backup:
+    //   flux.keystore=D:\\Backup\\flux-debug.keystore   (store and key password "android")
+    signingConfigs {
+        getByName("debug") {
+            localProps.getProperty("flux.keystore")?.let { storeFile = file(it) }
+        }
     }
 
     buildTypes {
@@ -45,6 +61,7 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:parser"))
     implementation(project(":core:render"))
+    implementation(project(":core:update"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

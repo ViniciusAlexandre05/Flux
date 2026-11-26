@@ -287,6 +287,9 @@ fun SettingsContent(a: Appearance, onChange: (Appearance) -> Unit, modifier: Mod
         ToggleRow("Frame rate (FPS)", a.showFps, "Shows frames drawn per second while you pan and zoom.") {
             onChange(a.copy(showFps = it))
         }
+        Spacer(Modifier.height(8.dp)); HorizontalDivider()
+        SectionTitle("Updates")
+        UpdatesSection(a.showTestVersions, onShowTest = { onChange(a.copy(showTestVersions = it)) })
     }
 }
 

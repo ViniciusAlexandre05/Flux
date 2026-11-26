@@ -3,6 +3,12 @@
 For an agent implementing update checks and in-app installation in Flux. Written 2026-11-18,
 against `main` at `4eb5b9e`. Read `CLAUDE.md` first; it overrides this plan where they disagree.
 
+**Status 2026-11-24:** U0 (except the test pre-release), U1 and U2 are implemented: `scripts/release.ps1`,
+`signingConfig` reading `flux.keystore`, `core/update` (15 JVM tests), Android Settings › Updates.
+Not built, per D3: the start-screen banner and automatic checks. Next: the user backs up the key,
+0.1.3 (first version with the updater) is released and installed by hand, then a test pre-release
+checks the in-app update on the tablet. U3 (PC) only when the user asks.
+
 ## Goal
 
 Both versions (Android and the Windows PC version) check GitHub for new releases, show what is

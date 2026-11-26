@@ -61,6 +61,7 @@ Read `docs/ARCHITECTURE.md` before changing anything non-trivial. Implementation
 | `core/model` (pure Kotlin) | `Board` model in **micrometres (Long), Y up**; `Component`, `Pad`, `Track`…; search, identical parts, mount filter; `Schematic` model, `SchematicLayout`, `SchematicConnectivity` |
 | `core/parser` (pure Kotlin) | `BoardImporter` (entry point, file sniffing, .zip), IPC-2581, Pick & Place, BOM (CSV/XLSX), `altium/` (compound file, records, SchDoc) |
 | `core/render` (Android lib) | `ViewTransform` (the only Y flip), `ViewGestures` (all gestures), `BoardScene`/`BoardCanvas`, `SchematicScene`/`SchematicCanvas`/`SchematicColors`, hit-testing (`GridIndex`), grid, realistic view, thumbnails |
+| `core/update` (pure Kotlin) | In-app updates shared by both versions: `ReleaseManifest` (`flux-release.json`), `Version`, `GitHubReleaseSource`, `UpdateChecker`, `Downloader` (resume + SHA-256), `UpdateMessages` |
 | `app` | `BoardViewModel` (all UI state), screens in `ui/` (`BoardPane`, `SchematicPane`, `SplitPanes`, `PdfPane`), Room DB + DataStore in `data/` |
 | `desktop` (Compose Desktop, only with -Pdesktop) | Windows version: shared `core/model` + `core/parser`; ported copies of `core/render` and `app` (same packages), `platform/` (folders, dialogs, PDFBox), JSON storage in `%APPDATA%lux`; `desktop/sync.md` lists every change from android |
 
@@ -115,9 +116,16 @@ Read `docs/ARCHITECTURE.md` before changing anything non-trivial. Implementation
 - The user writes English or Portuguese; answer in the language of their message.
 - Commit when they ask (they often ask "commit"/"push"); end commit messages with the
   attribution line from the system reminder. Push or release only when asked.
-- Releases: bump `versionCode` (+1) and `versionName` in `app/build.gradle.kts`, add a section to
-  `CHANGELOG.md`, a line to `ROADMAP.md`, clean build + tests, commit "Version x.y.z", annotated
-  tag `vx.y.z`, push main and the tag, `gh release create vx.y.z <apk renamed Flux-x.y.z-debug.apk> --notes-file …`.
+- Releases: `scripts/release.ps1 x.y.z` (see its header). Before it: bump `versionCode` (+1) and
+  `versionName` in `app/build.gradle.kts` (and `fluxVersion` in `desktop/build.gradle.kts` for the
+  PC), add a "## x.y.z" section to `CHANGELOG.md` (its text becomes the in-app "what's new") and a
+  line to `ROADMAP.md`, commit "Version x.y.z". The script runs the gate, builds the APK / MSI /
+  portable zip, writes `flux-release.json` (read by the in-app updater; keep it in step with
+  `core/update` `ReleaseManifest`), tags, pushes and runs `gh release create`. `-Test` with a
+  version like `0.1.4-test1` makes a pre-release (shown only with "Show test versions");
+  `-Android` / `-Desktop` release one version; `-DryRun` stops before tagging. Every APK must be
+  signed with the same key (debug key, `flux.keystore` in `local.properties` may point at its
+  backup); the script prints the certificate SHA-256 (`f17e3099…5947` so far).
   0.0.x = incremental releases; **v0.1 is reserved for schematic sync**.
 - They test on the tablet and report problems in short messages; ambiguous wording is common,
   so state your interpretation and offer the alternative.

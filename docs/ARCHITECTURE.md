@@ -160,6 +160,24 @@ Android library (Compose). Everything below works in board µm until `ViewTransf
   ink), `Grid` (manual mm/mil steps, density rules, auto step), `StylusInput` (side-button state
   from MotionEvents), `Thumbnail` (`BoardScene.thumbnail()` bitmap for recents).
 
+## core/update
+
+Pure Kotlin (java.net + kotlinx-serialization-json's tree API), shared by Android and the PC
+version; plan in `docs/PLAN-updates.md`.
+- `ReleaseManifest`: `flux-release.json`, attached to each GitHub release by `scripts/release.ps1`
+  (tag, date, notes, an optional Android part with versionCode/minSdk/APK and an optional PC part
+  with MSI and portable zip, each with size and SHA-256). Unknown keys are ignored; a newer
+  `schema` is refused with a message.
+- `GitHubReleaseSource`: the newest full release through `releases/latest/download/flux-release.json`
+  (no API rate limit); the version list and test versions through the REST API.
+- `UpdateChecker` + `Platform` (`AndroidPlatform` compares versionCode and minSdk,
+  `DesktopPlatform` compares `Version`): `check()` and `list()`.
+- `Downloader`: `.part` file, Range resume, size and SHA-256 check, cancellable.
+- Every failure text is in `UpdateMessages`. Tests run against a local fake GitHub (`FakeGitHub`).
+- Android (`app/.../update/`): `UpdateViewModel` (Settings › Updates, "Updated to" note),
+  `ApkInstaller` (PackageInstaller session, result through `UpdateInstallReceiver` →
+  `InstallEvents`; older versions are saved to Downloads). Online only when the user asks.
+
 ## app
 
 - `BoardViewModel` (AndroidViewModel) owns **all** UI state in one `UiState` StateFlow.
