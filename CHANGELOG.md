@@ -2,8 +2,10 @@
 
 All notable changes to Flux. Dates are in YYYY-MM-DD.
 
-## Unreleased
+## 0.1.4-test2 — 2026-11-26 (PC only)
 
+- Test version for the PC: install this one by hand (MSI or portable zip), then update to
+  0.1.4-test3 from inside Flux. Android is unchanged (0.1.4-test1).
 - **In-app updates on the PC**: Settings › Updates and **Help › Check for updates…** work as on
   Android (Check now, what's new, All versions, Show test versions). **Download, install and
   restart** downloads the installer (or the portable zip, for the portable folder), closes Flux,
